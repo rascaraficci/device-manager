@@ -1,0 +1,101 @@
+# Group Devices
+
+## Devices [/devices]
+### Get the current list of devices [GET]
+Get the full list of devices with all their attributes
+
++ Response 200 (application/json)
+  {
+    "devices":
+    [
+      {
+        "id" : "ff7e10eb-d95b-4ad2-ba3d-b3f9c2d68d91",
+        "name" : "sensor-08",
+        "attribute-1" : "value-1",
+        "attribute-2" : "value-2"
+      },
+      {
+        "id" : "ffebd960-64b5-4af8-be5d-19be0cc526ac",
+        "name" : "temp-01",
+        "temperature" : "29C"
+      },
+      {
+        "id" : "ffebd960-64b5-4af8-be5d-19be0cc526ac",
+        "name" : "temp-02",
+        "temperature" : "20C"
+      }
+    ],
+    "status" : "success"
+  }
+
+### Register a new device [POST]
+Register a new device
++ Request (application/json)
+  {
+    "id" : "ff7e10eb-d95b-4ad2-ba3d-b3f9c2d68d92",
+    "name" : "sensor-09",
+    "param-1" : "value-1"
+  }
+
++ Response 200 (application/json)
+  {
+    "status" : "success"
+  }
++ Response 400 (application/json)
+  {
+    "status" : "device already registered"
+  }
++ Response 400 (application/json)
+  {
+    "status" : "missing device-id"
+  }
+
+
+## Device info [/devices/{id}]
+Access a specific device
++ parameters
+  + id: (required, string) - The device ID
+
+
+### Delete device [DELETE]
+Removes a device
++ Response 200 (application/json)
+  {
+    "status" : "success"
+  }
++ Response 400 (application/json)
+  {
+    "status" : "device not registered"
+  }
+
+### Get device info [GET]
+Retrieves all information from a specific device
++ Response 200 (application/json)
+  {
+    "name" : "sensor-08",
+    "attribute-1" : "value-1",
+    "attribute-2" : "value-2"
+  }
++ Response 400 (application/json)
+  {
+    "status" : "device not registered"
+  }
+
+### Get device info [POST]
+Not supported
++ Response 400 (application/json)
+  {
+    "status" : "not supported"
+  }
+
+### Get device info [PUT]
+Replaces all attributes from a specific device
++ Response 200 (application/json)
+  {
+    "name" : "new-name",
+    "new-attribute-1" : "new-value-1"
+  }
++ Response 400 (application/json)
+  {
+    "status" : "device not registered"
+  }
