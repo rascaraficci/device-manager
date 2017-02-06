@@ -28,5 +28,12 @@ $ python ./device-manager.py
  - curl -X PUT http://0:5000/devices/dev003 --data "name=thermometer01" --data "location=hallway"
 
 ## Deleting device
+This will also remove any associated icon
+
  - curl -X DELETE http://0:5000/devices/dev003
+
+## Uploading and removing icons
+
+ - curl -X PUT http://0:5000/devices/dev002/icon -F "icon=@sample-icons/icon.svg"
+ - curl -X DELETE http://0:5000/devices/dev002/icon
 

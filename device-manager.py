@@ -75,5 +75,37 @@ def update_device(deviceid):
     devices[deviceid] = device_data
     return make_response('ok', 200)
 
+
+
+@app.route('/devices/<deviceid>/icon', methods=['PUT', 'GET', 'DELETE'])
+def manage_icon(deviceid):
+    if deviceid not in devices.keys():
+        resp = make_response('not found', 404)
+        return resp;
+
+    if request.method == 'PUT':
+        icon_file = request.files['icon']
+        # For now just svg
+        icon_filename = './icons/{}.svg'.format(deviceid)
+        icon_file.save(icon_filename)
+        return make_response('ok', 201)
+    elif request.method == 'GET':
+        if os.path.isfile('./icons/{}.svg'.format(deviceid)):
+            icon_file = open('./icons/{}.svg'.format(deviceid), 'r')
+            icon_str = icon_file.read()
+            resp = make_response(icon_str, 200)
+            # For now just svg
+            resp.headers['Content-Type'] = 'image/svg+xml'
+            return resp
+        else:
+            resp = make_response("ok", 204)
+            return resp
+    elif request.method == 'DELETE':
+        if os.path.isfile('./icons/{}.svg'.format(deviceid)):
+            os.remove('./icons/{}.svg'.format(deviceid))
+        return make_response('ok', 200)
+
+
+
 if __name__ == '__main__':
     app.run()
