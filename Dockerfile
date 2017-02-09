@@ -11,11 +11,11 @@ COPY docker/nginx/flask.conf /etc/nginx/sites-available/
 COPY docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/app/uwsgi.ini /var/www/app/uwsgi.ini
 
-RUN mkdir -p /var/log/nginx/app /var/log/uwsgi/app /var/log/supervisor \
+RUN mkdir -p /var/log/nginx/app /var/log/uwsgi/app /var/log/supervisor /var/www/app/icons \
     && rm /etc/nginx/sites-enabled/default \
     && ln -s /etc/nginx/sites-available/flask.conf /etc/nginx/sites-enabled/flask.conf \
     && echo "daemon off;" >> /etc/nginx/nginx.conf \
-    && pip install uwsgi flask flask-cors \
+    && pip install uwsgi pymongo flask flask-cors \
     && chown -R www-data:www-data /var/www/app \
     && chown -R www-data:www-data /var/log
 

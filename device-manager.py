@@ -3,12 +3,34 @@ import os
 from flask import Flask
 from flask import request
 from flask import make_response
-from flask.ext.cors import CORS, cross_origin
-
-app = Flask(__name__)
-CORS(app)
+from flask_cors import CORS, cross_origin
+import pymongo
+from pymongo import MongoClient
 
 devices = {}
+db_client = 0
+db_server = "mongo-db"
+db_port = 27017
+db_devices = 0
+
+def init_database():
+    global db_client, db_server, db_port, db_devices
+    # Check if mongod is running
+    db_client = MongoClient(db_server, db_port)
+    db_devices = db_client.iot_devices.devices
+    db_devices.create_index([('device-id', pymongo.ASCENDING)], unique=True)
+
+def read_from_database():
+    global devices
+    devices_list = db_client.iot_devices.devices
+    for device in devices_list.find({}, {'_id': False}):
+        devices[device['device-id']] = device
+        print('Device: {}'.format(device))
+
+init_database()
+read_from_database()
+app = Flask(__name__)
+CORS(app)
 
 @app.route('/devices', methods=['GET'])
 def get_devices():
@@ -38,12 +60,15 @@ def create_device():
             return resp;
 
     devices[device_id] = device_data
-    return make_response('ok', 201)
 
+    # Persisting new device
+    db_devices.insert_one(device_data.copy())
+
+    return make_response('ok', 201)
 
 @app.route('/devices/<deviceid>', methods=['GET', 'DELETE'])
 def get_device(deviceid):
-    global devices
+    global devices, db_devices
     resp = make_response('ok', 200)
     # Device must be already registered
     if deviceid not in devices.keys():
@@ -58,8 +83,9 @@ def get_device(deviceid):
         # Remove icon
         if os.path.isfile('./icons/{}.svg'.format(deviceid)):
             os.remove('./icons/{}.svg'.format(deviceid))
+        # Remove from database
+        db_devices.remove({'device-id' : deviceid})
     return resp
-
 
 @app.route('/devices/<deviceid>', methods=['PUT'])
 def update_device(deviceid):
@@ -75,9 +101,11 @@ def update_device(deviceid):
         device_data = json.loads(request.data)
 
     devices[deviceid] = device_data
+
+    # Persisting new device
+    db_devices.insert_one(device_data)
+
     return make_response('ok', 200)
-
-
 
 @app.route('/devices/<deviceid>/icon', methods=['PUT', 'GET', 'DELETE'])
 def manage_icon(deviceid):
@@ -110,4 +138,6 @@ def manage_icon(deviceid):
 
 
 if __name__ == '__main__':
+    init_database()
+    read_from_database()
     app.run()
