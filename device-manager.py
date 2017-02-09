@@ -3,8 +3,10 @@ import os
 from flask import Flask
 from flask import request
 from flask import make_response
+from flask.ext.cors import CORS, cross_origin
 
 app = Flask(__name__)
+CORS(app)
 
 devices = {}
 
