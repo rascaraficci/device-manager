@@ -89,6 +89,8 @@ def get_device(deviceid):
 
 @app.route('/devices/<deviceid>', methods=['PUT'])
 def update_device(deviceid):
+    global devices, db_devices
+
     resp = make_response('ok', 200)
     # Device must be already registered
     if deviceid not in devices.keys():
@@ -103,9 +105,9 @@ def update_device(deviceid):
     devices[deviceid] = device_data
 
     # Persisting new device
-    db_devices.insert_one(device_data)
+    db_devices.replace_one({'id': deviceid}, device_data)
 
-    return make_response('ok', 200)
+    return resp
 
 @app.route('/devices/<deviceid>/icon', methods=['PUT', 'GET', 'DELETE'])
 def manage_icon(deviceid):
