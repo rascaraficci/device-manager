@@ -18,13 +18,13 @@ def init_database():
     # Check if mongod is running
     db_client = MongoClient(db_server, db_port)
     db_devices = db_client.iot_devices.devices
-    db_devices.create_index([('device-id', pymongo.ASCENDING)], unique=True)
+    db_devices.create_index([('id', pymongo.ASCENDING)], unique=True)
 
 def read_from_database():
     global devices
     devices_list = db_client.iot_devices.devices
     for device in devices_list.find({}, {'_id': False}):
-        devices[device['device-id']] = device
+        devices[device['id']] = device
         print('Device: {}'.format(device))
 
 init_database()
@@ -49,10 +49,10 @@ def create_device():
     elif request.mimetype == 'application/json':
         device_data = json.loads(request.data)
 
-    if 'device-id' not in device_data.keys():
-        resp = make_response('missing device-id', 400)
+    if 'id' not in device_data.keys():
+        resp = make_response('missing id', 400)
         return resp
-    device_id = device_data['device-id']
+    device_id = device_data['id']
 
     if request.method == 'POST':
         if device_id in devices.keys():
@@ -84,7 +84,7 @@ def get_device(deviceid):
         if os.path.isfile('./icons/{}.svg'.format(deviceid)):
             os.remove('./icons/{}.svg'.format(deviceid))
         # Remove from database
-        db_devices.remove({'device-id' : deviceid})
+        db_devices.remove({'id' : deviceid})
     return resp
 
 @app.route('/devices/<deviceid>', methods=['PUT'])
