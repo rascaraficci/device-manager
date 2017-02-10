@@ -7,11 +7,10 @@ from flask_cors import CORS, cross_origin
 import pymongo
 from pymongo import MongoClient
 
-devices = {}
-db_client = 0
+db_client = None
 db_server = "mongo-db"
 db_port = 27017
-db_devices = 0
+db_devices = None
 
 def init_database():
     global db_client, db_server, db_port, db_devices
@@ -20,15 +19,11 @@ def init_database():
     db_devices = db_client.iot_devices.devices
     db_devices.create_index([('id', pymongo.ASCENDING)], unique=True)
 
-def read_from_database():
-    global devices
-    devices_list = db_client.iot_devices.devices
-    for device in devices_list.find({}, {'_id': False}):
-        devices[device['id']] = device
-        print('Device: {}'.format(device))
+def remove_icons(deviceid):
+    if os.path.isfile('./icons/{}.svg'.format(deviceid)):
+        os.remove('./icons/{}.svg'.format(deviceid))
 
 init_database()
-read_from_database()
 app = Flask(__name__)
 CORS(app)
 
@@ -46,15 +41,57 @@ def formatResponse(status, message=None):
 
 @app.route('/devices', methods=['GET'])
 def get_devices():
-    all_devices = { "devices" : devices.values()}
+    deviceList = []
+    for d in db_devices.find({}, {'_id': False}):
+        deviceList.append(d)
+
+    all_devices = { "devices" : deviceList}
     resp = make_response(json.dumps(all_devices), 200)
     return resp
 
 @app.route('/devices', methods=['POST'])
 def create_device():
-
     device_id = ""
     device_data = {}
+    if request.mimetype == 'application/x-www-form-urlencoded':
+        device_data = request.form
+    elif request.mimetype == 'application/json':
+        device_data = json.loads(request.data)
+
+    # sanity checks
+    if 'id' not in device_data.keys():
+        return formatResponse(400, 'missing id')
+
+    if db_devices.find_one({'id' : device_id}):
+        return formatResponse(400, 'device already registered')
+
+    db_devices.insert_one(device_data.copy())
+    return formatResponse(200)
+
+@app.route('/devices/<deviceid>', methods=['GET'])
+def get_device(deviceid):
+    global db_devices
+
+    device = db_devices.find_one({'id' : deviceid}, {"_id" : False})
+    if device is None:
+        return formatResponse(404, 'Given device was not found')
+
+    return make_response(json.dumps(device), 200)
+
+@app.route('/devices/<deviceid>', methods=['DELETE'])
+def remove_device(deviceid):
+    global db_devices
+
+    result = db_devices.delete_one({'id' : deviceid})
+    if result.deleted_count < 1:
+        return formatResponse(404, 'Given device was not found')
+
+    remove_icons(deviceid)
+    return formatResponse(200)
+
+@app.route('/devices/<deviceid>', methods=['PUT'])
+def update_device(deviceid):
+    global db_devices
 
     if request.mimetype == 'application/x-www-form-urlencoded':
         device_data = request.form
@@ -62,60 +99,11 @@ def create_device():
         device_data = json.loads(request.data)
 
     if 'id' not in device_data.keys():
-        return formatResponse(400, 'missing id')
+        device_data["id"] = deviceid
 
-    device_id = device_data['id']
-
-    if request.method == 'POST':
-        if device_id in devices.keys():
-            return formatResponse(400, 'device already registered')
-
-    devices[device_id] = device_data
-
-    # Persisting new device
-    db_devices.insert_one(device_data.copy())
-
-    return formatResponse(200)
-
-@app.route('/devices/<deviceid>', methods=['GET', 'DELETE'])
-def get_device(deviceid):
-    global devices, db_devices
-    resp = None
-    # Device must be already registered
-    if deviceid not in devices.keys():
-        return formatResponse(404, 'given device was not found')
-
-    if request.method == 'GET':
-        resp = make_response(json.dumps(devices[deviceid]), 200)
-    elif request.method == 'DELETE':
-        # Remove from devices map
-        devices = { key:devices[key] for key in devices if key != deviceid }
-        # Remove icon
-        if os.path.isfile('./icons/{}.svg'.format(deviceid)):
-            os.remove('./icons/{}.svg'.format(deviceid))
-        # Remove from database
-        db_devices.remove({'id' : deviceid})
-        resp = formatResponse(200);
-
-    return resp
-
-@app.route('/devices/<deviceid>', methods=['PUT'])
-def update_device(deviceid):
-    global devices, db_devices
-
-    # Device must be already registered
-    if deviceid not in devices.keys():
+    result = db_devices.replace_one({'id' : deviceid}, device_data)
+    if result.matched_count != 1:
         return formatResponse(404, 'Given device was not found')
-
-    if request.mimetype == 'application/x-www-form-urlencoded':
-        device_data = request.form
-    elif request.mimetype == 'application/json':
-        device_data = json.loads(request.data)
-
-    devices[deviceid] = device_data
-
-    # Persisting new device
-    db_devices.replace_one({'id': deviceid}, device_data)
 
     return formatResponse(200)
 
@@ -141,13 +129,11 @@ def manage_icon(deviceid):
         else:
             return formatResponse(204)
     elif request.method == 'DELETE':
-        if os.path.isfile('./icons/{}.svg'.format(deviceid)):
-            os.remove('./icons/{}.svg'.format(deviceid))
+        remove_device(deviceid)
         return formatResponse(200)
 
 
 
 if __name__ == '__main__':
     init_database()
-    read_from_database()
     app.run()
