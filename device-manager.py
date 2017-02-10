@@ -32,6 +32,18 @@ read_from_database()
 app = Flask(__name__)
 CORS(app)
 
+def formatResponse(status, message=None):
+    payload = None
+    if message:
+        payload = json.dumps({ 'message': message, 'status': status})
+    elif status >= 200 and status < 300:
+        payload = json.dumps({ 'message': 'ok', 'status': status})
+    else:
+        payload = json.dumps({ 'message': 'Request failed', 'status': status})
+
+    return make_response(payload, status);
+
+
 @app.route('/devices', methods=['GET'])
 def get_devices():
     all_devices = { "devices" : devices.values()}
@@ -50,30 +62,28 @@ def create_device():
         device_data = json.loads(request.data)
 
     if 'id' not in device_data.keys():
-        resp = make_response('missing id', 400)
-        return resp
+        return formatResponse(400, 'missing id')
+
     device_id = device_data['id']
 
     if request.method == 'POST':
         if device_id in devices.keys():
-            resp = make_response('device already registered', 400)
-            return resp;
+            return formatResponse(400, 'device already registered')
 
     devices[device_id] = device_data
 
     # Persisting new device
     db_devices.insert_one(device_data.copy())
 
-    return make_response('ok', 201)
+    return formatResponse(200)
 
 @app.route('/devices/<deviceid>', methods=['GET', 'DELETE'])
 def get_device(deviceid):
     global devices, db_devices
-    resp = make_response('ok', 200)
+    resp = None
     # Device must be already registered
     if deviceid not in devices.keys():
-        resp = make_response('not found', 404)
-        return resp;
+        return formatResponse(404, 'given device was not found')
 
     if request.method == 'GET':
         resp = make_response(json.dumps(devices[deviceid]), 200)
@@ -85,17 +95,17 @@ def get_device(deviceid):
             os.remove('./icons/{}.svg'.format(deviceid))
         # Remove from database
         db_devices.remove({'id' : deviceid})
+        resp = formatResponse(200);
+
     return resp
 
 @app.route('/devices/<deviceid>', methods=['PUT'])
 def update_device(deviceid):
     global devices, db_devices
 
-    resp = make_response('ok', 200)
     # Device must be already registered
     if deviceid not in devices.keys():
-        resp = make_response('not found', 404)
-        return resp;
+        return formatResponse(404, 'Given device was not found')
 
     if request.mimetype == 'application/x-www-form-urlencoded':
         device_data = request.form
@@ -107,20 +117,19 @@ def update_device(deviceid):
     # Persisting new device
     db_devices.replace_one({'id': deviceid}, device_data)
 
-    return resp
+    return formatResponse(200)
 
 @app.route('/devices/<deviceid>/icon', methods=['PUT', 'GET', 'DELETE'])
 def manage_icon(deviceid):
     if deviceid not in devices.keys():
-        resp = make_response('not found', 404)
-        return resp;
+        return formatResponse(404, 'Given device was not found')
 
     if request.method == 'PUT':
         icon_file = request.files['icon']
         # For now just svg
         icon_filename = './icons/{}.svg'.format(deviceid)
         icon_file.save(icon_filename)
-        return make_response('ok', 201)
+        return formatResponse(201)
     elif request.method == 'GET':
         if os.path.isfile('./icons/{}.svg'.format(deviceid)):
             icon_file = open('./icons/{}.svg'.format(deviceid), 'r')
@@ -130,12 +139,11 @@ def manage_icon(deviceid):
             resp.headers['Content-Type'] = 'image/svg+xml'
             return resp
         else:
-            resp = make_response("ok", 204)
-            return resp
+            return formatResponse(204)
     elif request.method == 'DELETE':
         if os.path.isfile('./icons/{}.svg'.format(deviceid)):
             os.remove('./icons/{}.svg'.format(deviceid))
-        return make_response('ok', 200)
+        return formatResponse(200)
 
 
 
