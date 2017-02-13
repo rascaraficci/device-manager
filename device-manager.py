@@ -109,7 +109,9 @@ def update_device(deviceid):
 
 @app.route('/devices/<deviceid>/icon', methods=['PUT', 'GET', 'DELETE'])
 def manage_icon(deviceid):
-    if deviceid not in devices.keys():
+
+    device = db_devices.find_one({'id' : deviceid}, {"_id" : False})
+    if device is None:
         return formatResponse(404, 'Given device was not found')
 
     if request.method == 'PUT':
@@ -117,6 +119,9 @@ def manage_icon(deviceid):
         # For now just svg
         icon_filename = './icons/{}.svg'.format(deviceid)
         icon_file.save(icon_filename)
+        if ('has_icon' not in device.keys()) or (device["has_icon"] == False):
+            device["has_icon"] = True
+            db_devices.replace_one({'id' : deviceid}, device)
         return formatResponse(201)
     elif request.method == 'GET':
         if os.path.isfile('./icons/{}.svg'.format(deviceid)):
@@ -127,11 +132,14 @@ def manage_icon(deviceid):
             resp.headers['Content-Type'] = 'image/svg+xml'
             return resp
         else:
-            return formatResponse(204)
+            return formatResponse(204, "Given template has no icon assigned")
     elif request.method == 'DELETE':
-        remove_device(deviceid)
+        remove_icons(deviceid)
+        device["has_icon"] = False
+        db_devices.replace_one({'id' : deviceid}, device)
         return formatResponse(200)
 
+    return formatResponse(400, "Invalid request type")
 
 
 if __name__ == '__main__':
