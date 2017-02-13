@@ -80,7 +80,6 @@ def remove_device(deviceid):
     if result.deleted_count < 1:
         return formatResponse(404, 'Given device was not found')
 
-    remove_icons(deviceid)
     return formatResponse(200)
 
 @device.route('/device/<deviceid>', methods=['PUT'])
