@@ -19,7 +19,7 @@ RUN mkdir -p /var/log/nginx/app /var/log/uwsgi/app /var/log/supervisor /var/www/
     && chown -R www-data:www-data /var/www/app \
     && chown -R www-data:www-data /var/log
 
-COPY device-manager.py /var/www/app/device-manager.py
+COPY *.py /var/www/app/
 
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
 

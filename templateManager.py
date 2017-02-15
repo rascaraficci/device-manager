@@ -99,6 +99,8 @@ def update_template(templateid):
     if 'id' not in template_data.keys():
         template_data["id"] = templateid
 
+    print "will update "
+    print template_data
     result = db_templates.replace_one({'id' : templateid}, template_data)
     if result.matched_count != 1:
         return formatResponse(404, 'Given template was not found')
