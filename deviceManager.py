@@ -37,6 +37,21 @@ class IotaHandler:
     def create(self):
         """ Returns boolean indicating device creation success. """
 
+        try:
+            svc = json.dumps({
+                "services": [{
+                    "resource": "devm",
+                    "apikey": "device",
+                    "entity_type": "device"
+                }]
+            })
+            response = requests.post(self.baseUrl + '/services', headers=self._headers, data=svc)
+            if not (response.status_code == 409 or
+                   (response.status_code >= 200 and response.status_code < 300)):
+                return False
+        except ConnectionError:
+            return False
+
         payload = { 'devices': [self._config]}
         try:
             response = requests.post(self.baseUrl + '/devices', headers=self._headers,
@@ -64,7 +79,6 @@ class IotaHandler:
             return response.status_code >= 200 and response.status_code < 300
         except ConnectionError:
             return False
-
 
 @device.route('/device', methods=['GET'])
 def get_devices():
