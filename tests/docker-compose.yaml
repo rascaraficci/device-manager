@@ -1,0 +1,26 @@
+version: '2'
+services:
+
+  mongodb-devm-jenkins:
+    container_name: "mongodb-devm-jenkins"
+    image: "mongo"
+
+  mosquitto-devm-jenkins:
+    container_name: "mosquitto-devm-jenkins"
+    image: "tenstartups/mosquitto"
+
+  orion-devm-jenkins:
+    container_name: "orion-devm-jenkins"
+    image: fiware/orion
+    command: -dbhost mongodb-devm-jenkins
+    links:
+        - mongodb-devm-jenkins
+
+  iotagent-devm-jenkins:
+    container_name: "iotagent-devm-jenkins"
+    image: "iotmid-docker:5000/jenkins/iotagent-json:7f188b8"
+    links:
+        - mongodb-devm-jenkins:mongodb
+        - orion-devm-jenkins:orion
+        - mosquitto-devm-jenkins:mosquitto
+
