@@ -1,5 +1,6 @@
 import json
 import os
+from time import time
 from flask import Flask
 from flask import request
 from flask import make_response
@@ -19,11 +20,27 @@ def remove_icons(deviceid):
 
 @template.route('/template', methods=['GET'])
 def get_templates():
+    if ('limit' in request.args.keys()):
+        try:
+            cursor = collection.find({}, {'_id': False}, limit=int(request.args['limit']));
+        except TypeError:
+            return formatResponse(400, 'limit must be an integer value')
+    else:
+        cursor = collection.find({}, {'_id': False});
+
+    sort = []
+    if 'sortAsc' in request.args.keys():
+        sort.append((request.args['sortAsc'], pymongo.ASCENDING))
+    if 'sortDsc' in request.args.keys():
+        sort.append((request.args['sortDsc'], pymongo.DESCENDING))
+    if len(sort) > 0:
+        cursor.sort(sort)
+
     templateList = []
-    for d in collection.find({}, {'_id': False}):
+    for d in cursor:
         templateList.append(d)
 
-    all_templates = { "templates" : templateList}
+    all_templates = {"templates" : templateList}
     return make_response(json.dumps(all_templates), 200)
 
 @template.route('/template', methods=['POST'])
@@ -33,7 +50,10 @@ def create_template():
     if request.mimetype == 'application/x-www-form-urlencoded':
         template_data = request.form
     elif request.mimetype == 'application/json':
-        template_data = json.loads(request.data)
+        try:
+            template_data = json.loads(request.data)
+        except ValueError:
+            return formatResponse(400, 'Failed to parse payload as JSON')
 
     # sanity checks
     if 'id' not in template_data.keys():
@@ -42,6 +62,8 @@ def create_template():
     if collection.find_one({'id' : template_id}):
         return formatResponse(400, 'template already registered')
 
+    template_data['created'] = time()
+    template_data['updated'] = time()
     collection.insert_one(template_data.copy())
     return formatResponse(200)
 
@@ -68,13 +90,15 @@ def update_template(templateid):
     if request.mimetype == 'application/x-www-form-urlencoded':
         template_data = request.form
     elif request.mimetype == 'application/json':
-        template_data = json.loads(request.data)
+        try:
+            template_data = json.loads(request.data)
+        except ValueError:
+            return formatResponse(400, 'Failed to parse payload as JSON')
 
     if 'id' not in template_data.keys():
         template_data["id"] = templateid
 
-    print "will update "
-    print template_data
+    template_data['updated'] = time()
     result = collection.replace_one({'id' : templateid}, template_data)
     if result.matched_count != 1:
         return formatResponse(404, 'Given template was not found')

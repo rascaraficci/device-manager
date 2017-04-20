@@ -1,5 +1,6 @@
 import json
 import os
+from time import time
 from flask import Flask
 from flask import request
 from flask import make_response
@@ -17,6 +18,7 @@ collection.create_index([('id', pymongo.ASCENDING)], unique=True)
 
 class IotaHandler:
     """ Abstracts interaction with iotagent-json for MQTT device management """
+    # TODO: this should be configurable (via file or environment variable)
     def __init__(self, device, baseUrl='http://iotagent:4041/iot'):
         self.device = device
         self.baseUrl = baseUrl
@@ -82,13 +84,28 @@ class IotaHandler:
 
 @device.route('/device', methods=['GET'])
 def get_devices():
+    if ('limit' in request.args.keys()):
+        try:
+            cursor = collection.find({}, {'_id': False}, limit=int(request.args['limit']));
+        except TypeError:
+            return formatResponse(400, 'limit must be an integer value')
+    else:
+        cursor = collection.find({}, {'_id': False});
+
+    sort = []
+    if 'sortAsc' in request.args.keys():
+        sort.append((request.args['sortAsc'], pymongo.ASCENDING))
+    if 'sortDsc' in request.args.keys():
+        sort.append((request.args['sortDsc'], pymongo.DESCENDING))
+    if len(sort) > 0:
+        cursor.sort(sort)
+
     deviceList = []
-    for d in collection.find({}, {'_id': False}):
+    for d in cursor:
         deviceList.append(d)
 
-    all_devices = { "devices" : deviceList}
-    resp = make_response(json.dumps(all_devices), 200)
-    return resp
+    all_devices = {"devices" : deviceList}
+    return make_response(json.dumps(all_devices), 200)
 
 @device.route('/device', methods=['POST'])
 def create_device():
@@ -100,7 +117,7 @@ def create_device():
         try:
             device_data = json.loads(request.data)
         except ValueError:
-            return formatResponse(400, 'invalid device configuration given')
+            return formatResponse(400, 'Failed to parse payload as JSON')
     else:
         return formatResponse(400, 'unknown request format')
 
@@ -116,10 +133,12 @@ def create_device():
 
     try:
         protocolHandler = IotaHandler(device_data)
-    except AttributeError:
+    except (AttributeError, KeyError):
         return formatResponse(400, 'device has missing fields')
 
     if protocolHandler.create():
+        device_data['created'] = time()
+        device_data['updated'] = time()
         collection.insert_one(device_data.copy())
         return formatResponse(200)
     else:
@@ -161,7 +180,7 @@ def update_device(deviceid):
         try:
             device_data = json.loads(request.data)
         except ValueError:
-            return formatResponse(400, 'invalid device configuration given')
+            return formatResponse(400, 'Failed to parse payload as JSON')
     else:
         return formatResponse(400, 'unknown request format')
 
@@ -179,6 +198,7 @@ def update_device(deviceid):
 
 
     if protocolHandler.update():
+        device_data['updated'] = time()
         collection.replace_one({'id' : deviceid}, device_data)
         return formatResponse(200)
     else:
