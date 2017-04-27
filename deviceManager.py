@@ -30,7 +30,7 @@ class IotaHandler:
         }
 
         self._config = {
-            'device_id': self.device['id'],
+            'device_id': self.device['label'],   # TODO this makes demoing way easier
             'entity_type': 'device',    # TODO: is it always going to be the same?
             'entity_name': self.device['label'],
             'attributes': self.device['attrs']
@@ -81,6 +81,60 @@ class IotaHandler:
             return response.status_code >= 200 and response.status_code < 300
         except ConnectionError:
             return False
+
+# Temporarily create a subscription to persist device data
+# TODO this must be revisited in favor of a orchestrator-based solution
+class PersistenceHandler:
+    # TODO: this should be configurable (via file or environment variable)
+    def __init__(self, device, baseUrl='http://orion:1026/v1/contextSubscriptions', targetUrl="http://sth:8666/notify"):
+        self.device = device
+        self.baseUrl = baseUrl
+        self.targetUrl = targetUrl
+        self._headers = {
+            'Fiware-service': 'devm',   # TODO: this should be user id
+            'Fiware-servicePath': '/',
+            'Content-Type':'application/json',
+            'cache-control': 'no-cache'
+        }
+
+    def create(self):
+        """ Returns subscription id on success. """
+
+        try:
+            svc = json.dumps({
+                "entities": [{
+                    "type": "device",
+                    "isPattern": "false",
+                    "id": self.device['label']
+                }],
+                "reference" : self.targetUrl,
+                "duration": "P10Y",
+                "notifyConditions": [{ "type": "ONCHANGE" }]
+            })
+            response = requests.post(self.baseUrl, headers=self._headers, data=svc)
+            print("got result %d" % response.status_code)
+            if not (response.status_code == 409 or
+                   (response.status_code >= 200 and response.status_code < 300)):
+                return None
+
+            # return the newly created subs
+            reply = response.json()
+            print(reply)
+            return reply['subscribeResponse']['subscriptionId']
+
+        except (ConnectionError, ValueError):
+            print('error')
+            return None
+
+    def remove(self, subsId):
+        """ Returns boolean indicating subscription removal success. """
+
+        try:
+            response = requests.delete(self.baseUrl + '/' + subsId, headers=self._headers)
+            return response.status_code >= 200 and response.status_code < 300
+        except ConnectionError:
+            return False
+
 
 @device.route('/device', methods=['GET'])
 def get_devices():
@@ -133,12 +187,15 @@ def create_device():
 
     try:
         protocolHandler = IotaHandler(device_data)
+        subsHandler = PersistenceHandler(device_data)
     except (AttributeError, KeyError):
         return formatResponse(400, 'device has missing fields')
 
     if protocolHandler.create():
         device_data['created'] = time()
         device_data['updated'] = time()
+        print('about to subs handle')
+        device_data['persistence'] = subsHandler.create()
         collection.insert_one(device_data.copy())
         return formatResponse(200)
     else:
@@ -162,10 +219,12 @@ def remove_device(deviceid):
 
     try:
         protocolHandler = IotaHandler(device)
+        subsHandler = PersistenceHandler(device)
     except AttributeError:
         return formatResponse(500, 'given device information is corrupted')
 
     if protocolHandler.remove():
+        subsHandler.remove(device['persistence'])
         result = collection.delete_one({'id' : deviceid})
         return formatResponse(200)
     else:
