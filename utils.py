@@ -2,6 +2,7 @@ import json
 import pymongo
 from flask import make_response
 from pymongo import MongoClient
+import base64
 
 class CollectionManager:
     def __init__(self, database, server='mongodb', port=27017):
@@ -32,3 +33,38 @@ def formatResponse(status, message=None):
         payload = json.dumps({ 'message': 'Request failed', 'status': status})
 
     return make_response(payload, status);
+
+
+def decode_base64(data):
+    """Decode base64, padding being optional.
+
+    :param data: Base64 data as an ASCII byte string
+    :returns: The decoded byte string.
+
+    """
+    missing_padding = len(data) % 4
+    if missing_padding != 0:
+        data += b'='* (4 - missing_padding)
+    return base64.decodestring(data)
+
+
+def get_allowed_service(token):
+    """
+        Parses the authorization token, returning the service to be used when
+        configuring the FIWARE backend
+
+        :param token: JWT token to be parsed
+        :returns: Fiware-service to be used on API calls
+        :raises ValueError: for invalid token received
+    """
+    if not token or len(token) == 0:
+        raise ValueError("Invalid authentication token")
+
+    payload = token.split('.')[1]
+    try:
+        data = json.loads(decode_base64(payload))
+        return data['service']
+    except Exception as e:
+        raise ValueError("Invalid authentication token payload - not json object")
+
+    return None

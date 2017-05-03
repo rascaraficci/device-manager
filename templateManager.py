@@ -6,13 +6,22 @@ from flask import request
 from flask import make_response
 from flask import Blueprint
 import pymongo
-from utils import CollectionManager, formatResponse
-
-collection = CollectionManager('device_management').getCollection('templates')
-# TODO: this sounds like collection initialization/deployment
-collection.create_index([('id', pymongo.ASCENDING)], unique=True)
+from utils import CollectionManager, formatResponse, get_allowed_service
 
 template = Blueprint('template', __name__)
+db = CollectionManager('device_management')
+def get_mongo_collection(token):
+    """
+        Returns a pymongo collection object pointing to the service-enabled
+        collection to be used
+
+        :param token: JWT token received
+        :returns: pymongo collection object
+        :raises ValueError: Invalid token received
+    """
+    service = get_allowed_service(token)
+    collection = db("tpl_service_%s" % service)
+    return collection
 
 def remove_icons(deviceid):
     if os.path.isfile('./icons/{}.svg'.format(deviceid)):
@@ -20,6 +29,7 @@ def remove_icons(deviceid):
 
 @template.route('/template', methods=['GET'])
 def get_templates():
+    collection = get_mongo_collection(request.headers['authorization'])
     if ('limit' in request.args.keys()):
         try:
             cursor = collection.find({}, {'_id': False}, limit=int(request.args['limit']));
@@ -45,6 +55,7 @@ def get_templates():
 
 @template.route('/template', methods=['POST'])
 def create_template():
+    collection = get_mongo_collection(request.headers['authorization'])
     template_id = ""
     template_data = {}
     if request.mimetype == 'application/x-www-form-urlencoded':
@@ -69,6 +80,7 @@ def create_template():
 
 @template.route('/template/<templateid>', methods=['GET'])
 def get_template(templateid):
+    collection = get_mongo_collection(request.headers['authorization'])
     template = collection.find_one({'id' : templateid}, {"_id" : False})
     if template is None:
         return formatResponse(404, 'Given template was not found')
@@ -77,6 +89,7 @@ def get_template(templateid):
 
 @template.route('/template/<templateid>', methods=['DELETE'])
 def remove_template(templateid):
+    collection = get_mongo_collection(request.headers['authorization'])
     result = collection.delete_one({'id' : templateid})
     if result.deleted_count < 1:
         return formatResponse(404, 'Given template was not found')
@@ -86,6 +99,7 @@ def remove_template(templateid):
 
 @template.route('/template/<templateid>', methods=['PUT'])
 def update_template(templateid):
+    collection = get_mongo_collection(request.headers['authorization'])
     template_data = None
     if request.mimetype == 'application/x-www-form-urlencoded':
         template_data = request.form
@@ -107,6 +121,7 @@ def update_template(templateid):
 
 @template.route('/template/<templateid>/icon', methods=['PUT', 'GET', 'DELETE'])
 def manage_icon(templateid):
+    collection = get_mongo_collection(request.headers['authorization'])
     template = collection.find_one({'id' : templateid}, {"_id" : False})
     if template is None:
         return formatResponse(404, 'Given template was not found')
