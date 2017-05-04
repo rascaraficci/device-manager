@@ -1,19 +1,20 @@
+"""
+    Handles CRUD operations for devices, and their configuration on the
+    FIWARE backend
+"""
+
 import json
-import os
 from time import time
-from flask import Flask
 from flask import request
 from flask import make_response
 from flask import Blueprint
 import pymongo
 import requests
 from requests import ConnectionError
-from utils import CollectionManager, formatResponse, get_allowed_service
+import utils
 
 device = Blueprint('device', __name__)
-
-db = CollectionManager('device_management')
-
+db = utils.CollectionManager('device_management')
 
 def get_mongo_collection(token):
     """
@@ -24,17 +25,15 @@ def get_mongo_collection(token):
         :returns: pymongo collection object
         :raises ValueError: Invalid token received
     """
-    service = get_allowed_service(token)
+    service = utils.get_allowed_service(token)
     collection = db("dev_service_%s" % service)
     return collection
 
-
-
-class IotaHandler:
+class IotaHandler(object):
     """ Abstracts interaction with iotagent-json for MQTT device management """
     # TODO: this should be configurable (via file or environment variable)
-    def __init__(self, device, baseUrl='http://iotagent:4041/iot', service='devm'):
-        self.device = device
+    def __init__(self, _device, baseUrl='http://iotagent:4041/iot', service='devm'):
+        self.device = _device
         self.baseUrl = baseUrl
         self.service = service
         self._headers = {
@@ -44,11 +43,40 @@ class IotaHandler:
             'cache-control': 'no-cache'
         }
 
-        self._config = {
-            'device_id': self.device['label'],   # TODO this makes demoing way easier
-            'entity_type': service,
-            'entity_name': self.device['label'],
-            'attributes': self.device['attrs']
+    def __get_topic(self):
+        topic = ''
+        if 'topic' in self.device:
+            topic = self.device.topic
+        else:
+            topic = "/%s/%s/attrs" % (self.service, self.device['id'])
+
+        print "will set topic [%s]" % topic
+        return topic
+
+    def __get_config(self):
+
+        # Currently, there's no efficient way (apart from setting extra metadata) to have the
+        # context broker store a human-readable label to be associated with an entity (device).
+        # Here we use entity_type as a cheap alternative
+        return {
+            # this is actually consumed by iotagent
+            'device_id': self.device['id'],
+            # becomes entity type for context broker
+            'entity_type': 'device',
+            # becomes entity id for context broker
+            'entity_name': self.device['id'],
+            'attributes': self.device['attrs'],
+            # this is actually consumed by iotagent
+            'internal_attributes': {
+                "attributes" : [
+                    {"topic": "tcp:mqtt:%s" % self.__get_topic()}
+                ]
+            },
+            # becomes part of the attribute list on context broker
+            'static_attributes': [
+                # TODO this should be part of the entity metadata
+                {'name': 'user_label', 'type':'string', 'value': self.device['label']}
+            ]
         }
 
     def create(self):
@@ -59,30 +87,29 @@ class IotaHandler:
                 "services": [{
                     "resource": "devm",
                     "apikey": self.service,
-                    "entity_type": self.service
+                    "entity_type": 'device'
                 }]
             })
             response = requests.post(self.baseUrl + '/services', headers=self._headers, data=svc)
             if not (response.status_code == 409 or
-                   (response.status_code >= 200 and response.status_code < 300)):
+                    (response.status_code >= 200 and response.status_code < 300)):
                 return False
         except ConnectionError:
             return False
 
-        payload = { 'devices': [self._config]}
         try:
             response = requests.post(self.baseUrl + '/devices', headers=self._headers,
-                                     data=json.dumps(payload))
+                                     data=json.dumps({'devices':[self.__get_config()]}))
             return response.status_code >= 200 and response.status_code < 300
         except ConnectionError:
             return False
 
-    def remove(self, label):
+    def remove(self, deviceid):
         """ Returns boolean indicating device removal success. """
 
         try:
-            response = requests.delete(self.baseUrl + '/devices/' + label,
-                                    headers=self._headers)
+            response = requests.delete(self.baseUrl + '/devices/' + deviceid,
+                                       headers=self._headers)
             return response.status_code >= 200 and response.status_code < 300
         except ConnectionError:
             return False
@@ -90,19 +117,27 @@ class IotaHandler:
     def update(self):
         """ Returns boolean indicating device update success. """
 
+        config = self.__get_config()
+        config.pop('internal_attributes', None) # TODO add support for topic edition on iotagent
         try:
-            response = requests.put(self.baseUrl + '/devices/' + self._config['label'],
-                                    headers=self._headers, data=json.dumps(self._config))
+            response = requests.put(self.baseUrl + '/devices/' + self.device['id'],
+                                    headers=self._headers, data=json.dumps(config))
             return response.status_code >= 200 and response.status_code < 300
         except ConnectionError:
             return False
 
 # Temporarily create a subscription to persist device data
 # TODO this must be revisited in favor of a orchestrator-based solution
-class PersistenceHandler:
+class PersistenceHandler(object):
+    """
+        Abstracts the configuration of subscriptions targeting the default
+        history backend (STH)
+    """
     # TODO: this should be configurable (via file or environment variable)
-    def __init__(self, device, service='devm', baseUrl='http://orion:1026/v1/contextSubscriptions', targetUrl="http://sth:8666/notify"):
-        self.device = device
+    def __init__(self, _device, service='devm',
+                 baseUrl='http://orion:1026/v1/contextSubscriptions',
+                 targetUrl="http://sth:8666/notify"):
+        self.device = _device
         self.baseUrl = baseUrl
         self.targetUrl = targetUrl
         self.service = service
@@ -119,18 +154,17 @@ class PersistenceHandler:
         try:
             svc = json.dumps({
                 "entities": [{
-                    "type": self.service,
+                    "type": 'device',
                     "isPattern": "false",
-                    "id": self.device['label']
+                    "id": self.device['id']
                 }],
                 "reference" : self.targetUrl,
                 "duration": "P10Y",
-                "notifyConditions": [{ "type": "ONCHANGE" }]
+                "notifyConditions": [{"type": "ONCHANGE"}]
             })
             response = requests.post(self.baseUrl, headers=self._headers, data=svc)
-            print("got result %d" % response.status_code)
             if not (response.status_code == 409 or
-                   (response.status_code >= 200 and response.status_code < 300)):
+                    (response.status_code >= 200 and response.status_code < 300)):
                 return None
 
             # return the newly created subs
@@ -154,14 +188,20 @@ class PersistenceHandler:
 
 @device.route('/device', methods=['GET'])
 def get_devices():
+    """
+        Fetches known devices, potentially limited by a given value.
+        The ordering might be user-configurable too.
+    """
     collection = get_mongo_collection(request.headers['authorization'])
-    if ('limit' in request.args.keys()):
+    field_filter = {'_id': False, 'persistence': False}
+    if 'limit' in request.args.keys():
         try:
-            cursor = collection.find({}, {'_id': False}, limit=int(request.args['limit']));
+            cursor = collection.find({}, field_filter,
+                                     limit=int(request.args['limit']))
         except TypeError:
-            return formatResponse(400, 'limit must be an integer value')
+            return utils.formatResponse(400, 'limit must be an integer value')
     else:
-        cursor = collection.find({}, {'_id': False});
+        cursor = collection.find({}, field_filter)
 
     sort = []
     if 'sortAsc' in request.args.keys():
@@ -171,17 +211,18 @@ def get_devices():
     if len(sort) > 0:
         cursor.sort(sort)
 
-    deviceList = []
-    for d in cursor:
-        deviceList.append(d)
+    device_list = []
+    for dev_it in cursor:
+        device_list.append(dev_it)
 
-    all_devices = {"devices" : deviceList}
+    all_devices = {"devices" : device_list}
     return make_response(json.dumps(all_devices), 200)
 
 @device.route('/device', methods=['POST'])
 def create_device():
+    """ Creates and configures the given device (in json) """
+
     collection = get_mongo_collection(request.headers['authorization'])
-    device_id = ""
     device_data = {}
     if request.mimetype == 'application/x-www-form-urlencoded':
         device_data = request.form
@@ -189,69 +230,76 @@ def create_device():
         try:
             device_data = json.loads(request.data)
         except ValueError:
-            return formatResponse(400, 'Failed to parse payload as JSON')
+            return utils.formatResponse(400, 'Failed to parse payload as JSON')
     else:
-        return formatResponse(400, 'unknown request format')
+        return utils.formatResponse(400, 'unknown request format')
+
+    # TODO this is awful, makes me sad, but for now also makes demoing easier
+    # We might want to look into an auto-configuration feature using the service
+    # and device name on automate to be able to remove this
+    _attempts = 0
+    device_data['id'] = ''
+    while _attempts < 10 and len(device_data['id']) == 0:
+        new_id = utils.create_id()
+        if not collection.find_one({'id' : new_id}):
+            device_data['id'] = new_id
+            break
+    if not len(device_data['id']):
+        return utils.formatResponse(500, 'failed to generate unique id')
 
     # sanity checks
-    if 'id' not in device_data.keys():
-        return formatResponse(400, 'missing id')
-
     if 'protocol' not in device_data.keys():
-        return formatResponse(400, 'missing protocol')
-
-    if collection.find_one({'id' : device_id}):
-        return formatResponse(400, 'device already registered')
+        return utils.formatResponse(400, 'missing protocol')
 
     try:
-        service = get_allowed_service(request.headers['authorization'])
+        service = utils.get_allowed_service(request.headers['authorization'])
         protocolHandler = IotaHandler(device_data, service=service)
         subsHandler = PersistenceHandler(device_data, service=service)
     except (AttributeError, KeyError):
-        return formatResponse(400, 'device has missing fields')
+        return utils.formatResponse(400, 'device has missing fields')
     except (ValueError):
-        return formatResponse(304, 'missing authorization info')
+        return utils.formatResponse(304, 'missing authorization info')
 
     if protocolHandler.create():
         device_data['created'] = time()
         device_data['updated'] = time()
-        print('about to subs handle')
         device_data['persistence'] = subsHandler.create()
         collection.insert_one(device_data.copy())
-        return formatResponse(200)
+        return utils.formatResponse(200)
     else:
-        return formatResponse(500, 'failed to configure device')
+        return utils.formatResponse(500, 'failed to configure device')
 
 @device.route('/device/<deviceid>', methods=['GET'])
 def get_device(deviceid):
     collection = get_mongo_collection(request.headers['authorization'])
-    device = collection.find_one({'id' : deviceid}, {"_id" : False})
-    if device is None:
-        return formatResponse(404, 'given device was not found')
+    stored_device = collection.find_one({'id' : deviceid},
+                                        {"_id" : False, 'persistence': False})
+    if stored_device is None:
+        return utils.formatResponse(404, 'given device was not found')
 
-    return make_response(json.dumps(device), 200)
+    return make_response(json.dumps(stored_device), 200)
 
 @device.route('/device/<deviceid>', methods=['DELETE'])
 def remove_device(deviceid):
     collection = get_mongo_collection(request.headers['authorization'])
     # sanity check
-    device = collection.find_one({'id': deviceid})
-    if not device:
-        return formatResponse(404, 'given device was not found')
+    old_device = collection.find_one({'id': deviceid})
+    if not old_device:
+        return utils.formatResponse(404, 'given device was not found')
 
     try:
-        service = get_allowed_service(request.headers['authorization'])
-        protocolHandler = IotaHandler(device, service=service)
-        subsHandler = PersistenceHandler(device, service=service)
+        service = utils.get_allowed_service(request.headers['authorization'])
+        protocolHandler = IotaHandler(old_device, service=service)
+        subsHandler = PersistenceHandler(old_device, service=service)
     except AttributeError:
-        return formatResponse(500, 'given device information is corrupted')
+        return utils.formatResponse(500, 'given device information is corrupted')
 
-    if protocolHandler.remove(device['label']):
-        subsHandler.remove(device['persistence'])
-        result = collection.delete_one({'id' : deviceid})
-        return formatResponse(200)
+    if protocolHandler.remove(deviceid):
+        subsHandler.remove(old_device['persistence'])
+        collection.delete_one({'id' : deviceid})
+        return utils.formatResponse(200)
     else:
-        return formatResponse(500, 'failed to remove device')
+        return utils.formatResponse(500, 'failed to remove device')
 
 
 @device.route('/device/<deviceid>', methods=['PUT'])
@@ -263,32 +311,36 @@ def update_device(deviceid):
         try:
             device_data = json.loads(request.data)
         except ValueError:
-            return formatResponse(400, 'Failed to parse payload as JSON')
+            return utils.formatResponse(400, 'Failed to parse payload as JSON')
     else:
-        return formatResponse(400, 'unknown request format')
-
+        return utils.formatResponse(400, 'unknown request format')
 
     if 'id' not in device_data.keys():
         device_data["id"] = deviceid
 
     old_device = collection.find_one({'id': deviceid})
     if not old_device:
-        return formatResponse(404, 'given device was not found')
+        return utils.formatResponse(404, 'given device was not found')
 
     try:
-        service = get_allowed_service(request.headers['authorization'])
+        service = utils.get_allowed_service(request.headers['authorization'])
         protocolHandler = IotaHandler(device_data, service=service)
         subsHandler = PersistenceHandler(device_data, service=service)
     except AttributeError:
-        return formatResponse(400, 'given device information is missing mandatory fields')
+        return utils.formatResponse(400, 'given device information is missing mandatory fields')
+
+    if not protocolHandler.update():
+        return utils.formatResponse(500, 'failed to update device configuration')
+
 
     # TODO use device id instead of name as id for fiware backend
-    if not protocolHandler.remove(old_device['label']) and subsHandler.remove(old_device['persistence']):
-        return formatResponse(500, 'failed to update device configuration (removal)')
-    if not protocolHandler.create():
-        return formatResponse(500, 'failed to update device configuration (creation)')
+    # if not (protocolHandler.remove(deviceid)
+    #         and subsHandler.remove(old_device['persistence'])):
+    #     return utils.formatResponse(500, 'failed to update device configuration (removal)')
+    # if not protocolHandler.create():
+    #     return utils.formatResponse(500, 'failed to update device configuration (creation)')
 
     device_data['persistence'] = subsHandler.create()
     device_data['updated'] = time()
     collection.replace_one({'id' : deviceid}, device_data)
-    return formatResponse(200)
+    return utils.formatResponse(200)

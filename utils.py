@@ -1,5 +1,7 @@
+""" Assorted utils used throughout the service """
+
 import json
-import pymongo
+import random
 from flask import make_response
 from pymongo import MongoClient
 import base64
@@ -26,13 +28,13 @@ class CollectionManager:
 def formatResponse(status, message=None):
     payload = None
     if message:
-        payload = json.dumps({ 'message': message, 'status': status})
+        payload = json.dumps({'message': message, 'status': status})
     elif status >= 200 and status < 300:
-        payload = json.dumps({ 'message': 'ok', 'status': status})
+        payload = json.dumps({'message': 'ok', 'status': status})
     else:
-        payload = json.dumps({ 'message': 'Request failed', 'status': status})
+        payload = json.dumps({'message': 'Request failed', 'status': status})
 
-    return make_response(payload, status);
+    return make_response(payload, status)
 
 
 def decode_base64(data):
@@ -64,7 +66,13 @@ def get_allowed_service(token):
     try:
         data = json.loads(decode_base64(payload))
         return data['service']
-    except Exception as e:
-        raise ValueError("Invalid authentication token payload - not json object")
+    except Exception as ex:
+        raise ValueError("Invalid authentication token payload - not json object", ex)
 
     return None
+
+def create_id():
+    """ Generates a random hex id for managed entities """
+    # TODO this is far too small for any practical deployment, but helps keep
+    #      the demo process simple
+    return '%04x' % random.randrange(16**4)
