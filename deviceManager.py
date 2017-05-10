@@ -345,3 +345,12 @@ def update_device(deviceid):
     device_data['updated'] = time()
     collection.replace_one({'id' : deviceid}, device_data)
     return utils.formatResponse(200)
+
+@device.route('/device/query', methods=['GET'])
+def find_device():
+    collection = get_mongo_collection(request.headers['authorization'])
+    stored_device = collection.find_one(request.args, {"_id" : False, 'persistence': False})
+    if stored_device is None:
+        return utils.formatResponse(404, 'given device was not found')
+
+    return make_response(json.dumps(stored_device), 200)
