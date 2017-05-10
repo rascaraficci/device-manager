@@ -265,7 +265,8 @@ def create_device():
         device_data['updated'] = time()
         device_data['persistence'] = subsHandler.create()
         collection.insert_one(device_data.copy())
-        return utils.formatResponse(200)
+        result = {'message': 'device created', 'device': device_data}
+        return make_response(json.dumps(result))
     else:
         return utils.formatResponse(500, 'failed to configure device')
 
