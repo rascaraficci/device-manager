@@ -10,7 +10,7 @@ from flask import make_response
 from flask import Blueprint
 import pymongo
 import utils
-from BackendHandler import BackendHandler, IotaHandler, OrionHandler, PersistenceHandler
+from BackendHandler import BackendHandler, IotaHandler, PersistenceHandler
 from BackendHandler import annotate_status
 
 device = Blueprint('device', __name__)
@@ -136,19 +136,17 @@ def remove_device(deviceid):
     if not old_device:
         return utils.formatResponse(404, 'given device was not found')
 
-    try:
-        service = utils.get_allowed_service(request.headers['authorization'])
-        protocolHandler = IotaHandler(service=service)
-        subsHandler = PersistenceHandler(service=service)
-    except AttributeError:
-        return utils.formatResponse(500, 'given device information is corrupted')
+    service = utils.get_allowed_service(request.headers['authorization'])
+    subsHandler = PersistenceHandler(service=service)
 
-    if protocolHandler.remove(deviceid):
-        subsHandler.remove(old_device['persistence'])
-        collection.delete_one({'id' : deviceid})
-        return utils.formatResponse(200)
-    else:
-        return utils.formatResponse(500, 'failed to remove device')
+    if old_device['protocol'] != 'virtual':
+        protocolHandler = IotaHandler(service=service)
+        if not protocolHandler.remove(deviceid):
+            return utils.formatResponse(500, 'failed to remove device')
+
+    subsHandler.remove(old_device['persistence'])
+    collection.delete_one({'id' : deviceid})
+    return utils.formatResponse(200)
 
 
 @device.route('/device/<deviceid>', methods=['PUT'])
@@ -171,18 +169,26 @@ def update_device(deviceid):
     if not old_device:
         return utils.formatResponse(404, 'given device was not found')
 
-    try:
-        service = utils.get_allowed_service(request.headers['authorization'])
-        protocolHandler = IotaHandler(service=service)
-        subsHandler = PersistenceHandler(service=service)
-    except AttributeError:
-        return utils.formatResponse(400, 'given device information is missing mandatory fields')
+    service = utils.get_allowed_service(request.headers['authorization'])
+    subsHandler = PersistenceHandler(service=service)
+    protocolHandler = IotaHandler(service=service)
 
-    if not protocolHandler.update(device_data):
-        return utils.formatResponse(500, 'failed to update device configuration')
+    device_type = 'virtual'
+    if (old_device['protocol'] != 'virtual') and (device_data['protocol'] != 'virtual'):
+        device_type = 'device'
+        if not protocolHandler.update(device_data):
+            return utils.formatResponse(500, 'failed to update device configuration')
+    if old_device['protocol'] != device_data['protocol']:
+        if old_device['protocol'] == 'virtual':
+            device_type = 'device'
+            if not protocolHandler.create(device_data):
+                return utils.formatResponse(500, 'failed to update device configuration (device creation)')
+        elif device_data['protocol'] == 'virtual':
+            if not protocolHandler.remove(device_data['id']):
+                return utils.formatResponse(500, 'failed to update device configuration (device removal)')
 
     subsHandler.remove(old_device['persistence'])
-    device_data['persistence'] = subsHandler.create(device_data['id'])
+    device_data['persistence'] = subsHandler.create(device_data['id'], device_type)
     device_data['updated'] = time()
     collection.replace_one({'id' : deviceid}, device_data)
     result = {'message': 'device updated', 'device': device_data}
