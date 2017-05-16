@@ -82,8 +82,12 @@ class IotaHandler(BackendHandler):
             # this is actually consumed by iotagent
             'internal_attributes': {
                 "attributes" : [
-                    {"topic": "tcp:mqtt:%s" % self.__get_topic(device)}
-                ]
+                    {"topic": "tcp:mqtt:%s" % self.__get_topic(device)},
+                ],
+                "timeout": {
+                    "periodicity": 2000,
+                    "waitMultiplier": 3
+                }
             },
             # becomes part of the attribute list on context broker
             'static_attributes': [
@@ -263,11 +267,10 @@ class PersistenceHandler(object):
 
             # return the newly created subs
             reply = response.json()
-            print(reply)
             return reply['subscribeResponse']['subscriptionId']
 
         except (requests.ConnectionError, ValueError):
-            print('Failed to create subscription')
+            print 'Failed to create subscription'
             return None
 
     def remove(self, subsId):
@@ -278,3 +281,36 @@ class PersistenceHandler(object):
             return response.status_code >= 200 and response.status_code < 300
         except requests.ConnectionError:
             return False
+
+def annotate_status(device_list, orion="http://orion:1026", service='devm'):
+    """ Returns the given device list with updated device status as seen on the ctx broker"""
+
+    url = "%s/NGSI10/queryContext" % orion
+    query = json.dumps({"entities": [{"isPattern": "true", "id": ".*"}]})
+    headers = {
+        'Content-Type': 'application/json',
+        'Fiware-service': service,
+        'Fiware-servicepath': '/'
+    }
+
+    try:
+        response = requests.post(url, headers=headers, data=query)
+    except requests.ConnectionError:
+        print "Failed to retrieve status data from context broker: %d" % response.status_code
+        return []
+
+    if response.status_code < 200 and response.status_code >= 300:
+        return []
+
+    reply = response.json()
+    status_map = {}
+    for ctx in reply['contextResponses']:
+        for attr in ctx['contextElement']['attributes']:
+            if attr['name'] == 'device-status':
+                status_map[ctx['contextElement']['id']] = attr['value']
+
+    for dev in device_list:
+        if dev['id'] in status_map.keys():
+            dev['status'] = status_map[dev['id']]
+
+    return device_list

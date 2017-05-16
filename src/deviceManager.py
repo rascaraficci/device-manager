@@ -11,6 +11,7 @@ from flask import Blueprint
 import pymongo
 import utils
 from BackendHandler import BackendHandler, IotaHandler, OrionHandler, PersistenceHandler
+from BackendHandler import annotate_status
 
 device = Blueprint('device', __name__)
 db = utils.CollectionManager('device_management')
@@ -58,6 +59,7 @@ def get_devices():
         device_list.append(dev_it)
 
     all_devices = {"devices" : device_list}
+    annotate_status(device_list, service=utils.get_allowed_service(request.headers['authorization']))
     return make_response(json.dumps(all_devices), 200)
 
 @device.route('/device', methods=['POST'])
