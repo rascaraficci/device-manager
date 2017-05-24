@@ -7,6 +7,7 @@ from flask import make_response
 from flask import Blueprint
 import pymongo
 from utils import CollectionManager, formatResponse, get_allowed_service
+import utils
 
 template = Blueprint('template', __name__)
 db = CollectionManager('device_management')
@@ -56,7 +57,7 @@ def get_templates():
 @template.route('/template', methods=['POST'])
 def create_template():
     collection = get_mongo_collection(request.headers['authorization'])
-    template_id = ""
+
     template_data = {}
     if request.mimetype == 'application/x-www-form-urlencoded':
         template_data = request.form
@@ -66,17 +67,25 @@ def create_template():
         except ValueError:
             return formatResponse(400, 'Failed to parse payload as JSON')
 
-    # sanity checks
-    if 'id' not in template_data.keys():
-        return formatResponse(400, 'missing id')
 
-    if collection.find_one({'id' : template_id}):
-        return formatResponse(400, 'template already registered')
+    # TODO this is awful, makes me sad, but for now also makes demoing easier
+    # We might want to look into an auto-configuration feature using the service
+    # and device name on automate to be able to remove this
+    _attempts = 0
+    template_data['id'] = ''
+    while _attempts < 10 and len(template_data['id']) == 0:
+        new_id = utils.create_id()
+        if not collection.find_one({'id' : new_id}):
+            template_data['id'] = new_id
+            break
+    if not len(template_data['id']):
+        return utils.formatResponse(500, 'failed to generate unique id')
 
     template_data['created'] = time()
     template_data['updated'] = time()
     collection.insert_one(template_data.copy())
-    return formatResponse(200)
+    result = {'message': 'template created', 'template': template_data}
+    return make_response(json.dumps(result))
 
 @template.route('/template/<templateid>', methods=['GET'])
 def get_template(templateid):

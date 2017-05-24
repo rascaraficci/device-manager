@@ -3,6 +3,7 @@
 """
 
 import json
+import traceback
 import requests
 
 # TODO: this actually is a symptom of bad responsability management.
@@ -300,17 +301,27 @@ def annotate_status(device_list, orion="http://orion:1026", service='devm'):
         return []
 
     if response.status_code < 200 and response.status_code >= 300:
+        print "Failed to retrieve status data from context broker: %d" % response.status_code
         return []
 
+
     reply = response.json()
+    if 'errorCode' in reply:
+        print "Failed to retrieve status data from context broker: %d" % reply['errorCode']['reasonPhrase']
+        return []
+
     status_map = {}
-    for ctx in reply['contextResponses']:
-        for attr in ctx['contextElement']['attributes']:
-            if attr['name'] == 'device-status':
-                status_map[ctx['contextElement']['id']] = attr['value']
+    try:
+        for ctx in reply['contextResponses']:
+            for attr in ctx['contextElement']['attributes']:
+                if attr['name'] == 'device-status':
+                    status_map[ctx['contextElement']['id']] = attr['value']
 
-    for dev in device_list:
-        if dev['id'] in status_map.keys():
-            dev['status'] = status_map[dev['id']]
+        for dev in device_list:
+            if dev['id'] in status_map.keys():
+                dev['status'] = status_map[dev['id']]
 
-    return device_list
+        return device_list
+    except KeyError:
+        traceback.print_exc()
+        return []
