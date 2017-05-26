@@ -121,12 +121,17 @@ def create_device():
 @device.route('/device/<deviceid>', methods=['GET'])
 def get_device(deviceid):
     collection = get_mongo_collection(request.headers['authorization'])
-    stored_device = collection.find_one({'id' : deviceid},
-                                        {"_id" : False, 'persistence': False})
+    stored_device = collection.find_one({'id' : deviceid}, {"_id" : False, 'persistence': False})
     if stored_device is None:
         return utils.formatResponse(404, 'given device was not found')
 
-    return make_response(json.dumps(stored_device), 200)
+    annotated = annotate_status([stored_device],
+                                service=utils.get_allowed_service(request.headers['authorization']))
+    if len(annotated) > 0:
+        return make_response(json.dumps(annotated[0]), 200)
+    else:
+        return make_response(json.dumps(stored_device), 200)
+
 
 @device.route('/device/<deviceid>', methods=['DELETE'])
 def remove_device(deviceid):
@@ -200,5 +205,12 @@ def find_device():
     stored_device = collection.find_one(request.args, {"_id" : False, 'persistence': False})
     if stored_device is None:
         return utils.formatResponse(404, 'given device was not found')
+
+    annotated = annotate_status([stored_device],
+                                service=utils.get_allowed_service(request.headers['authorization']))
+    if len(annotated) > 0:
+        return make_response(json.dumps(annotated[0]), 200)
+    else:
+        return make_response(json.dumps(stored_device), 200)
 
     return make_response(json.dumps(stored_device), 200)
