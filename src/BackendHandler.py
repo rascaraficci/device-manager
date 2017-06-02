@@ -312,7 +312,7 @@ def annotate_status(device_list, orion="http://orion:1026", service='devm'):
     try:
         response = requests.post(url, headers=headers, data=query)
     except requests.ConnectionError:
-        print "Failed to retrieve status data from context broker: %d" % response.status_code
+        print "Failed to retrieve status data from context broker: connection failed"
         return []
 
     if response.status_code < 200 and response.status_code >= 300:
@@ -322,7 +322,7 @@ def annotate_status(device_list, orion="http://orion:1026", service='devm'):
 
     reply = response.json()
     if 'errorCode' in reply:
-        print "Failed to retrieve status data from context broker: %d" % reply['errorCode']['reasonPhrase']
+        print "Failed to retrieve status data from context broker: %s" % reply['errorCode']['reasonPhrase']
         return []
 
     status_map = {}
