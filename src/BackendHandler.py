@@ -57,6 +57,11 @@ class IotaHandler(BackendHandler):
             'Content-Type':'application/json',
             'cache-control': 'no-cache'
         }
+        self._noBodyHeaders = {
+            'Fiware-service': service,
+            'Fiware-servicePath': '/',
+            'cache-control': 'no-cache'
+        }
 
     def __get_topic(self, device):
         topic = ''
@@ -126,7 +131,7 @@ class IotaHandler(BackendHandler):
         """ Returns boolean indicating device removal success. """
 
         try:
-            response = requests.delete(self.baseUrl + '/devices/' + deviceid, headers=self._headers)
+            response = requests.delete(self.baseUrl + '/devices/' + deviceid, headers=self._noBodyHeaders)
             return response.status_code >= 200 and response.status_code < 300
         except requests.ConnectionError:
             return False
@@ -155,6 +160,11 @@ class OrionHandler(BackendHandler):
             'Fiware-service': service,
             'Fiware-servicePath': '/',
             'Content-Type':'application/json',
+            'cache-control': 'no-cache'
+        }
+        self._noBodyHeaders = {
+            'Fiware-service': service,
+            'Fiware-servicePath': '/',
             'cache-control': 'no-cache'
         }
 
@@ -209,7 +219,7 @@ class OrionHandler(BackendHandler):
         """ Returns boolean indicating device removal success. """
 
         try:
-            response = requests.delete(self.baseUrl + '/devices/' + deviceid, headers=self._headers)
+            response = requests.delete(self.baseUrl + '/devices/' + deviceid, headers=self._noBodyHeaders)
             return response.status_code >= 200 and response.status_code < 300
         except requests.ConnectionError:
             return False
@@ -246,6 +256,11 @@ class PersistenceHandler(object):
             'Content-Type':'application/json',
             'cache-control': 'no-cache'
         }
+        self._noBodyHeaders = {
+            'Fiware-service': service,
+            'Fiware-servicePath': '/',
+            'cache-control': 'no-cache'
+        }
 
     def create(self, device_id, device_type='device'):
         """ Returns subscription id on success. """
@@ -278,7 +293,7 @@ class PersistenceHandler(object):
         """ Returns boolean indicating subscription removal success. """
 
         try:
-            response = requests.delete(self.baseUrl + '/' + subsId, headers=self._headers)
+            response = requests.delete(self.baseUrl + '/' + subsId, headers=self._noBodyHeaders)
             return response.status_code >= 200 and response.status_code < 300
         except requests.ConnectionError:
             return False
