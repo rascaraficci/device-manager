@@ -29,6 +29,34 @@ def get_mongo_collection(token):
     collection = db("dev_service_%s" % service)
     return collection
 
+class ParseError(Exception):
+    """ Thrown indicating that an invalid device representation has been given """
+
+    def __init__(self, msg):
+        self.msg = msg
+    def __str__(self):
+        return self.msg
+
+def sanitize(device):
+    """ validates the given device, sanitizing any missing fields with their defaults """
+
+    if 'label' not in device.keys():
+        device['label'] = 'unnammed device'
+    if 'id' not in device.keys():
+        raise ParseError("missing unique id")
+    if 'protocol' not in device.keys():
+        raise ParseError("missing protocol information")
+    if 'templates' not in device.keys():
+        device['templates'] = []
+    if 'tags' not in device.keys():
+        device['tags'] = []
+    if 'attrs' not in device.keys():
+        device['attrs'] = []
+    if 'static_attrs' not in device.keys():
+        device['static_attrs'] = []
+
+
+
 @device.route('/device', methods=['GET'])
 def get_devices():
     """
@@ -68,9 +96,7 @@ def create_device():
 
     collection = get_mongo_collection(request.headers['authorization'])
     device_data = {}
-    if request.mimetype == 'application/x-www-form-urlencoded':
-        device_data = request.form
-    elif request.mimetype == 'application/json':
+    if request.mimetype == 'application/json':
         try:
             device_data = json.loads(request.data)
         except ValueError:
@@ -92,8 +118,10 @@ def create_device():
         return utils.formatResponse(500, 'failed to generate unique id')
 
     # sanity checks
-    if 'protocol' not in device_data.keys() or len(device_data['protocol']) == 0:
-        return utils.formatResponse(400, 'missing protocol')
+    try:
+        sanitize(device_data)
+    except ParseError as e:
+        return utils.formatResponse(400, str(e))
 
     try:
         service = utils.get_allowed_service(request.headers['authorization'])
@@ -157,9 +185,7 @@ def remove_device(deviceid):
 @device.route('/device/<deviceid>', methods=['PUT'])
 def update_device(deviceid):
     collection = get_mongo_collection(request.headers['authorization'])
-    if request.mimetype == 'application/x-www-form-urlencoded':
-        device_data = request.form
-    elif request.mimetype == 'application/json':
+    if request.mimetype == 'application/json':
         try:
             device_data = json.loads(request.data)
         except ValueError:
@@ -169,6 +195,13 @@ def update_device(deviceid):
 
     if 'id' not in device_data.keys():
         device_data["id"] = deviceid
+
+    # sanity checks
+    # since this is a PUT and not a patch, it is safe to override all non declared fields
+    try:
+        sanitize(device_data)
+    except ParseError as e:
+        return utils.formatResponse(400, str(e))
 
     old_device = collection.find_one({'id': deviceid})
     if not old_device:
