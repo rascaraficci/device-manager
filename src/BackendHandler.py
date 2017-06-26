@@ -74,6 +74,10 @@ class IotaHandler(BackendHandler):
 
     def __get_config(self, device):
 
+        freq = 2000
+        if 'freq' in device.keys():
+            freq = device['freq']
+
         # Currently, there's no efficient way (apart from setting extra metadata) to have the
         # context broker store a human-readable label to be associated with an entity (device).
         # Here we use entity_type as a cheap alternative
@@ -91,7 +95,7 @@ class IotaHandler(BackendHandler):
                     {"topic": "tcp:mqtt:%s" % self.__get_topic(device)},
                 ],
                 "timeout": {
-                    "periodicity": 2000,
+                    "periodicity": freq,
                     "waitMultiplier": 3
                 }
             },
@@ -139,14 +143,18 @@ class IotaHandler(BackendHandler):
     def update(self, device):
         """ Returns boolean indicating device update success. """
 
-        config = self.__get_config(device)
-        config.pop('internal_attributes', None) # TODO add support for topic edition on iotagent
-        try:
-            response = requests.put(self.baseUrl + '/devices/' + device['id'],
-                                    headers=self._headers, data=json.dumps(config))
-            return response.status_code >= 200 and response.status_code < 300
-        except requests.ConnectionError:
-            return False
+        self.remove(device['id'])
+        return self.create(device)
+
+        # config = self.__get_config(device)
+        # print 'will use configs \n%s' % json.dumps(config)
+        # config.pop('internal_attributes', None) # TODO add support for topic edition on iotagent
+        # try:
+        #     response = requests.put(self.baseUrl + '/devices/' + device['id'],
+        #                             headers=self._headers, data=json.dumps(config))
+        #     return response.status_code >= 200 and response.status_code < 300
+        # except requests.ConnectionError:
+        #     return False
 
 
 class OrionHandler(BackendHandler):
@@ -336,6 +344,7 @@ def annotate_status(device_list, orion="http://orion:1026", service='devm'):
             if dev['id'] in status_map.keys():
                 dev['status'] = status_map[dev['id']]
 
+        print 'will return ' + json.dumps(device_list)
         return device_list
     except KeyError:
         traceback.print_exc()

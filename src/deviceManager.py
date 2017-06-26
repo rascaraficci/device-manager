@@ -156,8 +156,10 @@ def get_device(deviceid):
     annotated = annotate_status([stored_device],
                                 service=utils.get_allowed_service(request.headers['authorization']))
     if len(annotated) > 0:
+        print 'annotation success'
         return make_response(json.dumps(annotated[0]), 200)
     else:
+        print 'annotation failure'
         return make_response(json.dumps(stored_device), 200)
 
 
