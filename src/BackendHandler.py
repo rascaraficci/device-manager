@@ -48,8 +48,11 @@ class BackendHandler(object):
 class IotaHandler(BackendHandler):
     """ Abstracts interaction with iotagent-json for MQTT device management """
     # TODO: this should be configurable (via file or environment variable)
-    def __init__(self, baseUrl='http://iotagent:4041/iot', service='devm'):
+    def __init__(self, baseUrl='http://iotagent:4041/iot',
+                       orionUrl='http://orion:1026/v1/contextEntities',
+                       service='devm'):
         self.baseUrl = baseUrl
+        self.orionUrl = orionUrl
         self.service = service
         self._headers = {
             'Fiware-service': service,
@@ -136,7 +139,10 @@ class IotaHandler(BackendHandler):
 
         try:
             response = requests.delete(self.baseUrl + '/devices/' + deviceid, headers=self._noBodyHeaders)
-            return response.status_code >= 200 and response.status_code < 300
+            if response.status_code >= 200 and response.status_code < 300:
+                response = requests.delete('%s/%s' % (self.orionUrl, deviceid), headers=self._noBodyHeaders)
+                if response.status_code >= 200 and response.status_code < 300:
+                    return True
         except requests.ConnectionError:
             return False
 
