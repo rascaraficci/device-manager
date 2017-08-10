@@ -69,7 +69,7 @@ def get_devices():
         try:
             cursor = collection.find({}, field_filter,
                                      limit=int(request.args['limit']))
-        except TypeError:
+        except (TypeError, ValueError):
             return utils.formatResponse(400, 'limit must be an integer value')
     else:
         cursor = collection.find({}, field_filter)
@@ -237,6 +237,10 @@ def update_device(deviceid):
 @device.route('/device/query', methods=['GET'])
 def find_device():
     collection = get_mongo_collection(request.headers['authorization'])
+    for k,v in request.args.iteritems():
+        if len(v) == 0:
+            return utils.formatResponse(400, 'Given query is invalid. Field %s cannot be empty' % k)
+
     stored_device = collection.find_one(request.args, {"_id" : False, 'persistence': False})
     if stored_device is None:
         return utils.formatResponse(404, 'given device was not found')

@@ -34,7 +34,7 @@ def get_templates():
     if ('limit' in request.args.keys()):
         try:
             cursor = collection.find({}, {'_id': False}, limit=int(request.args['limit']));
-        except TypeError:
+        except (TypeError, ValueError):
             return formatResponse(400, 'limit must be an integer value')
     else:
         cursor = collection.find({}, {'_id': False});
