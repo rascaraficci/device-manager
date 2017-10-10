@@ -7,6 +7,8 @@ import logging
 import traceback
 import requests
 
+from utils import HTTPRequestError
+
 LOGGER = logging.getLogger('device-manager.' + __name__)
 LOGGER.addHandler(logging.StreamHandler())
 LOGGER.setLevel(logging.INFO)
@@ -26,7 +28,8 @@ class BackendHandler(object):
         """
             Creates the given device on the implemented backend.
             :param device: Dictionary with the full device configuration
-            :returns: True if operation succeeded, false otherwise
+            :returns: True if operation succeeded
+            :raises HTTPRequestError
         """
         raise NotImplementedError('Abstract method called')
 
@@ -34,7 +37,7 @@ class BackendHandler(object):
         """
             Removes the device identified by the given id
             :param device_id: unique identifier of the device to be removed
-            :returns: True if operation succeeded, false otherwise
+            :raises HTTPRequestError
         """
         raise NotImplementedError('Abstract method called')
 
@@ -44,7 +47,7 @@ class BackendHandler(object):
             :param device: Dictionary with the full device configuration. Must contain an 'id'
                            field with the unique identifier of the device to be updated. That
                            field must not be changed.
-            :returns: True if operation succeeded, false otherwise
+            :raises HTTPRequestError
         """
         raise NotImplementedError('Abstract method called')
 
@@ -73,46 +76,50 @@ class IotaHandler(BackendHandler):
 
     def __get_topic(self, device):
         topic = ''
-        if 'topic' in device:
+        if device.topic:
             topic = device.topic
         else:
-            topic = "/%s/%s/attrs" % (self.service, device['id'])
+            topic = "/%s/%s/attrs" % (self.service, device.device_id)
 
         return topic
 
     def __get_config(self, device):
 
-        freq = 2000
-        if 'freq' in device.keys():
-            freq = device['freq']
-
-        # Currently, there's no efficient way (apart from setting extra metadata) to have the
-        # context broker store a human-readable label to be associated with an entity (device).
-        # Here we use entity_type as a cheap alternative
-        return {
+        base_config = {
             # this is actually consumed by iotagent
-            'device_id': device['id'],
+            'device_id': device.device_id,
             # becomes entity type for context broker
             'entity_type': 'device',
             # becomes entity id for context broker
-            'entity_name': device['id'],
-            'attributes': device['attrs'],
+            'entity_name': device.device_id,
+            'attributes': [],
             # this is actually consumed by iotagent
             'internal_attributes': {
-                "attributes" : [
-                    {"topic": "tcp:mqtt:%s" % self.__get_topic(device)},
-                ],
-                "timeout": {
-                    "periodicity": freq,
-                    "waitMultiplier": 3
-                }
+                "attributes" : [],
+                "timeout": {"periodicity": device.frequency, "waitMultiplier": 3}
             },
-            # becomes part of the attribute list on context broker
-            'static_attributes': [
-                # TODO this should be part of the entity metadata
-                {'name': 'user_label', 'type':'string', 'value': device['label']}
-            ]
+            'static_attributes': []
         }
+
+        for attr in device.template.attrs:
+            if attr.type == 'dynamic':
+                base_config['attributes'].append({
+                    'name': attr.label,
+                    'type': attr.value_type
+                })
+            elif attr.type == 'static':
+                base_config['static_attributes'].append({
+                    'name': attr.label,
+                    'type': attr.value_type,
+                    'value': attr.static_value
+                })
+            elif (attr.type == 'meta') and (attr.label == 'mqtt_topic'):
+                # @BUG however nice, this doesn't seem to work with iotagent-json
+                base_config['internal_attributes']['attributes'].append({
+                    {"topic": "tcp:mqtt:%s" % attr.static_value},
+                })
+        return base_config
+
 
     def create(self, device):
         """ Returns boolean indicating device creation success. """
@@ -128,121 +135,40 @@ class IotaHandler(BackendHandler):
             response = requests.post(self.baseUrl + '/services', headers=self._headers, data=svc)
             if not (response.status_code == 409 or
                     (response.status_code >= 200 and response.status_code < 300)):
-                return False
+                error = "Failed to configure ingestion subsystem: service creation failed"
+                raise HTTPRequestError(500, error)
         except requests.ConnectionError:
-            return False
+            raise HTTPRequestError(500, "Cannot reach ingestion subsystem (service)")
 
         try:
             response = requests.post(self.baseUrl + '/devices', headers=self._headers,
                                      data=json.dumps({'devices':[self.__get_config(device)]}))
-            return response.status_code >= 200 and response.status_code < 300
+            if not (response.status_code >= 200 and response.status_code < 300):
+                error = "Failed to configure ingestion subsystem: device creation failed"
+                raise HTTPRequestError(500, error)
         except requests.ConnectionError:
-            return False
+            raise HTTPRequestError(500, "Cannot reach ingestion subsystem (device)")
 
     def remove(self, deviceid):
         """ Returns boolean indicating device removal success. """
 
         try:
-            response = requests.delete(self.baseUrl + '/devices/' + deviceid, headers=self._noBodyHeaders)
+            response = requests.delete(self.baseUrl + '/devices/' + deviceid,
+                                       headers=self._noBodyHeaders)
             if response.status_code >= 200 and response.status_code < 300:
-                response = requests.delete('%s/%s' % (self.orionUrl, deviceid), headers=self._noBodyHeaders)
-                if response.status_code >= 200 and response.status_code < 300:
-                    return True
+                response = requests.delete('%s/%s' % (self.orionUrl, deviceid),
+                                           headers=self._noBodyHeaders)
+                if not (response.status_code >= 200 and response.status_code < 300):
+                    error = "Failed to configure ingestion subsystem: device removal failed"
+                    raise HTTPRequestError(500, error)
         except requests.ConnectionError:
-            return False
+            raise HTTPRequestError(500, "Cannot reach ingestion subsystem")
 
     def update(self, device):
         """ Returns boolean indicating device update success. """
 
-        self.remove(device['id'])
+        self.remove(device.device_id)
         return self.create(device)
-
-class OrionHandler(BackendHandler):
-    """ Abstracts interaction with iotagent-json for MQTT device management """
-    # TODO: this should be configurable (via file or environment variable)
-    def __init__(self, baseUrl='http://iotagent:4041/iot', service='devm', device_type='virtual'):
-        self.baseUrl = baseUrl
-        self.service = service
-        self.device_type = device_type
-        self._headers = {
-            'Fiware-service': service,
-            'Fiware-servicePath': '/',
-            'Content-Type':'application/json',
-            'cache-control': 'no-cache'
-        }
-        self._noBodyHeaders = {
-            'Fiware-service': service,
-            'Fiware-servicePath': '/',
-            'cache-control': 'no-cache'
-        }
-
-    @staticmethod
-    def get_config(device):
-
-        # Currently, there's no efficient way (apart from setting extra metadata) to have the
-        # context broker store a human-readable label to be associated with an entity (device).
-        # Here we use entity_type as a cheap alternative
-        return {
-            # this is actually consumed by iotagent
-            'device_id': device['id'],
-            # becomes entity type for context broker
-            'entity_type': 'device',
-            # becomes entity id for context broker
-            'entity_name': device['id'],
-            'attributes': device['attrs'],
-
-            # becomes part of the attribute list on context broker
-            'static_attributes': [
-                # TODO this should be part of the entity metadata
-                {'name': 'user_label', 'type':'string', 'value': device['label']}
-            ]
-        }
-
-    def create(self, device):
-        """ Returns boolean indicating device creation success. """
-
-        try:
-            svc = json.dumps({
-                "services": [{
-                    "resource": "devm",
-                    "apikey": self.service,
-                    "entity_type": 'device'
-                }]
-            })
-            response = requests.post(self.baseUrl + '/services', headers=self._headers, data=svc)
-            if not (response.status_code == 409 or
-                    (response.status_code >= 200 and response.status_code < 300)):
-                return False
-        except requests.ConnectionError:
-            return False
-
-        try:
-            response = requests.post(self.baseUrl + '/devices', headers=self._headers,
-                                     data=json.dumps({'devices':[OrionHandler.get_config(device)]}))
-            return response.status_code >= 200 and response.status_code < 300
-        except requests.ConnectionError:
-            return False
-
-    def remove(self, deviceid):
-        """ Returns boolean indicating device removal success. """
-
-        try:
-            response = requests.delete(self.baseUrl + '/devices/' + deviceid, headers=self._noBodyHeaders)
-            return response.status_code >= 200 and response.status_code < 300
-        except requests.ConnectionError:
-            return False
-
-    def update(self, device):
-        """ Returns boolean indicating device update success. """
-
-        config = OrionHandler.get_config(device)
-        config.pop('internal_attributes', None) # TODO add support for topic edition on iotagent
-        try:
-            response = requests.put(self.baseUrl + '/devices/' + device['id'],
-                                    headers=self._headers, data=json.dumps(config))
-            return response.status_code >= 200 and response.status_code < 300
-        except requests.ConnectionError:
-            return False
 
 # Temporarily create a subscription to persist device data
 # TODO this must be revisited in favor of a orchestrator-based solution
@@ -287,24 +213,26 @@ class PersistenceHandler(object):
             response = requests.post(self.baseUrl, headers=self._headers, data=svc)
             if not (response.status_code == 409 or
                     (response.status_code >= 200 and response.status_code < 300)):
-                return None
+                raise HTTPRequestError(500, "Failed to create subscription")
 
             # return the newly created subs
             reply = response.json()
             return reply['subscribeResponse']['subscriptionId']
-
-        except (requests.ConnectionError, ValueError):
+        except ValueError:
             LOGGER.error('Failed to create subscription')
-            return None
+            raise HTTPRequestError(500, "Failed to create subscription")
+        except requests.ConnectionError:
+            raise HTTPRequestError(500, "Broker is not reachable")
 
     def remove(self, subsId):
         """ Returns boolean indicating subscription removal success. """
 
         try:
             response = requests.delete(self.baseUrl + '/' + subsId, headers=self._noBodyHeaders)
-            return response.status_code >= 200 and response.status_code < 300
+            if not (response.status_code >= 200 and response.status_code < 300):
+                raise HTTPRequestError(500, "Failed to remove subscription")
         except requests.ConnectionError:
-            return False
+            raise HTTPRequestError(500, "Broker is not reachable")
 
 def annotate_status(device_list, orion="http://orion:1026", service='devm'):
     """ Returns the given device list with updated device status as seen on the ctx broker"""

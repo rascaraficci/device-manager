@@ -3,29 +3,9 @@
 import json
 import random
 from flask import make_response
-from pymongo import MongoClient
-import base64
 
-class CollectionManager:
-    def __init__(self, database, server='mongodb', port=27017):
-        self.client = None
-        self.collection = None
-        self.database = database
-        self.server = server
-        self.port = port
-
-    def getDB(self):
-        if not self.client:
-            self.client = MongoClient(self.server, self.port)
-        return self.client[self.database]
-
-    def getCollection(self, collection):
-        return self.getDB()[collection]
-
-    def __call__(self, collection):
-        return self.getCollection(collection)
-
-def formatResponse(status, message=None):
+def format_response(status, message=None):
+    """ Utility helper to generate default status responses """
     payload = None
     if message:
         payload = json.dumps({'message': message, 'status': status})
@@ -36,43 +16,35 @@ def formatResponse(status, message=None):
 
     return make_response(payload, status)
 
-
-def decode_base64(data):
-    """Decode base64, padding being optional.
-
-    :param data: Base64 data as an ASCII byte string
-    :returns: The decoded byte string.
-
-    """
-    missing_padding = len(data) % 4
-    if missing_padding != 0:
-        data += b'='* (4 - missing_padding)
-    return base64.decodestring(data)
-
-
-def get_allowed_service(token):
-    """
-        Parses the authorization token, returning the service to be used when
-        configuring the FIWARE backend
-
-        :param token: JWT token to be parsed
-        :returns: Fiware-service to be used on API calls
-        :raises ValueError: for invalid token received
-    """
-    if not token or len(token) == 0:
-        raise ValueError("Invalid authentication token")
-
-    payload = token.split('.')[1]
-    try:
-        data = json.loads(decode_base64(payload))
-        return data['service']
-    except Exception as ex:
-        raise ValueError("Invalid authentication token payload - not json object", ex)
-
-    return None
-
 def create_id():
     """ Generates a random hex id for managed entities """
     # TODO this is far too small for any practical deployment, but helps keep
     #      the demo process simple
     return '%04x' % random.randrange(16**4)
+
+# from auth service
+class HTTPRequestError(Exception):
+    """ Exception that represents end of processing on any given request. """
+    def __init__(self, error_code, message):
+        super(HTTPRequestError, self).__init__()
+        self.message = message
+        self.error_code = error_code
+
+def get_pagination(request):
+    try:
+        page = 1
+        per_page = 20
+        if 'page_size' in request.args.keys():
+            per_page = int(request.args['page_size'])
+        if 'page_num' in request.args.keys():
+            page = int(request.args['page_num'])
+
+        # sanity checks
+        if page < 1:
+            raise HTTPRequestError(400, "Page numbers must be greater than 1")
+        if per_page < 1:
+            raise HTTPRequestError(400, "At least one entry per page is mandatory")
+        return page, per_page
+
+    except TypeError:
+        raise HTTPRequestError(400, "page_size and page_num must be integers")
