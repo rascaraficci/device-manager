@@ -227,6 +227,31 @@ def update_device(deviceid):
         else:
             return format_response(e.error_code, e.message)
 
+@device.route('/device/<deviceid>/attrs', methods=['PUT'])
+def configure_device(deviceid):
+    try:
+        tenant = init_tenant_context(request, db)
+        # In fact, the actual device is not needed. We must be sure that it exists.
+        assert_device_exists(deviceid)
+        json_payload = json.loads(request.data)
+        kafka_handler = KafkaHandler()
+        # Remove topic metadata from JSON to be sent to the device
+        # Should this be moved to a HTTP header?
+        topic = json_payload["topic"]
+        del json_payload["topic"]
+
+        kafka_handler.configure(json_payload, meta = { "service" : tenant, "id" : deviceid, "topic": topic})
+
+        result = {'message': 'configuration sent'}
+        return make_response(result, 200)
+
+    except HTTPRequestError as e:
+        if isinstance(e.message, dict):
+            return make_response(json.dumps(e.message), e.error_code)
+        else:
+            return format_response(e.error_code, e.message)
+
+
 @device.route('/device/<deviceid>/template/<templateid>', methods=['POST'])
 def add_template_to_device(deviceid, templateid):
     """ associates given template with device """
