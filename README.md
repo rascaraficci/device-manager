@@ -24,7 +24,7 @@ But you won't need to worry about installing any of these - they are automatical
 
 ## How to run
 
-If you really need to run DeviceManager as a standalone process (without dojot's wonderful docker-compose), you can execute these commands:
+If you really need to run DeviceManager as a standalone process (without dojot's wonderful [docker-compose](https://github.com/dojot/docker-compose)), you can execute these commands:
 
 ```shell
 python setup.py develop
@@ -286,6 +286,7 @@ a simple JSON into a base64 string:
 ```
 
 which is: eyJzZXJ2aWNlIiA6ICJhZG1pbiJ9Cgo=
+
 You're welcome.
 
 Concatenate it with dummy strings in both beginning and ending, such as "a.eyJzZXJ2aWNlIiA6ICJhZG1pbiJ9Cgo=.b".
