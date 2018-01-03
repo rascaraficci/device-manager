@@ -4,8 +4,8 @@
 [![Docker badge](https://img.shields.io/docker/pulls/dojot/iotagent-json.svg)](https://hub.docker.com/r/dojot/device-manager/)
 [![Travis badge](https://travis-ci.org/dojot/device-manager.svg?branch=master)](https://travis-ci.org/dojot/device-manager#)
 
-The DeviceManager handles all operations related to creation, , update and deletion of devices in dojot. For more information
-on that, check [this file](./docs/concepts.rst).retrieval
+The DeviceManager handles all operations related to creation, retrival, update and deletion of devices in dojot. For more information
+on that, check [this file](./docs/concepts.rst).
 
 ## Dependencies
 
