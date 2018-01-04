@@ -2,10 +2,9 @@
 
 [![License badge](https://img.shields.io/badge/license-GPL-blue.svg)](https://opensource.org/licenses/GPL-3.0)
 [![Docker badge](https://img.shields.io/docker/pulls/dojot/iotagent-json.svg)](https://hub.docker.com/r/dojot/device-manager/)
-[![Travis badge](https://travis-ci.org/dojot/device-manager.svg?branch=master)](https://travis-ci.org/dojot/device-manager#)
 
 The DeviceManager handles all operations related to creation, retrieval, update and deletion of devices in dojot. For more information
-on that, check [this file](./docs/concepts.rst).
+on that, check [this file](./docs/concepts.md).
 
 ## Dependencies
 
@@ -21,6 +20,7 @@ DeviceManager has the following dependencies:
 - kakfa-python
 
 But you won't need to worry about installing any of these - they are automatically installed when starting DeviceManager.
+There must be, though, a postgres instance accessible by DeviceManager.
 
 ## How to run
 
@@ -31,15 +31,18 @@ python setup.py develop
 gunicorn device-manager.app:app
 ```
 
+Keep in mind that running a standalone instance of DeviceManager misses a lot of security checks (such as user identity checks, proper multi-tenancy validations, and so on). In particular, every request sent to DeviceManager needs an access token, which should be retrived from [auth](https://github.com/dojot/auth) component. In the examples listed in this README, you can generate one by yourself (for now, DeviceManager doesn't check if the token is actually valid for that user - they are verified by auth and the API gateway) but this method might not work in the future as more strict token checks are implemented in DeviceManager.
+
 ## Using curl to manage devices
 
 In order to manage devices using DeviceManager, you can use curl (or Postman, if you prefer) to do that.
 DeviceManager listens to requests on port 5000. All endpoints are documented [here](https://dojot.github.io/device-manager/apis.html).
 
+__IMPORTANT: All examples consider that the requests are being sent directly to DeviceManager. Visit [dojot's documentation](http://dojotdocs.readthedocs.io/en/latest/user_guide.html) to check the endpoints for all services (including DeviceManager's)__
+
 ### Quick example #1: creating a template
 
-This command will send a request to create a template. The token, indicated by JWT, can be retrived from [auth](https://github.com/dojot/auth) component.
-Or, if you'd like the quick and dirty way, you can generate a token by yourself - this method is not recommended at all, it should be used only for quick tests. More on that later.
+This command will send a request to create a template.
 
 ```bash
 curl -X POST http://localhost:5000/template \
@@ -238,7 +241,7 @@ The answer is
 }
 ```
 
-Removing a template is very similar: 
+Removing a template is very similar:
 
 ```bash
 curl -X DELETE http://localhost:5000/template/1 -H 'Authorization: Bearer JWT'
@@ -274,7 +277,6 @@ Which gives us:
   "result": "ok"
 }
 ```
-
 
 ### Creating tokens for tests
 
