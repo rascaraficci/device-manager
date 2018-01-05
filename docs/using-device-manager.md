@@ -23,7 +23,7 @@ curl -X POST http://localhost:8000/auth \
 
 This token will be stored in ```bash ${JWT}``` bash variable, referenced in all requests.
 
-*IMPORTANT*: Every request made with this token will be valid only for the user associated with this token. For instance, listing created devices will return only those devices which were created by this user.
+*IMPORTANT*: Every request made with this token will be valid only for the tenant (user "service") associated with this token. For instance, listing created devices will return only those devices which were created using this tenant.
 
 -------------
 
@@ -56,7 +56,7 @@ curl -X POST http://localhost:8000/template \
 }'
 ```
 
-Supported value types are: "float", "string", "geo" (for georeference data)s, "integer". Supported value types are: "dynamic" and "static" (static attribute values defined here will be copied to all associated devices)
+Supported `type` values are "dynamic", "static" and "meta". Supported `value_types` are "float", "geo" (for georeferenced data), "string", "integer".
 
 The answer is:
 
@@ -290,7 +290,7 @@ Let's retrieve this new device:
 curl -X GET http://localhost:8000/device -H "Authorization: Bearer ${JWT}"
 ```
 
-This request will list all created devices for the user.
+This request will list all created devices for the tenant.
 
 ```json
 {
