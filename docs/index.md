@@ -37,4 +37,4 @@ Keep in mind that running a standalone instance of DeviceManager misses a lot of
 
 There are a few concepts that must be understood to properly use DeviceManager. Visit [this page](concepts.md) to check them out.
 
-This component listens to HTTP requests at port 5000 - all its endpoints are documented [here](apis.html). __IMPORTANT: If you are using all dojot's components (for instance, using a deploy based on [docker-compose](https://github.com/dojot/docker-compose)), it is recommended to visit [dojot's documentation](http://dojotdocs.readthedocs.io/en/latest/user_guide.html) to check the endpoints for all services (including DeviceManager's)__
+This component listens to HTTP requests at port 5000 - all its endpoints are documented [here](apis.html). __IMPORTANT: If you are using all dojot's components (for instance, using a deploy based on [docker-compose](https://github.com/dojot/docker-compose)), it is recommended to visit [dojot's documentation](http://dojotdocs.readthedocs.io/en/latest/apis.html) to check the endpoints for all services (including DeviceManager's)__
