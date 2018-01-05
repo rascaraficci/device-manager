@@ -11,6 +11,8 @@ In fact, templates can represent not only "device models", but it can also abstr
 
 In order to create a device, a user selects which templates are going to compose this new device. All their attributes are merged together and associated to it - they are tightly linked to the original template so that any template update will reflect all associated devices.
 
+This document describes the APIs using DeviceManager as a standalone process. If used with other dojot's components, the endpoints might be changed a bit. Check [dojot's documentation](http://dojotdocs.readthedocs.io/) to check all of them.
+
 # Group Templates
 Before describing the device APIs, we must detail the template endpoints. As said before, templates are a way to describe the "device model", or, more abstractly, a "device class". These templates contains all the attributes that will be applied to the device. Always remember that they can (and eventually will) be merged into one to create a single device - they must not have attributes with the same name. If this is inevitable, a tag could be added to the attribute name and, while creating the device, translation instructions could be created in order to map each attribute from the incoming message to the appropriate device attribute.
 
