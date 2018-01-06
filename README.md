@@ -32,3 +32,7 @@ gunicorn device-manager.app:app
 ```
 
 Keep in mind that running a standalone instance of DeviceManager misses a lot of security checks (such as user identity checks, proper multi-tenancy validations, and so on). In particular, every request sent to DeviceManager needs an access token, which should be retrived from [auth](https://github.com/dojot/auth) component. In the examples listed in this README, you can generate one by yourself (for now, DeviceManager doesn't check if the token is actually valid for that user - they are verified by auth and the API gateway) but this method might not work in the future as more strict token checks are implemented in DeviceManager.
+
+## How to use
+
+There are a few examples on how to use DeviceManager in [this page](./docs/using-device-manager.md).
