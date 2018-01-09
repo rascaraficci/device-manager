@@ -5,16 +5,39 @@ HOST: http://localhost:5000
 
 Device manager is responsible for management operations (CRUD) over devices and templates.
 
-All devices are created based on a *template*, which can be thought as a model of a device. As "model" we could think of part numbers or product models - one *prototype* from which devices are created. Templates in dojot have one label (any alphanumeric sequece), a list of attributes which will hold all the device emitted information, and optionally a few special attributes which will indicate how the device communicates, including transmission methods (protocol, ports, etc.) and message formats.
+All devices are created based on a *template*, which can be thought as a model of a device. 
+As "model" we could think of part numbers or product models - one *prototype* from which 
+devices are created. Templates in dojot have one label (any alphanumeric sequece), a list 
+of attributes which will hold all the device emitted information, and optionally a few 
+special attributes which will indicate how the device communicates, including transmission 
+methods (protocol, ports, etc.) and message formats.
 
-In fact, templates can represent not only "device models", but it can also abstract a "class of devices". For instance, we could have one template to represent all themometers that will be used in dojot. This template would have only one attribute called, let's say, "temperature". While creating the device, the user would select its "physical template", let's say *TexasInstr882*, and the 'thermometer' template. The user would have also to add translation instructions in order to map the temperature reading that will be sent from the device to a "temperature" attribute.
+In fact, templates can represent not only "device models", but it can also abstract a 
+"class of devices". For instance, we could have one template to represent all thermometers 
+that will be used in dojot. This template would have only one attribute called, let's say, 
+"temperature". While creating the device, the user would select its "physical template", 
+let's say *TexasInstr882*, and the 'thermometer' template. The user would have also to 
+add translation instructions in order to map the temperature reading that will be sent 
+from the device to a "temperature" attribute.
 
-In order to create a device, a user selects which templates are going to compose this new device. All their attributes are merged together and associated to it - they are tightly linked to the original template so that any template update will reflect all associated devices.
+In order to create a device, a user selects which templates are going to compose this new 
+device. All their attributes are merged together and associated to it - they are tightly 
+linked to the original template so that any template update will reflect all associated 
+devices.
 
-This document describes the APIs using DeviceManager as a standalone process. If used with other dojot's components, the endpoints might be changed a bit. Check [dojot's documentation](http://dojotdocs.readthedocs.io/) to check all of them.
+This document describes the APIs using DeviceManager as a standalone process. If used with 
+other dojot's components, the endpoints might be changed a bit. Check [dojot's 
+documentation](http://dojotdocs.readthedocs.io/) to check all of them.
 
 # Group Templates
-Before describing the device APIs, we must detail the template endpoints. As said before, templates are a way to describe the "device model", or, more abstractly, a "device class". These templates contains all the attributes that will be applied to the device. Always remember that they can (and eventually will) be merged into one to create a single device - they must not have attributes with the same name. If this is inevitable, a tag could be added to the attribute name and, while creating the device, translation instructions could be created in order to map each attribute from the incoming message to the appropriate device attribute.
+Before describing the device APIs, we must detail the template endpoints. As said before, 
+templates are a way to describe the "device model", or, more abstractly, a "device class". 
+These templates contains all the attributes that will be applied to the device. 
+Always remember that they can (and eventually will) be merged into one to create a 
+single device - they must not have attributes with the same name. If this is inevitable, 
+a tag could be added to the attribute name and, while creating the device, translation 
+instructions could be created in order to map each attribute from the incoming message 
+to the appropriate device attribute.
 
 ## Templates [/template]
 
@@ -447,7 +470,8 @@ Get the full list of devices that belong to a given template..
             }
 
 ### Register a new device [POST /device{?count,verbose}]
-Register a new device. In this example, there is already a template (ID 1) which describes all the attributes to be applied to this device.
+Register a new device. In this example, there is already a template (ID 1) 
+which describes all the attributes to be applied to this device.
 + Parameters
     + count: 3 (integer, optional)
     + verbose: False (boolean, optional) Set to true if full device description is to be returned.
