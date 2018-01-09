@@ -10,22 +10,6 @@ app.config['SQLALCHEMY_DATABASE_URI'] = CONFIG.get_db_url()
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
-
-class DeviceTemplate(db.Model):
-    __tablename__ = 'templates'
-
-    id = db.Column(db.Integer, db.Sequence('template_id'), primary_key=True)
-    label = db.Column(db.String(128), nullable=False)
-    created = db.Column(db.DateTime, default=datetime.now)
-    updated = db.Column(db.DateTime, onupdate=datetime.now)
-
-    attrs = db.relationship("DeviceAttr", back_populates="template", lazy='joined', cascade="delete")
-    devices = db.relationship("Device", secondary='device_template', back_populates="templates")
-
-    def __repr__(self):
-        return "<Template(label='%s')>" % self.label
-
-
 class DeviceAttr(db.Model):
     __tablename__ = 'attrs'
 
@@ -45,6 +29,27 @@ class DeviceAttr(db.Model):
         return "<Attr(label='%s', type='%s', value_type='%s')>" % (
             self.label, self.type, self.value_type)
 
+class DeviceTemplate(db.Model):
+    __tablename__ = 'templates'
+
+    id = db.Column(db.Integer, db.Sequence('template_id'), primary_key=True)
+    label = db.Column(db.String(128), nullable=False)
+    created = db.Column(db.DateTime, default=datetime.now)
+    updated = db.Column(db.DateTime, onupdate=datetime.now)
+
+    attrs = db.relationship("DeviceAttr", back_populates="template", lazy='joined', cascade="delete")
+    devices = db.relationship("Device", secondary='device_template', back_populates="templates")
+
+    config_attrs = db.relationship('DeviceAttr',
+                             primaryjoin=db.and_(DeviceAttr.template_id == id,
+                                                 DeviceAttr.type != 'static',
+                                                 DeviceAttr.type != 'dynamic'))
+    data_attrs = db.relationship('DeviceAttr',
+                                 primaryjoin=db.and_(DeviceAttr.template_id == id,
+                                                     DeviceAttr.type.in_(('static', 'dynamic'))))
+
+    def __repr__(self):
+        return "<Template(label='%s')>" % self.label
 
 class Device(db.Model):
     __tablename__ = 'devices'

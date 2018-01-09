@@ -29,6 +29,8 @@ class TemplateSchema(Schema):
     created = fields.DateTime(dump_only=True)
     updated = fields.DateTime(dump_only=True)
     attrs = fields.Nested(AttrSchema, many=True, dump_only=True)
+    data_attrs = fields.Nested(AttrSchema, many=True, dump_only=True)
+    config_attrs = fields.Nested(AttrSchema, many=True, dump_only=True)
 
     @post_dump
     def remove_null_values(self, data):

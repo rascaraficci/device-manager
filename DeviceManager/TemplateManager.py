@@ -15,6 +15,15 @@ LOGGER.setLevel(logging.INFO)
 
 template = Blueprint('template', __name__)
 
+def attr_format(request, result):
+    """ formats output attr list acording to user input """
+    attrs_format = request.args.get('attr_format', 'both')
+    if attrs_format == 'split':
+        del result['attrs']
+    elif attrs_format == 'single':
+        del result['config_attrs']
+        del result['data_attrs']
+    return result
 
 @template.route('/template', methods=['GET'])
 def get_templates():
@@ -34,6 +43,8 @@ def get_templates():
             },
             'templates': templates
         }
+
+        attr_format(request, result)
         return make_response(json.dumps(result), 200)
 
     except HTTPRequestError as e:
@@ -75,6 +86,7 @@ def get_template(templateid):
         init_tenant_context(request, db)
         tpl = assert_template_exists(templateid)
         json_template = template_schema.dump(tpl).data
+        attr_format(request, json_template)
         return make_response(json.dumps(json_template), 200)
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
