@@ -110,49 +110,125 @@ Register a new template
             }
 
 
-### Get the current list of templates [GET]
+### Get the current list of templates [GET /template{?page_size,page_num,attr_format}]
 Get the full list of templates with all their associated attributes.
 
++ Parameters
+    + page_size: 20 (integer, optional)
+    + page_num: 1 (integer, optional)
+    + attr_format: "both" (string, optional)
+
+        Must be one of "both", "single" (if 'data_attrs' and 'config_attrs' are to be omited)
+        or "split" (if 'attrs' list is to be omited). 'attrs' field will always contain all
+        template attributes that are listed by both 'data_attrs' and 'config_attrs'.
+
 + Request
-      + Headers
+    + Headers
 
             Authorization: Bearer JWT
 
 + Response 200 (application/json)
 
             {
-                "pagination": {
-                    "has_next": false,
-                    "next_page": null,
-                    "page": 1,
-                    "total": 1
-                },
-                "templates": [
+              "templates": [
+                {
+                  "created": "2018-01-09T10:38:55.153648+00:00",
+                  "data_attrs": [
                     {
-                        "attrs": [
-                            {
-                                "created": "2017-12-27T15:22:13.331950+00:00",
-                                "id": 9,
-                                "label": "temperature",
-                                "template_id": "83af",
-                                "type": "dynamic",
-                                "value_type": "float"
-                            },
-                            {
-                                "created": "2017-12-27T15:22:13.334498+00:00",
-                                "id": 10,
-                                "label": "model-id",
-                                "static_value": "model-001",
-                                "template_id": "83af",
-                                "type": "static",
-                                "value_type": "string"
-                            }
-                        ],
-                        "created": "2017-12-27T15:22:13.330246+00:00",
-                        "id": "83af",
-                        "label": "SensorModel"
+                      "template_id": "2",
+                      "created": "2018-01-09T10:38:55.159740+00:00",
+                      "label": "doorStatus",
+                      "value_type": "string",
+                      "type": "dynamic",
+                      "id": 3
+                    },
+                    {
+                      "template_id": "2",
+                      "created": "2018-01-09T10:38:55.160623+00:00",
+                      "label": "temp",
+                      "value_type": "string",
+                      "type": "dynamic",
+                      "id": 4
+                    },
+                    {
+                      "template_id": "2",
+                      "created": "2018-01-09T10:38:55.161061+00:00",
+                      "label": "id",
+                      "value_type": "string",
+                      "type": "static",
+                      "id": 5
                     }
-                ]
+                  ],
+                  "label": "container",
+                  "config_attrs": [
+                    {
+                      "template_id": "2",
+                      "created": "2018-01-09T10:38:55.161466+00:00",
+                      "label": "protocol",
+                      "value_type": "string",
+                      "type": "meta",
+                      "id": 6
+                    },
+                    {
+                      "template_id": "2",
+                      "created": "2018-01-09T10:38:55.161874+00:00",
+                      "label": "topic",
+                      "value_type": "string",
+                      "type": "mqtt_meta",
+                      "id": 7
+                    }
+                  ],
+                  "attrs": [
+                    {
+                      "template_id": "2",
+                      "created": "2018-01-09T10:38:55.159740+00:00",
+                      "label": "doorStatus",
+                      "value_type": "string",
+                      "type": "dynamic",
+                      "id": 3
+                    },
+                    {
+                      "template_id": "2",
+                      "created": "2018-01-09T10:38:55.160623+00:00",
+                      "label": "temp",
+                      "value_type": "string",
+                      "type": "dynamic",
+                      "id": 4
+                    },
+                    {
+                      "template_id": "2",
+                      "created": "2018-01-09T10:38:55.161061+00:00",
+                      "label": "id",
+                      "value_type": "string",
+                      "type": "static",
+                      "id": 5
+                    },
+                    {
+                      "template_id": "2",
+                      "created": "2018-01-09T10:38:55.161466+00:00",
+                      "label": "protocol",
+                      "value_type": "string",
+                      "type": "meta",
+                      "id": 6
+                    },
+                    {
+                      "template_id": "2",
+                      "created": "2018-01-09T10:38:55.161874+00:00",
+                      "label": "topic",
+                      "value_type": "string",
+                      "type": "mqtt_meta",
+                      "id": 7
+                    }
+                  ],
+                  "id": 2
+                }
+              ],
+              "pagination": {
+                "has_next": false,
+                "next_page": null,
+                "total": 1,
+                "page": 1
+              }
             }
 
 
@@ -202,35 +278,109 @@ Removes a template. If any device is based on the template being removed, then a
             }
 
 
-### Get template info [GET]
+### Get template info [GET /template/{id}{?attr_format}]
 Retrieves all information from a specific template
+
++ Parameters
+    + attr_format: "both" (string, optional)
+
+        Must be one of "both", "single" (if 'data_attrs' and 'config_attrs' are to be omited)
+        or "split" (if 'attrs' list is to be omited). 'attrs' field will always contain all
+        template attributes that are listed by both 'data_attrs' and 'config_attrs'.
+
 + Response 200 (application/json)
 
             {
-                "attrs": [
-                    {
-                        "created": "2017-12-27T15:27:35.410095+00:00",
-                        "id": 9,
-                        "label": "temperature",
-                        "template_id": "83af",
-                        "type": "dynamic",
-                        "value_type": "float"
-                    },
-                    {
-                        "created": "2017-12-27T15:27:35.411815+00:00",
-                        "id": 10,
-                        "label": "model-id",
-                        "static_value": "model-001",
-                        "template_id": "83af",
-                        "type": "static",
-                        "value_type": "string"
-                    }
-                ],
-                "created": "2017-12-27T15:27:35.408714+00:00",
-                "id": "83af",
-                "label": "SensorModel"
+              "attrs": [
+                {
+                  "created": "2018-01-09T10:38:55.159740+00:00",
+                  "id": 3,
+                  "label": "doorStatus",
+                  "template_id": "2",
+                  "type": "dynamic",
+                  "value_type": "string"
+                },
+                {
+                  "created": "2018-01-09T10:38:55.160623+00:00",
+                  "id": 4,
+                  "label": "temp",
+                  "template_id": "2",
+                  "type": "dynamic",
+                  "value_type": "string"
+                },
+                {
+                  "created": "2018-01-09T10:38:55.161061+00:00",
+                  "id": 5,
+                  "label": "id",
+                  "template_id": "2",
+                  "type": "static",
+                  "value_type": "string"
+                },
+                {
+                  "created": "2018-01-09T10:38:55.161466+00:00",
+                  "id": 6,
+                  "label": "protocol",
+                  "template_id": "2",
+                  "type": "meta",
+                  "value_type": "string"
+                },
+                {
+                  "created": "2018-01-09T10:38:55.161874+00:00",
+                  "id": 7,
+                  "label": "topic",
+                  "template_id": "2",
+                  "type": "mqtt_meta",
+                  "value_type": "string"
+                }
+              ],
+              "config_attrs": [
+                {
+                  "created": "2018-01-09T10:38:55.161466+00:00",
+                  "id": 6,
+                  "label": "protocol",
+                  "template_id": "2",
+                  "type": "meta",
+                  "value_type": "string"
+                },
+                {
+                  "created": "2018-01-09T10:38:55.161874+00:00",
+                  "id": 7,
+                  "label": "topic",
+                  "template_id": "2",
+                  "type": "mqtt_meta",
+                  "value_type": "string"
+                }
+              ],
+              "created": "2018-01-09T10:38:55.153648+00:00",
+              "data_attrs": [
+                {
+                  "created": "2018-01-09T10:38:55.159740+00:00",
+                  "id": 3,
+                  "label": "doorStatus",
+                  "template_id": "2",
+                  "type": "dynamic",
+                  "value_type": "string"
+                },
+                {
+                  "created": "2018-01-09T10:38:55.160623+00:00",
+                  "id": 4,
+                  "label": "temp",
+                  "template_id": "2",
+                  "type": "dynamic",
+                  "value_type": "string"
+                },
+                {
+                  "created": "2018-01-09T10:38:55.161061+00:00",
+                  "id": 5,
+                  "label": "id",
+                  "template_id": "2",
+                  "type": "static",
+                  "value_type": "string"
+                }
+              ],
+              "id": 2,
+              "label": "container"
             }
-
 + Response 404 (application/json)
 
             {
@@ -273,7 +423,6 @@ All devices based on this template will be also updated.
                     }
                 ]
             }
-
 
 + Response 200 (application/json)
 
