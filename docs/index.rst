@@ -4,7 +4,7 @@ DeviceManager
 |License badge| |Docker badge|
 
 The DeviceManager handles all operations related to creation, retrieval,
-update and deletion of devices in dojot. For more information on that,
+update and deletion of devices in `dojot`_. For more information on that,
 check `DeviceManager Concepts page`_.
 
 .. toctree::
@@ -78,6 +78,7 @@ to check the endpoints for all services (including DeviceManager’s)**
 .. |Docker badge| image:: https://img.shields.io/docker/pulls/dojot/iotagent-json.svg
    :target: https://hub.docker.com/r/dojot/device-manager/
 
+.. _dojot: https://github.com/dojot/dojot
 .. _DeviceManager Concepts page: concepts.html
 .. _auth: https://github.com/dojot/auth
 .. _API page: api.html
