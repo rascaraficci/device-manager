@@ -24,8 +24,9 @@ of temperature (is becoming hotter or is becoming colder) whose values are
 inferred from temperature sensors of other devices. This kind of device is
 called virtual device.
 
-The information model used for both “real” and virtual devices is as
+The information model used for both "real" and virtual devices is as
 following:
+
 
 - *Device*
 
@@ -34,12 +35,13 @@ following:
   - *created* (DateTime, read-only) Device creation date
   - *updated* (DateTime, read-only) Device update date
   - *templates* ([ string (template ID) ], read-write) List of template IDs to “assemble” this device (more on this on ‘Template’ section)
-  - *attrs* ([ Attributes ], read-only) List of attributes currently set to this device.
+  - *attrs* ([ Attributes ], read-only) Map of attributes currently set to this device.
 
+The *attrs* attribute is, in fact, a map associating a template ID with an attribute.
 
 - *Attributes*
 
-  - *id* (integer, read-write) Attribute ID (automatically generated**)
+  - *id* (integer, read-write) Attribute ID (automatically generated)
   - *label* (string, read-write, required) User label for this attribute
   - *created* (DateTime, read-only) Attribute creation date
   - *updated* (DateTime, read-only) Attribute update date
@@ -47,6 +49,56 @@ following:
   - *value_type* (string, read-write, required) Attribute value type (“string”, “float”, “integer”, “geo”)
   - *static_value* (string, read-write) If this is a static attribute, which is its static value
   - *template_id* (string, read-write) From which template did this attribute come from.
+
+All attributes that are read/write can be used when creating or updating the device.
+All of them are returned (if that makes sense - for instance, static_value won't
+be returned when no value is set to it) when retrieving device data.
+
+An example of such structure would be:
+
+.. code-block:: json
+
+  {
+    "templates": [
+      1,
+      2
+    ],
+    "created": "2018-01-05T17:33:31.605748+00:00",
+    "attrs": {
+      "1": [
+        {
+          "template_id": "1",
+          "created": "2018-01-05T15:41:54.840116+00:00",
+          "label": "temperature",
+          "value_type": "float",
+          "type": "dynamic",
+          "id": 1
+        }
+        {
+          "static_value": "SuperTemplate Rev01",
+          "created": "2018-01-05T15:41:54.883507+00:00",
+          "label": "model",
+          "value_type": "string",
+          "type": "static",
+          "id": 3,
+          "template_id": "1"
+        }
+      ],
+      "2": [
+        {
+          "static_value": "/admin/efac/attrs",
+          "template_id": "2",
+          "created": "2018-01-05T15:47:02.995541+00:00",
+          "label": "mqtt-topic",
+          "value_type": "string",
+          "type": "meta",
+          "id": 4
+        }
+      ]
+    },
+    "id": "b7bd",
+    "label": "device"
+  }
 
 Template
 --------
@@ -85,3 +137,44 @@ The information model used for templates is:
   - *updated* (DateTime, read-only) Template update date
   - *attrs* ([ Attributes ], read-write) List of attributes currently set to this template - it’s the same as *attributes* from Device section.
 
+An example of such structure would be:
+
+.. code-block:: json
+
+  {
+    "created": "2018-01-05T15:41:54.803052+00:00",
+    "attrs": [
+      {
+        "template_id": "1",
+        "created": "2018-01-05T15:41:54.840116+00:00",
+        "label": "temperature",
+        "value_type": "float",
+        "type": "dynamic",
+        "id": 1
+      },
+      {
+        "template_id": "1",
+        "created": "2018-01-05T15:41:54.882169+00:00",
+        "label": "pressure",
+        "value_type": "float",
+        "type": "dynamic",
+        "id": 2
+      },
+      {
+        "static_value": "SuperTemplate Rev01",
+        "created": "2018-01-05T15:41:54.883507+00:00",
+        "label": "model",
+        "value_type": "string",
+        "type": "static",
+        "id": 3,
+        "template_id": "1"
+      }
+    ],
+    "id": 1,
+    "label": "Sample Template"
+  }
+
+
+All attributes that are read/write can be used when creating or updating the template.
+All of them are returned (if that makes sense - for instance, static_value won't
+be returned when no value is set to it) when retrieving device data.
