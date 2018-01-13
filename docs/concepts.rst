@@ -27,34 +27,26 @@ called virtual device.
 The information model used for both “real” and virtual devices is as
 following:
 
--  Device:
+- *Device*
 
-   -  id (string, read-only): this is the identifier that will be used
-      when referring to this device
-   -  label (string, read-write, required): an user label to identify
-      this device more easily
-   -  created (DateTime, read-only): device creation date
-   -  updated (DateTime, read-only): device update date
-   -  templates ([ string (template ID) ], read-write): list of template
-      IDs to “assemble” this device (more on this on ‘Template’ section)
-   -  attrs ([ Attributes ], read-only): list of attributes currently
-      set to this device.
+  - *id* (string, read-only) This is the identifier that will be used when referring to this device
+  - *label* (string, read-write, required) An user label to identify this device more easily
+  - *created* (DateTime, read-only) Device creation date
+  - *updated* (DateTime, read-only) Device update date
+  - *templates* ([ string (template ID) ], read-write) List of template IDs to “assemble” this device (more on this on ‘Template’ section)
+  - *attrs* ([ Attributes ], read-only) List of attributes currently set to this device.
 
--  Attributes:
 
-   -  id (integer, read-write): attribute ID (automatically generated)
-   -  label (string, read-write, required): user label for this
-      attribute
-   -  created (DateTime, read-only): attribute creation date
-   -  updated (DateTime, read-only): attribute update date
-   -  type (string, read-write, required): attribute type (“static” or
-      “dynamic”)
-   -  value_type (string, read-write, required): attribute value type
-      (“string”, “float”, “integer”, “geo”)
-   -  static_value (string, read-write): if this is a static attribute,
-      which is its static value
-   -  template_id (string, read-write): from which template did this
-      attribute come from.
+- *Attributes*
+
+  - *id* (integer, read-write) Attribute ID (automatically generated**)
+  - *label* (string, read-write, required) User label for this attribute
+  - *created* (DateTime, read-only) Attribute creation date
+  - *updated* (DateTime, read-only) Attribute update date
+  - *type* (string, read-write, required) Attribute type (“static” or “dynamic”)
+  - *value_type* (string, read-write, required) Attribute value type (“string”, “float”, “integer”, “geo”)
+  - *static_value* (string, read-write) If this is a static attribute, which is its static value
+  - *template_id* (string, read-write) From which template did this attribute come from.
 
 Template
 --------
@@ -85,15 +77,11 @@ that any template update will reflect all associated devices.
 
 The information model used for templates is:
 
--  Template:
+- *Template*
 
-   -  id (string, read-write ): this is the identifier that will be used
-      when referring to this template
-   -  label (string, read-write, required): an user label to identify
-      this template more easily
-   -  created (DateTime, read-only): template creation date
-   -  updated (DateTime, read-only): template update date
-   -  attrs ([ Attributes ], read-write): list of attributes currently
-      set to this template - it’s the same as attributes from Device
-      section.
+  - *id* (string, read-write ) This is the identifier that will be used when referring to this template
+  - *label* (string, read-write, required) An user label to identify this template more easily
+  - *created* (DateTime, read-only) Template creation date
+  - *updated* (DateTime, read-only) Template update date
+  - *attrs* ([ Attributes ], read-write) List of attributes currently set to this template - it’s the same as *attributes* from Device section.
 

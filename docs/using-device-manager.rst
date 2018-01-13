@@ -31,10 +31,11 @@ Right off the bat, let’s retrieve a token from ``auth``:
 This token will be stored in ``bash ${JWT}`` bash variable, referenced
 in all requests.
 
-*IMPORTANT*: Every request made with this token will be valid only for
-the tenant (user “service”) associated with this token. For instance,
-listing created devices will return only those devices which were
-created using this tenant.
+.. ATTENTION::
+  Every request made with this token will be valid only for
+  the tenant (user “service”) associated with this token. For instance,
+  listing created devices will return only those devices which were
+  created using this tenant.
 
 --------------
 
