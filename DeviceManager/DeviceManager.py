@@ -10,7 +10,7 @@ from flask import request
 from flask import make_response
 from flask import Blueprint
 from utils import *
-from BackendHandler import OrionHandler, KafkaHandler
+from BackendHandler import OrionHandler, KafkaHandler, PersistenceHandler
 from sqlalchemy.exc import IntegrityError
 
 from DatabaseModels import *
@@ -111,6 +111,12 @@ def create_device():
             raise HTTPRequestError(400, "If provided, count must be integer")
 
         devices = []
+
+        # Handlers
+        ctx_broker_handler = OrionHandler(service=tenant)
+        kafka_handler = KafkaHandler()
+        subs_handler = PersistenceHandler(service=tenant)
+
         for i in range(0, count):
             device_data, json_payload = parse_payload(request, device_schema)
             device_data['id'] = generate_device_id()
@@ -126,11 +132,15 @@ def create_device():
             full_device = serialize_full_device(orm_device)
 
             # TODO remove this in favor of kafka as data broker....
-            ctx_broker_handler = OrionHandler(service=tenant)
+            # Updating handlers
             ctx_broker_handler.create(full_device)
-
-            kafka_handler = KafkaHandler()
             kafka_handler.create(full_device, meta={"service": tenant})
+            # Generating 'device type' field for history
+            type_descr = "template"
+            for dev_type in full_device['attrs'].keys():
+                type_descr += "_" + str(dev_type)
+            subid = subs_handler.create(full_device['id'], type_descr)
+            orm_device.persistence = subid
 
         try:
             db.session.commit()
@@ -154,9 +164,6 @@ def create_device():
         # if orm_device.protocol != "virtual":
         #     device_type = "device"
         #     protocol_handler.create(orm_device)
-        # TODO revisit history management
-        # subscription_handler = PersistenceHandler(service=tenant)
-        # orm_device.persistence = subscription_handler.create(orm_device.device_id, "device")
 
         return make_response(result, 200)
 
@@ -183,9 +190,13 @@ def get_device(deviceid):
 @device.route('/device/<deviceid>', methods=['DELETE'])
 def remove_device(deviceid):
     try:
-        init_tenant_context(request, db)
+        tenant = init_tenant_context(request, db)
         orm_device = assert_device_exists(deviceid)
         data = serialize_full_device(orm_device)
+
+        subscription_handler = PersistenceHandler(service=tenant)
+        subscription_handler.remove(orm_device.persistence)
+
         db.session.delete(orm_device)
         db.session.commit()
 
@@ -231,13 +242,20 @@ def update_device(deviceid):
         #         protocolHandler.remove(updated_device.id)
 
         # TODO revisit device data persistence
-        # subsHandler = PersistenceHandler(service=tenant)
-        # subsHandler.remove(old_device.persistence)
-        # updated_device.persistence = subsHandler.create(deviceid, device_type)
+        subsHandler = PersistenceHandler(service=tenant)
+        subsHandler.remove(old_device.persistence)
+        # Generating 'device type' field for history
+        type_descr = "template"
+        for dev_type in full_device['attrs'].keys():
+            type_descr += "_" + str(dev_type)
+        updated_device.persistence = subsHandler.create(deviceid, type_descr)
 
         # TODO remove this in favor of kafka as data broker....
         ctx_broker_handler = OrionHandler(service=tenant)
         ctx_broker_handler.update(serialize_full_device(old_device))
+
+        kafka_handler = KafkaHandler()
+        kafka_handler.update(full_device, meta={"service": tenant})
 
         db.session.delete(old_device)
         db.session.add(updated_device)
