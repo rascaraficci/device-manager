@@ -15,6 +15,7 @@ check `DeviceManager Concepts page`_.
    concepts
    using-device-manager
    api
+   building-documentation
 
 .. Indices and tables
 .. ==================

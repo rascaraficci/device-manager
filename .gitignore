@@ -3,5 +3,4 @@
 .eggs/
 .vscode/
 .idea/
-
-
+docs/build/*
