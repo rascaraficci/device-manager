@@ -18,11 +18,11 @@ attributes (one for each sensor). We call this kind of device as regular
 device or by its communication protocol, for instance, MQTT device or
 CoAP device.
 
-We can also create devices which don’t directly correspond to their
-actual ones, for instance, we can create one with higher level of
-information of temperature (is becoming hotter or is becoming colder)
-whose values are inferred from temperature sensors of other devices.
-This kind of device is called virtual device.
+We can also create devices which don’t directly correspond to their associated
+physical ones, for instance, we can create one with higher level of information
+of temperature (is becoming hotter or is becoming colder) whose values are
+inferred from temperature sensors of other devices. This kind of device is
+called virtual device.
 
 The information model used for both “real” and virtual devices is as
 following:
@@ -42,7 +42,7 @@ following:
 
 -  Attributes:
 
-   -  id (integer, read-write): attribute ID (automatically generated**)
+   -  id (integer, read-write): attribute ID (automatically generated)
    -  label (string, read-write, required): user label for this
       attribute
    -  created (DateTime, read-only): attribute creation date
@@ -55,8 +55,6 @@ following:
       which is its static value
    -  template_id (string, read-write): from which template did this
       attribute come from.
-
-\*although the code allows the user to set this.
 
 Template
 --------

@@ -46,8 +46,8 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'DeviceManager'
-copyright = u'2017, CPqD'
-author = u'Matheus Magalhaes'
+copyright = u'2018, CPqD'
+author = u'Matheus Magalhães, Giovanni Curiel dos Santos'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
