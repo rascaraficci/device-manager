@@ -41,7 +41,7 @@ To update the documentation, follow the steps below:
 
 .. code:: shell
 
-    > make gettext
+    make gettext
 
 3. Update the message catalog (PO Files) for pt\_BR language
 
