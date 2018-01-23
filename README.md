@@ -4,7 +4,7 @@
 [![Docker badge](https://img.shields.io/docker/pulls/dojot/iotagent-json.svg)](https://hub.docker.com/r/dojot/device-manager/)
 
 The DeviceManager handles all operations related to creation, retrieval, update and deletion of devices in dojot. For more information
-on that, check [this file](./docs/concepts.md).
+on that, check [this file](./docs/concepts.rst).
 
 ## Dependencies
 
@@ -71,4 +71,4 @@ work in the future as more strict token checks are implemented in DeviceManager.
 
 ## How to use
 
-There are a few examples on how to use DeviceManager in [this page](./docs/using-device-manager.md).
+There are a few examples on how to use DeviceManager in [this page](./docs/using-device-manager.rst).
