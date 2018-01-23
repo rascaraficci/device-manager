@@ -115,7 +115,7 @@ def create_device():
             if count == 1:
                 return base
             else:
-                return base + "_%0*d" % (clength, index)
+                return "{}_{:0{width}d}".format(base, index, width=clength)
 
         devices = []
         for i in range(0, count):
