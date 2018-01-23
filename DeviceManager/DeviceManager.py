@@ -110,6 +110,13 @@ def create_device():
             LOGGER.error(e)
             raise HTTPRequestError(400, "If provided, count must be integer")
 
+
+        def indexed_label(base, index):
+            if count == 1:
+                return base
+            else:
+                return "{}_{:0{width}d}".format(base, index, width=clength)
+
         devices = []
 
         # Handlers
@@ -120,7 +127,7 @@ def create_device():
         for i in range(0, count):
             device_data, json_payload = parse_payload(request, device_schema)
             device_data['id'] = generate_device_id()
-            device_data['label'] = device_data['label'] + "_%0*d" % (clength, i)
+            device_data['label'] = indexed_label(device_data['label'], i)
             device_data.pop('templates', None)  # handled separately by parse_template_list
             orm_device = Device(**device_data)
             parse_template_list(json_payload.get('templates', []), orm_device)
