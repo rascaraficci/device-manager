@@ -102,8 +102,11 @@ def remove_template(templateid):
         tpl = assert_template_exists(templateid)
 
         json_template = template_schema.dump(tpl).data
-        db.session.delete(tpl)
-        db.session.commit()
+        try:
+            db.session.delete(tpl)
+            db.session.commit()
+        except IntegrityError:
+            raise HTTPRequestError(400, "Template cannot be removed as it is being used by devices")
 
         results = json.dumps({'result': 'ok', 'removed': json_template})
         return make_response(results, 200)

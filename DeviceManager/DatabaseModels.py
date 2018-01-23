@@ -38,7 +38,8 @@ class DeviceTemplate(db.Model):
     updated = db.Column(db.DateTime, onupdate=datetime.now)
 
     attrs = db.relationship("DeviceAttr", back_populates="template", lazy='joined', cascade="delete")
-    devices = db.relationship("Device", secondary='device_template', back_populates="templates")
+    devices = db.relationship("Device", secondary='device_template', 
+                              back_populates="templates", passive_deletes='all')
 
     config_attrs = db.relationship('DeviceAttr',
                              primaryjoin=db.and_(DeviceAttr.template_id == id,
@@ -70,8 +71,10 @@ class Device(db.Model):
 
 class DeviceTemplateMap(db.Model):
     __tablename__ = 'device_template'
-    device_id = db.Column(db.String(4), db.ForeignKey('devices.id'), primary_key=True, index=True)
-    template_id = db.Column(db.Integer, db.ForeignKey('templates.id'), primary_key=True, index=True)
+    device_id = db.Column(db.String(4), db.ForeignKey('devices.id'),
+                          primary_key=True, index=True)
+    template_id = db.Column(db.Integer, db.ForeignKey('templates.id'),
+                            primary_key=True, index=True, nullable=False)
 
 
 def assert_device_exists(device_id):
