@@ -13,15 +13,25 @@ class Config(object):
                  dbdriver="postgresql+psycopg2",
                  kafka_host="kafka",
                  kafka_port="9092",
+                 broker="http://data-broker",
+                 subject="dojot.device-manager.device",
                  create_db=True):
+        # Postgres configuration data
         self.dbname = os.environ.get('DBNAME', db)
         self.dbhost = os.environ.get('DBHOST', dbhost)
         self.dbuser = os.environ.get('DBUSER', dbuser)
         self.dbpass = os.environ.get('DBPASS', dbpass)
         self.dbdriver = os.environ.get('DBDRIVER', dbdriver)
         self.create_db = os.environ.get('CREATE_DB', create_db)
+        # Kafka configuration
         self.kafka_host = os.environ.get('KAFKA_HOST', kafka_host)
         self.kafka_port = os.environ.get('KAFKA_PORT', kafka_port)
+
+        # Data broker configuration
+        # Full baseurl of data-broker
+        self.data_broker = os.environ.get('BROKER', broker)
+        # Which subject to publish new device information to
+        self.subject = os.environ.get('SUBJECT', subject)
 
     def get_db_url(self):
         """ From the config, return a valid postgresql url """

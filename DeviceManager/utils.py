@@ -1,5 +1,5 @@
 """ Assorted utils used throughout the service """
-
+import base64
 import json
 import random
 from flask import make_response
@@ -51,3 +51,15 @@ def get_pagination(request):
 
     except TypeError:
         raise HTTPRequestError(400, "page_size and page_num must be integers")
+
+def decode_base64(data):
+    """Decode base64, padding being optional.
+
+    :param data: Base64 data as an ASCII byte string
+    :returns: The decoded byte string.
+
+    """
+    missing_padding = len(data) % 4
+    if missing_padding != 0:
+        data += b'=' * (4 - missing_padding)
+    return base64.decodestring(data)
