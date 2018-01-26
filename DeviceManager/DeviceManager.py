@@ -282,23 +282,53 @@ def update_device(deviceid):
             return format_response(e.error_code, e.message)
 
 
-@device.route('/device/<deviceid>/attrs', methods=['PUT'])
+def find_attribute(orm_device, attribute_name):
+    for template_id in orm_device["attrs"]:
+        for template_attr in orm_device["attrs"][template_id]:
+            if template_attr["label"] == attribute_name:
+                return template_attr
+   
+@device.route('/device/<deviceid>/configure', methods=['PUT'])
 def configure_device(deviceid):
     try:
+        LOGGER.info("Received request for /device/<id>/configure.")
+        LOGGER.info("Device ID is: " + deviceid)
+
         tenant = init_tenant_context(request, db)
-        # In fact, the actual device is not needed. We must be sure that it exists.
-        assert_device_exists(deviceid)
+        LOGGER.info("Tenant is: " + tenant)
+        # In fact, the actual device is not needed. We must be sure that it
+        # exists.
+        orm_device = assert_device_exists(deviceid)
+        full_device = serialize_full_device(orm_device)
         json_payload = json.loads(request.data)
+
         kafka_handler = KafkaHandler()
-        # Remove topic metadata from JSON to be sent to the device
         # Should this be moved to a HTTP header?
         topic = json_payload["topic"]
-        del json_payload["topic"]
+        invalid_attrs = []
+        for attr in json_payload["attrs"]:
+            LOGGER.info("Analyzing attribute: {} with value {}".format(attr, json_payload["attrs"][attr]))
+            device_attribute = find_attribute(full_device, attr)
+            LOGGER.info("Attribute in stored device: {}".format(json.dumps(device_attribute)))
+            LOGGER.info("Configurable? {}".format(device_attribute["configurable"]))
+            if device_attribute["configurable"] is False:
+                invalid_attrs.append(device_attribute["label"])
 
-        kafka_handler.configure(json_payload, meta = { "service" : tenant, "id" : deviceid, "topic": topic})
-
-        result = {'message': 'configuration sent'}
-        return make_response(result, 200)
+        if len(invalid_attrs) is 0:
+            LOGGER.info("Sending configuration message through Kafka.")
+            kafka_handler.configure(json_payload["attrs"],
+                                    meta={"service": tenant,
+                                          "id": deviceid, "topic": topic})
+            LOGGER.info("Configuration sent.")
+            result = {"status": "configuration sent to device"}
+        else:
+            result = {
+                "status": "some of the attributes are not configurable",
+                "attrs": invalid_attrs
+            }
+        
+        LOGGER.info("Configuration sent.")
+        return make_response(json.dumps(result), 200)
 
     except HTTPRequestError as e:
         if isinstance(e.message, dict):

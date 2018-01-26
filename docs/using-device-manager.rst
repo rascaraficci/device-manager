@@ -16,13 +16,13 @@ Creating templates and devices
 
 Right off the bat, let’s retrieve a token from ``auth``:
 
-.. code:: bash
+.. code-block:: bash
 
     curl -X POST http://localhost:8000/auth \
     -H 'Content-Type:application/json' \
     -d '{"username": "admin", "passwd" : "admin"}'
 
-.. code:: json
+.. code-block:: json
 
     {
       "jwt": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIU..."
@@ -43,7 +43,7 @@ A template is, simply put, a model from which devices can be created.
 They can be merged to build a single device (or a set of devices). It is
 created by sending a HTTP request to DeviceManager:
 
-.. code:: bash
+.. code-block:: bash
 
     curl -X POST http://localhost:8000/template \
     -H "Authorization: Bearer ${JWT}" \
@@ -76,7 +76,7 @@ Supported ``type`` values are “dynamic”, “static” and “meta”. Suppor
 
 The answer is:
 
-.. code:: json
+.. code-block:: json
 
     {
       "result": "ok",
@@ -117,7 +117,7 @@ The answer is:
 Let’s create one more template, so that we can see what happens when two
 templates are merged.
 
-.. code:: bash
+.. code-block:: bash
 
     curl -X POST http://localhost:8000/template \
     -H "Authorization: Bearer ${JWT}" \
@@ -135,7 +135,7 @@ templates are merged.
 
 Which results in:
 
-.. code:: json
+.. code-block:: json
 
     {
       "result": "ok",
@@ -158,11 +158,11 @@ Which results in:
 
 Let’s check all templates we’ve created so far.
 
-.. code:: bash
+.. code-block:: bash
 
     curl -X GET http://localhost:8000/template -H "Authorization: Bearer ${JWT}"
 
-.. code:: json
+.. code-block:: json
 
     {
       "templates": [
@@ -225,7 +225,7 @@ Let’s check all templates we’ve created so far.
 Now devices can be created using these two templates. Such request would
 be:
 
-.. code:: bash
+.. code-block:: bash
 
     curl -X POST http://localhost:8000/device \
     -H "Authorization: Bearer ${JWT}" \
@@ -240,7 +240,7 @@ be:
 
 The result is:
 
-.. code:: json
+.. code-block:: json
 
     {
       "device": {
@@ -312,13 +312,13 @@ A few considerations must be made:
 
 Let’s retrieve this new device:
 
-.. code:: bash
+.. code-block:: bash
 
     curl -X GET http://localhost:8000/device -H "Authorization: Bearer ${JWT}"
 
 This request will list all created devices for the tenant.
 
-.. code:: json
+.. code-block:: json
 
     {
       "pagination": {
@@ -385,11 +385,11 @@ Removing templates and devices
 Removing templates and devices is also very simple. Let’s remove the
 device created previously:
 
-.. code:: bash
+.. code-block:: bash
 
     curl -X DELETE http://localhost:8000/device/b7bd -H "Authorization: Bearer ${JWT}"
 
-.. code:: json
+.. code-block:: json
 
     {
       "removed_device": {
@@ -445,11 +445,11 @@ device created previously:
 
 Removing templates is also simple:
 
-.. code:: bash
+.. code-block:: bash
 
     curl -X DELETE http://localhost:8000/template/1 -H "Authorization: Bearer ${JWT}"
 
-.. code:: json
+.. code-block:: json
 
     {
       "removed": {
@@ -489,3 +489,158 @@ Removing templates is also simple:
 
 These are the very basic operations performed by DeviceManager. All
 operations can be found in `API documentation <api.html>`_.
+
+
+
+Sending configuration messages to devices
+-----------------------------------------
+
+You can send change any device attribute via DeviceManager. In order to do so, 
+first you have to set a template attribute as "configurable". By default, all
+attributes are not configurable, i.e., they can't be set or overwritten by
+the user (or any other entity for that matter). Let's create a very similar 
+template from `Creating templates and devices`_ and call it a 'Thermostat':
+
+.. code-block:: bash
+
+    curl -X POST http://localhost:8000/template \
+    -H "Authorization: Bearer ${JWT}" \
+    -H 'Content-Type:application/json' \
+    -d ' {
+      "label": "Thermostat",
+      "attrs": [
+        {
+          "label": "temperature",
+          "type": "dynamic",
+          "value_type": "float",
+          "configurable" : true
+        },
+        {
+          "label": "pressure",
+          "type": "dynamic",
+          "value_type": "float",
+          "configurable" : false
+        },
+        {
+          "label": "model",
+          "type": "static",
+          "value_type" : "string",
+          "static_value" : "Thermostat Rev01"
+        }
+      ]
+    }'
+
+
+Note that the ``temperature`` attribute now has the ``configurable`` property, 
+as well as the ``pressure`` property. The ``model``, once it has no such 
+property, it will be considered as not-configurable.
+
+This request should give an answer like this:
+
+.. code-block:: json
+
+    {
+      "result": "ok",
+      "template": {
+        "created": "2018-01-26T15:56:07.070839+00:00",
+        "label": "Thermostat",
+        "attrs": [
+          {
+            "created": "2018-01-26T15:56:07.073699+00:00",
+            "label": "temperature",
+            "value_type": "float",
+            "configurable": true,
+            "type": "dynamic",
+            "id": 10,
+            "template_id": "4"
+          },
+          {
+            "created": "2018-01-26T15:56:07.077078+00:00",
+            "label": "pressure",
+            "value_type": "float",
+            "configurable": false,
+            "type": "dynamic",
+            "id": 11,
+            "template_id": "4"
+          },
+          {
+            "static_value": "Thermostat Rev01",
+            "created": "2018-01-26T15:56:07.078822+00:00",
+            "label": "model",
+            "value_type": "string",
+            "configurable": false,
+            "type": "static",
+            "id": 12,
+            "template_id": "4"
+          }
+        ],
+        "id": 4
+      }
+    }
+
+Also note that the ``model`` attribute has ``configurable`` property set as
+false.
+
+Creating a device based on it is no different than before:
+
+.. code-block:: bash
+
+  curl -X POST http://localhost:8000/device \
+    -H "Authorization: Bearer ${JWT}" \
+    -H 'Content-Type:application/json' \
+    -d ' {
+      "templates": [
+        "4"
+      ],
+      "label": "device"
+    }'
+
+This gives back the following data:
+
+.. code-block:: json
+
+  {
+    "message": "devices created",
+    "devices": [
+      {
+        "id": "356d",
+        "label": "device"
+      }
+    ]
+  }
+
+
+To send a configuration message to the device, you should send a request like
+this:
+
+.. code-block:: bash
+
+    curl -X PUT http://localhost:8000/device/356d/configure \
+    -H "Authorization: Bearer ${JWT}" \
+    -H 'Content-Type:application/json' \
+    -d ' {
+        "topic": "/admin/356d/config",
+        "attrs": {
+            "temperature" : 10.6
+        }
+    }'
+
+We use the endpoint ``/device/<DEVICEID>/configure`` to send configuration
+messages to a particular device. The payload contains two attributes:
+
+- topic: MQTT topic to which the configuration message will be published.
+- attrs: All the attributes and their respective values that will be configured
+  on the device. The device will receive this part of the payload as
+  configuration.
+
+Remember that the attribute must be configurable for this request to succeed.
+If not, a message like the following one is returned:
+
+.. code-block:: json
+
+  {
+    "status": "some of the attributes are not configurable",
+    "attrs": [
+      "pressure"
+    ]
+  }

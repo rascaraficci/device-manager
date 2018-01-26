@@ -27,28 +27,75 @@ called virtual device.
 The information model used for both "real" and virtual devices is as
 following:
 
+.. list-table:: Device structure
+   :header-rows: 1
+   :stub-columns: 1
 
-- *Device*
+   * - Attribute
+     - Type and mode
+     - Description
+   * - id
+     - String (read only)
+     - This is the identifier that will be used when referring to 
+       this device.
+   * - label
+     - String (read-write, required)
+     - An user label to identify this device more easily
+   * - created
+     - DateTime (read-only)
+     - Device creation date
+   * - updated
+     - DateTime (read-only)
+     - Device update date
+   * - templates
+     - [ String (template ID) ] (read-write)
+     - List of template IDs to “assemble” this device (more on this on 
+       ‘Template’ section)
+   * - attrs
+     - [ Attributes ] (read-only)
+     - Map of attributes currently set to this device.
 
-  - *id* (string, read-only) This is the identifier that will be used when referring to this device
-  - *label* (string, read-write, required) An user label to identify this device more easily
-  - *created* (DateTime, read-only) Device creation date
-  - *updated* (DateTime, read-only) Device update date
-  - *templates* ([ string (template ID) ], read-write) List of template IDs to “assemble” this device (more on this on ‘Template’ section)
-  - *attrs* ([ Attributes ], read-only) Map of attributes currently set to this device.
+The *attrs* attribute is, in fact, a map associating a template ID with an
+attribute.
 
-The *attrs* attribute is, in fact, a map associating a template ID with an attribute.
+.. list-table:: Attribute structure
+   :header-rows: 1
+   :stub-columns: 1
 
-- *Attributes*
-
-  - *id* (integer, read-write) Attribute ID (automatically generated)
-  - *label* (string, read-write, required) User label for this attribute
-  - *created* (DateTime, read-only) Attribute creation date
-  - *updated* (DateTime, read-only) Attribute update date
-  - *type* (string, read-write, required) Attribute type (“static” or “dynamic”)
-  - *value_type* (string, read-write, required) Attribute value type (“string”, “float”, “integer”, “geo”)
-  - *static_value* (string, read-write) If this is a static attribute, which is its static value
-  - *template_id* (string, read-write) From which template did this attribute come from.
+   * - Attribute
+     - Type and mode
+     - Description
+   * - id
+     - integer (read-write) 
+     - Attribute ID (automatically generated)
+   * - label
+     - string (read-write, required) 
+     - User label for this attribute
+   * - created
+     - DateTime (read-only) 
+     - Attribute creation date
+   * - updated
+     - DateTime (read-only) 
+     - Attribute update date
+   * - type
+     - string (read-write, required) 
+     - Attribute type (“static” or “dynamic”)
+   * - value_type
+     - string (read-write, required) 
+     - Attribute value type (“string”, “float”, “integer”, “geo”)
+   * - static_value
+     - string (read-write) 
+     - If this is a static attribute, which is its static value
+   * - template_id
+     - string (read-write) 
+     - From which template did this attribute come from.
+   * - configurable
+     - boolean (read-write)
+     - Indicate whether the user can set this attribute value in the device 
+       (sending a configuration message to the device). If this parameter is not
+       set, the attribute is not configurable. This field is only returned for
+       attributes that the device actually publishes (all attribute types but 
+       'meta').
 
 All attributes that are read/write can be used when creating or updating the device.
 All of them are returned (if that makes sense - for instance, static_value won't
@@ -129,13 +176,28 @@ that any template update will reflect all associated devices.
 
 The information model used for templates is:
 
-- *Template*
+.. list-table:: Template structure
+   :header-rows: 1
+   :stub-columns: 1
 
-  - *id* (string, read-write ) This is the identifier that will be used when referring to this template
-  - *label* (string, read-write, required) An user label to identify this template more easily
-  - *created* (DateTime, read-only) Template creation date
-  - *updated* (DateTime, read-only) Template update date
-  - *attrs* ([ Attributes ], read-write) List of attributes currently set to this template - it’s the same as *attributes* from Device section.
+   * - Attribute
+     - Type and mode
+     - Description
+   * - *id*
+     - string (read-write)
+     - This is the identifier that will be used when referring to this template
+   * - *label*
+     - string (read-write, required)
+     - An user label to identify this template more easily
+   * - *created*
+     - DateTime (read-only)
+     - Template creation date
+   * - *updated*
+     - DateTime (read-only)
+     - Template update date
+   * - *attrs*
+     - [ Attributes ] (read-write)
+     - List of attributes currently set to this template - it’s the same as *attributes* from Device section.
 
 An example of such structure would be:
 

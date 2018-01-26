@@ -10,6 +10,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = CONFIG.get_db_url()
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
+
 class DeviceAttr(db.Model):
     __tablename__ = 'attrs'
 
@@ -25,9 +26,12 @@ class DeviceAttr(db.Model):
     template_id = db.Column(db.Integer, db.ForeignKey('templates.id'), nullable=False)
     template = db.relationship("DeviceTemplate", back_populates="attrs")
 
+    configurable = db.Column(db.Boolean, default=False)
+
     def __repr__(self):
         return "<Attr(label='%s', type='%s', value_type='%s')>" % (
             self.label, self.type, self.value_type)
+
 
 class DeviceTemplate(db.Model):
     __tablename__ = 'templates'
@@ -38,7 +42,7 @@ class DeviceTemplate(db.Model):
     updated = db.Column(db.DateTime, onupdate=datetime.now)
 
     attrs = db.relationship("DeviceAttr", back_populates="template", lazy='joined', cascade="delete")
-    devices = db.relationship("Device", secondary='device_template', 
+    devices = db.relationship("Device", secondary='device_template',
                               back_populates="templates", passive_deletes='all')
 
     config_attrs = db.relationship('DeviceAttr',
@@ -51,6 +55,7 @@ class DeviceTemplate(db.Model):
 
     def __repr__(self):
         return "<Template(label='%s')>" % self.label
+
 
 class Device(db.Model):
     __tablename__ = 'devices'
