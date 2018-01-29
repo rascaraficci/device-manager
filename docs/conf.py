@@ -100,7 +100,7 @@ html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 html_static_path = ['_static']
 html_context = {
     'css_files': [
-        '_static/theme_overrides.css',  # override wide tables in RTD theme
+        '_static/css/theme_overrides.css',  # override wide tables in RTD theme
         ],
      }
 
@@ -185,3 +185,7 @@ epub_exclude_files = ['search.html']
 locale_dirs = ['locale/']  # path is example but recommended
 
 numfig = True
+
+
+def setup(app):
+    app.add_stylesheet('css/theme_overrides.css')
