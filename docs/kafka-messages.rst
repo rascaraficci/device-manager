@@ -9,7 +9,7 @@ be consumed by any component interested in them, such as IoT agents.
    :header-rows: 1
 
    * - Event
-     - Topic
+     - Service
      - Message type
    * - Device creation
      - dojot.device-manager.device
@@ -20,7 +20,7 @@ be consumed by any component interested in them, such as IoT agents.
    * - Device removal
      - dojot.device-manager.device
      - `Removal message`_
-   * - Device configuration
+   * - Device actuation
      - dojot.device-manager.device
      - `Actuation message`_
 

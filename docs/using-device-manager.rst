@@ -495,12 +495,12 @@ operations can be found in `API documentation <api.html>`_.
 Sending actuation messages to devices
 -----------------------------------------
 
-You can send change any device attribute via DeviceManager. In order to do so,
-you have to create some "actuator" attributes in a template. They represent a
+You can invoke any device actuation via DeviceManager. In order to do so, you
+have to create some "actuator" attributes in a template. They represent a
 function exposed by the physical device, such as setting the target
 temperature, making a step-motor move a bit, resetting the device, etc. Let's
-create a very similar template from `Creating templates and devices`_ and call
-it a 'Thermostat':
+create a very similar template from `Creating templates and devices`_ section
+and call it a 'Thermostat':
 
 .. code-block:: bash
 
@@ -530,15 +530,15 @@ it a 'Thermostat':
           "label": "target_temperature",
           "type": "actuator",
           "value_type": "float"
-        },
+        }
       ]
     }'
 
 
 Note that we have one more attribute - ``target_temperature`` - to which we
 will send messages to set the target temperature. This attribute could also
-have the same name as ``temperature`` with no side-effects whatsoever - if an
-actuation request is received by dojot, only ``actuator`` attribute types are
+have the same name as ``temperature`` with no side-effects whatsoever. If an
+actuation request is received by dojot, only ``actuator``-type attribute are
 considered.
 
 This request should give an answer like this:
@@ -548,44 +548,44 @@ This request should give an answer like this:
     {
       "result": "ok",
       "template": {
-        "created": "2018-01-26T15:56:07.070839+00:00",
+        "created": "2018-01-30T12:16:51.423705+00:00",
         "label": "Thermostat",
         "attrs": [
           {
-            "created": "2018-01-26T15:56:07.073699+00:00",
+            "template_id": "1",
+            "created": "2018-01-30T12:16:51.427113+00:00",
             "label": "temperature",
             "value_type": "float",
             "type": "dynamic",
-            "id": 10,
-            "template_id": "4"
+            "id": 1
           },
           {
-            "created": "2018-01-26T15:56:07.077078+00:00",
+            "template_id": "1",
+            "created": "2018-01-30T12:16:51.429224+00:00",
             "label": "pressure",
             "value_type": "float",
             "type": "dynamic",
-            "id": 11,
-            "template_id": "4"
+            "id": 2
           },
           {
             "static_value": "Thermostat Rev01",
-            "created": "2018-01-26T15:56:07.078822+00:00",
+            "created": "2018-01-30T12:16:51.430194+00:00",
             "label": "model",
             "value_type": "string",
             "type": "static",
-            "id": 12,
-            "template_id": "4"
+            "id": 3,
+            "template_id": "1"
           },
           {
-            "created": "2018-01-26T15:56:07.073699+00:00",
+            "template_id": "1",
+            "created": "2018-01-30T12:16:51.430870+00:00",
             "label": "target_temperature",
             "value_type": "float",
             "type": "actuator",
-            "id": 13,
-            "template_id": "4"
-          },
+            "id": 4
+          }
         ],
-        "id": 4
+        "id": 1
       }
     }
 
@@ -599,7 +599,7 @@ Creating a device based on it is no different than before:
     -H 'Content-Type:application/json' \
     -d ' {
       "templates": [
-        "4"
+        "1"
       ],
       "label": "device"
     }'
@@ -633,12 +633,11 @@ this:
         }
     }'
 
-If any template used by the device has a 'topic-config' attribute, then the
-message will be sent to the default topic '/SERVICE/ID/config'. The payload
-contains two attributes:
+The request payload contains only the following attribute:
 
 - attrs: All the attributes and their respective values that will be configured
-  on the device. 
+  on the device. Each value can be as simple as a float or a string, or it could
+  hold a more complex structure, such as an object.
 
 Remember that the attribute must be an actuator for this request to succeed.
 If not, a message like the following one is returned:
@@ -651,3 +650,9 @@ If not, a message like the following one is returned:
       "pressure"
     ]
   }
+
+The request will be published via Kafka. All elements that are interested in
+device notifications (such as IoT agents), will received it. What should be
+done with it is up to the component that processes this message. Check the
+documentation of each component (in particular, from IoT agents) to check what
+is done with it.
