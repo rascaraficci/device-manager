@@ -27,6 +27,9 @@ LOGGER.setLevel(logging.INFO)
 
 
 def serialize_full_device(orm_device):
+    """
+    Turn an object retrieved from database into something serializable.
+    """
     data = device_schema.dump(orm_device).data
     data['attrs'] = {}
     for template in orm_device.templates:
@@ -282,54 +285,68 @@ def update_device(deviceid):
             return format_response(e.error_code, e.message)
 
 
-def find_attribute(orm_device, attribute_name):
-    for template_id in orm_device["attrs"]:
-        for template_attr in orm_device["attrs"][template_id]:
-            if (template_attr["label"] == attribute_name) and (template_attr['type'] == 'actuator'):
-                return template_attr
-   
-@device.route('/device/<deviceid>/configure', methods=['PUT'])
-def configure_device(deviceid):
-    try:
-        LOGGER.info("Received request for /device/<id>/configure.")
-        LOGGER.info("Device ID is: " + deviceid)
+def find_attribute(orm_device, attr_name, attr_type):
+    """
+    Find a particular attribute in a device retrieved from database.
+    Return the attribute, if found, 'None' otherwise
+    """
+    for template_id in orm_device['attrs']:
+        for attr in orm_device['attrs'][template_id]:
+            if (attr['label'] == attr_name) and (attr['type'] == attr_type):
+                return attr
+    return None
 
-        tenant = init_tenant_context(request, db)
-        LOGGER.info("Tenant is: " + tenant)
-        # In fact, the actual device is not needed. We must be sure that it
-        # exists.
+@device.route('/device/<deviceid>/actuate', methods=['PUT'])
+def configure_device(deviceid):
+    """
+    Send actuation commands to the device
+    """
+    try:
+        LOGGER.info('Received request for /device/<id>/actuate.')
+        LOGGER.info('Device ID is: %s', deviceid)
+
+        # Meta information to be published along with device actuation message
+        meta = {
+            'service': ''
+        }
+        kafka_handler = KafkaHandler()
+        invalid_attrs = []
+        payload = {}
+
+        meta['service'] = init_tenant_context(request, db)
+
         orm_device = assert_device_exists(deviceid)
         full_device = serialize_full_device(orm_device)
-        json_payload = json.loads(request.data)
+        LOGGER.debug('Full device: %s', json.dumps(full_device))
 
-        kafka_handler = KafkaHandler()
-        json_payload['id'] = orm_device.id
-        invalid_attrs = []
-        for attr in json_payload["attrs"]:
-            device_attribute = find_attribute(full_device, attr)
-            if device_attribute is None:
+        payload = json.loads(request.data)
+        LOGGER.debug('Parsed request payload: %s', json.dumps(payload))
+
+        payload['id'] = orm_device.id
+
+        for attr in payload['attrs']:
+            if find_attribute(full_device, attr, 'actuator') is None:
                 invalid_attrs.append(attr)
 
         if not invalid_attrs:
-            LOGGER.info("Sending configuration message through Kafka.")
-            kafka_handler.configure(json_payload,
-                                    meta={"service": tenant})
-            LOGGER.info("Configuration sent.")
-            result = {"status": "configuration sent to device"}
+            LOGGER.info('Sending configuration message through Kafka.')
+            kafka_handler.configure(payload, meta)
+            LOGGER.info('Configuration sent.')
+            result = {'status': 'configuration sent to device'}
         else:
             result = {
-                "status": "some of the attributes are not configurable",
-                "attrs": invalid_attrs
+                'status': 'some of the attributes are not configurable',
+                'attrs': invalid_attrs
             }
-        
-        LOGGER.info("Configuration sent.")
+
+        LOGGER.info('Configuration sent.')
         return make_response(json.dumps(result), 200)
 
-    except HTTPRequestError as e:
-        if isinstance(e.message, dict):
-            return make_response(json.dumps(e.message), e.error_code)
+    except HTTPRequestError as error:
+        if isinstance(error.message, dict):
+            return make_response(json.dumps(error.message), error.error_code)
         else:
-            return format_response(e.error_code, e.message)
+            return format_response(error.error_code, error.message)
 
 
 # Convenience template ops

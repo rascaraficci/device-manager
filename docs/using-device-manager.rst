@@ -492,7 +492,7 @@ operations can be found in `API documentation <api.html>`_.
 
 
 
-Sending configuration messages to devices
+Sending actuation messages to devices
 -----------------------------------------
 
 You can send change any device attribute via DeviceManager. In order to do so,
@@ -624,7 +624,7 @@ this:
 
 .. code-block:: bash
 
-    curl -X PUT http://localhost:8000/device/356d/configure \
+    curl -X PUT http://localhost:8000/device/356d/actuate \
     -H "Authorization: Bearer ${JWT}" \
     -H 'Content-Type:application/json' \
     -d ' {
