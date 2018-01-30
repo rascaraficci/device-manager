@@ -495,11 +495,12 @@ operations can be found in `API documentation <api.html>`_.
 Sending configuration messages to devices
 -----------------------------------------
 
-You can send change any device attribute via DeviceManager. In order to do so, 
-first you have to set a template attribute as "configurable". By default, all
-attributes are not configurable, i.e., they can't be set or overwritten by
-the user (or any other entity for that matter). Let's create a very similar 
-template from `Creating templates and devices`_ and call it a 'Thermostat':
+You can send change any device attribute via DeviceManager. In order to do so,
+you have to create some "actuator" attributes in a template. They represent a
+function exposed by the physical device, such as setting the target
+temperature, making a step-motor move a bit, resetting the device, etc. Let's
+create a very similar template from `Creating templates and devices`_ and call
+it a 'Thermostat':
 
 .. code-block:: bash
 
@@ -512,28 +513,33 @@ template from `Creating templates and devices`_ and call it a 'Thermostat':
         {
           "label": "temperature",
           "type": "dynamic",
-          "value_type": "float",
-          "configurable" : true
+          "value_type": "float"
         },
         {
           "label": "pressure",
           "type": "dynamic",
-          "value_type": "float",
-          "configurable" : false
+          "value_type": "float"
         },
         {
           "label": "model",
           "type": "static",
           "value_type" : "string",
           "static_value" : "Thermostat Rev01"
-        }
+        },
+        {
+          "label": "target_temperature",
+          "type": "actuator",
+          "value_type": "float"
+        },
       ]
     }'
 
 
-Note that the ``temperature`` attribute now has the ``configurable`` property, 
-as well as the ``pressure`` property. The ``model``, once it has no such 
-property, it will be considered as not-configurable.
+Note that we have one more attribute - ``target_temperature`` - to which we
+will send messages to set the target temperature. This attribute could also
+have the same name as ``temperature`` with no side-effects whatsoever - if an
+actuation request is received by dojot, only ``actuator`` attribute types are
+considered.
 
 This request should give an answer like this:
 
@@ -549,7 +555,6 @@ This request should give an answer like this:
             "created": "2018-01-26T15:56:07.073699+00:00",
             "label": "temperature",
             "value_type": "float",
-            "configurable": true,
             "type": "dynamic",
             "id": 10,
             "template_id": "4"
@@ -558,7 +563,6 @@ This request should give an answer like this:
             "created": "2018-01-26T15:56:07.077078+00:00",
             "label": "pressure",
             "value_type": "float",
-            "configurable": false,
             "type": "dynamic",
             "id": 11,
             "template_id": "4"
@@ -568,18 +572,23 @@ This request should give an answer like this:
             "created": "2018-01-26T15:56:07.078822+00:00",
             "label": "model",
             "value_type": "string",
-            "configurable": false,
             "type": "static",
             "id": 12,
             "template_id": "4"
-          }
+          },
+          {
+            "created": "2018-01-26T15:56:07.073699+00:00",
+            "label": "target_temperature",
+            "value_type": "float",
+            "type": "actuator",
+            "id": 13,
+            "template_id": "4"
+          },
         ],
         "id": 4
       }
     }
 
-Also note that the ``model`` attribute has ``configurable`` property set as
-false.
 
 Creating a device based on it is no different than before:
 
@@ -619,21 +628,19 @@ this:
     -H "Authorization: Bearer ${JWT}" \
     -H 'Content-Type:application/json' \
     -d ' {
-        "topic": "/admin/356d/config",
         "attrs": {
-            "temperature" : 10.6
+            "target_temperature" : 10.6
         }
     }'
 
-We use the endpoint ``/device/<DEVICEID>/configure`` to send configuration
-messages to a particular device. The payload contains two attributes:
+If any template used by the device has a 'topic-config' attribute, then the
+message will be sent to the default topic '/SERVICE/ID/config'. The payload
+contains two attributes:
 
-- topic: MQTT topic to which the configuration message will be published.
 - attrs: All the attributes and their respective values that will be configured
-  on the device. The device will receive this part of the payload as
-  configuration.
+  on the device. 
 
-Remember that the attribute must be configurable for this request to succeed.
+Remember that the attribute must be an actuator for this request to succeed.
 If not, a message like the following one is returned:
 
 .. code-block:: json

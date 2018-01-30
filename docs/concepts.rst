@@ -1,22 +1,21 @@
 DeviceManager concepts
 ======================
 
-Here are the main concepts needed to correctly use DeviceManager. They
-are not hard to understand, but they are essential to operate not only
-DeviceManager, but the dojot platform as well.
+Here are the main concepts needed to correctly use DeviceManager. They are not
+hard to understand, but they are essential to operate not only DeviceManager,
+but the dojot platform as well.
 
 Device
 ------
 
-In dojot, a device is a digital representation of an actual device or
-gateway with one or more sensors or of a virtual one with
-sensors/attributes inferred from other devices.
+In dojot, a device is a digital representation of an actual device or gateway
+with one or more sensors or of a virtual one with sensors/attributes inferred
+from other devices.
 
-Consider, for instance, an actual device with temperature and humidity
-sensors; it can be represented into dojot as a device with two
-attributes (one for each sensor). We call this kind of device as regular
-device or by its communication protocol, for instance, MQTT device or
-CoAP device.
+Consider, for instance, an actual device with temperature and humidity sensors;
+it can be represented into dojot as a device with two attributes (one for each
+sensor). We call this kind of device as regular device or by its communication
+protocol, for instance, MQTT device or CoAP device.
 
 We can also create devices which don’t directly correspond to their associated
 physical ones, for instance, we can create one with higher level of information
@@ -79,7 +78,7 @@ attribute.
      - Attribute update date
    * - type
      - string (read-write, required) 
-     - Attribute type (“static” or “dynamic”)
+     - Attribute type (“static”, “dynamic”, "actuator")
    * - value_type
      - string (read-write, required) 
      - Attribute value type (“string”, “float”, “integer”, “geo”)
@@ -89,13 +88,6 @@ attribute.
    * - template_id
      - string (read-write) 
      - From which template did this attribute come from.
-   * - configurable
-     - boolean (read-write)
-     - Indicate whether the user can set this attribute value in the device 
-       (sending a configuration message to the device). If this parameter is not
-       set, the attribute is not configurable. This field is only returned for
-       attributes that the device actually publishes (all attribute types but 
-       'meta').
 
 All attributes that are read/write can be used when creating or updating the device.
 All of them are returned (if that makes sense - for instance, static_value won't
