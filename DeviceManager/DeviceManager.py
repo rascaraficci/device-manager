@@ -285,7 +285,7 @@ def update_device(deviceid):
 def find_attribute(orm_device, attribute_name):
     for template_id in orm_device["attrs"]:
         for template_attr in orm_device["attrs"][template_id]:
-            if template_attr["label"] == attribute_name:
+            if (template_attr["label"] == attribute_name) and (template_attr['type'] == 'actuator'):
                 return template_attr
    
 @device.route('/device/<deviceid>/configure', methods=['PUT'])
@@ -303,22 +303,17 @@ def configure_device(deviceid):
         json_payload = json.loads(request.data)
 
         kafka_handler = KafkaHandler()
-        # Should this be moved to a HTTP header?
-        topic = json_payload["topic"]
+        json_payload['id'] = orm_device.id
         invalid_attrs = []
         for attr in json_payload["attrs"]:
-            LOGGER.info("Analyzing attribute: {} with value {}".format(attr, json_payload["attrs"][attr]))
             device_attribute = find_attribute(full_device, attr)
-            LOGGER.info("Attribute in stored device: {}".format(json.dumps(device_attribute)))
-            LOGGER.info("Configurable? {}".format(device_attribute["configurable"]))
-            if device_attribute["configurable"] is False:
-                invalid_attrs.append(device_attribute["label"])
+            if device_attribute is None:
+                invalid_attrs.append(attr)
 
-        if len(invalid_attrs) is 0:
+        if not invalid_attrs:
             LOGGER.info("Sending configuration message through Kafka.")
-            kafka_handler.configure(json_payload["attrs"],
-                                    meta={"service": tenant,
-                                          "id": deviceid, "topic": topic})
+            kafka_handler.configure(json_payload,
+                                    meta={"service": tenant})
             LOGGER.info("Configuration sent.")
             result = {"status": "configuration sent to device"}
         else:

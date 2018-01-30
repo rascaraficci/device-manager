@@ -26,8 +26,6 @@ class DeviceAttr(db.Model):
     template_id = db.Column(db.Integer, db.ForeignKey('templates.id'), nullable=False)
     template = db.relationship("DeviceTemplate", back_populates="attrs")
 
-    configurable = db.Column(db.Boolean, default=False)
-
     def __repr__(self):
         return "<Attr(label='%s', type='%s', value_type='%s')>" % (
             self.label, self.type, self.value_type)
