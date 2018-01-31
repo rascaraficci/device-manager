@@ -1,7 +1,6 @@
-import base64
 import json
 from sqlalchemy.sql import exists, select, text
-from utils import HTTPRequestError
+from utils import HTTPRequestError, decode_base64
 
 
 def install_triggers(db):
@@ -56,20 +55,6 @@ def install_triggers(db):
         FOR EACH ROW EXECUTE PROCEDURE validate_device();
     """
     db.session.execute(query)
-
-
-def decode_base64(data):
-    """Decode base64, padding being optional.
-
-    :param data: Base64 data as an ASCII byte string
-    :returns: The decoded byte string.
-
-    """
-    missing_padding = len(data) % 4
-    if missing_padding != 0:
-        data += b'=' * (4 - missing_padding)
-    return base64.decodestring(data)
-
 
 def get_allowed_service(token):
     """
