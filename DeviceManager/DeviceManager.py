@@ -128,7 +128,8 @@ def create_device():
             device_data, json_payload = parse_payload(request, device_schema)
             device_data['id'] = generate_device_id()
             device_data['label'] = indexed_label(device_data['label'], i)
-            device_data.pop('templates', None)  # handled separately by parse_template_list
+            # handled separately by parse_template_list
+            device_data.pop('templates', None)
             orm_device = Device(**device_data)
             parse_template_list(json_payload.get('templates', []), orm_device)
             auto_create_template(json_payload, orm_device)
@@ -140,12 +141,15 @@ def create_device():
 
             # TODO remove this in favor of kafka as data broker....
             # Updating handlers
-            ctx_broker_handler.create(full_device)
-            kafka_handler.create(full_device, meta={"service": tenant})
+
             # Generating 'device type' field for history
             type_descr = "template"
             for dev_type in full_device['attrs'].keys():
                 type_descr += "_" + str(dev_type)
+
+            ctx_broker_handler.create(full_device, type_descr)
+            kafka_handler.create(full_device, meta={"service": tenant})
+            
             subid = subs_handler.create(full_device['id'], type_descr)
             orm_device.persistence = subid
 
@@ -219,60 +223,52 @@ def remove_device(deviceid):
 @device.route('/device/<deviceid>', methods=['PUT'])
 def update_device(deviceid):
     try:
-        tenant = init_tenant_context(request, db)
-        old_device = assert_device_exists(deviceid)
-
         device_data, json_payload = parse_payload(request, device_schema)
-        device_data.pop('templates')
-        updated_device = Device(**device_data)
-        parse_template_list(json_payload.get('templates', []), updated_device)
-        updated_device.id = deviceid
 
         # update sanity check
         if 'attrs' in json_payload:
             error = "Attributes cannot be updated inline. Update the associated template instead."
             return format_response(400, error)
 
-        # TODO revisit iotagent notification mechanism
-        # protocolHandler = IotaHandler(service=tenant)
-        # device_type = 'virtual'
-        # old_type = old_device.protocol
-        # new_type = updated_device.protocol
-        # if (old_type != 'virtual') and (new_type != 'virtual'):
-        #     device_type = 'device'
-        #     protocolHandler.update(updated_device)
-        # if old_type != new_type:
-        #     if old_type == 'virtual':
-        #         device_type = 'device'
-        #         protocolHandler.create(updated_device)
-        #     elif new_type == 'virtual':
-        #         protocolHandler.remove(updated_device.id)
+        tenant = init_tenant_context(request, db)
+        old_orm_device = assert_device_exists(deviceid)
+
+        # handled separately by parse_template_list
+        device_data.pop('templates')
+        updated_orm_device = Device(**device_data)
+        parse_template_list(json_payload.get('templates', []), updated_orm_device)
+        updated_orm_device.id = deviceid
+
+        # full_old_device = serialize_full_device(old_orm_device)
+        full_device = serialize_full_device(updated_orm_device)
+       
 
         # TODO revisit device data persistence
-        subsHandler = PersistenceHandler(service=tenant)
-        subsHandler.remove(old_device.persistence)
+        subs_handler = PersistenceHandler(service=tenant)
+        # TODO remove this in favor of kafka as data broker....
+        ctx_broker_handler = OrionHandler(service=tenant)
+
+        subs_handler.remove(old_orm_device.persistence)
         # Generating 'device type' field for history
         type_descr = "template"
         for dev_type in full_device['attrs'].keys():
             type_descr += "_" + str(dev_type)
-        updated_device.persistence = subsHandler.create(deviceid, type_descr)
+        updated_orm_device.persistence = subs_handler.create(deviceid, type_descr)
 
-        # TODO remove this in favor of kafka as data broker....
-        ctx_broker_handler = OrionHandler(service=tenant)
-        ctx_broker_handler.update(serialize_full_device(old_device))
+        ctx_broker_handler.update(full_device, type_descr)
 
         kafka_handler = KafkaHandler()
         kafka_handler.update(full_device, meta={"service": tenant})
 
-        db.session.delete(old_device)
-        db.session.add(updated_device)
+        db.session.delete(old_orm_device)
+        db.session.add(updated_orm_device)
 
         try:
             db.session.commit()
         except IntegrityError as error:
             handle_consistency_exception(error)
 
-        result = {'message': 'device updated', 'device': serialize_full_device(updated_device)}
+        result = {'message': 'device updated', 'device': serialize_full_device(updated_orm_device)}
         return make_response(json.dumps(result))
 
     except HTTPRequestError as e:
