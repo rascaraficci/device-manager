@@ -13,7 +13,6 @@ class AttrSchema(Schema):
     value_type = fields.Str(required=True)
     static_value = fields.Str()
     template_id = fields.Str()
-    configurable = fields.Boolean()
 
     @post_dump
     def remove_null_values(self, data):
