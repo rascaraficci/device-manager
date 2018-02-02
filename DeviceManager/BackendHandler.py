@@ -82,6 +82,8 @@ class OrionHandler(BackendHandler):
         for tpl in device['attrs']:
             for attr in device['attrs'][tpl]:
                 body[attr['label']] = {"type": attr['value_type']}
+                if (attr['value_type'] == 'geo:point'):
+                    body[attr['label']]['value'] = '0,0'
 
         return body
 
