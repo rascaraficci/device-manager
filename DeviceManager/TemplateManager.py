@@ -66,7 +66,8 @@ def create_template():
         try:
             db.session.commit()
         except IntegrityError as error:
-            handle_consistency_exception(error)
+            raise HTTPRequestError(400,
+                                   'Template attribute constraints are violated by the request')
 
         results = json.dumps({
             'template': template_schema.dump(loaded_template).data,

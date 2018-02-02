@@ -2,7 +2,6 @@ import json
 from sqlalchemy.sql import exists, select, text
 from utils import HTTPRequestError, decode_base64
 
-
 def install_triggers(db):
     query = """
         -- template update/creation checks
@@ -55,6 +54,8 @@ def install_triggers(db):
         FOR EACH ROW EXECUTE PROCEDURE validate_device();
     """
     db.session.execute(query)
+    db.session.commit()
+
 
 def get_allowed_service(token):
     """
@@ -78,12 +79,11 @@ def get_allowed_service(token):
 
 def create_tenant(tenant, db):
     db.session.execute("create schema \"%s\";" % tenant)
-
+    db.session.commit()
 
 def switch_tenant(tenant, db):
     db.session.execute("SET search_path TO %s" % tenant)
     db.session.commit()
-
 
 def init_tenant(tenant, db):
     query = exists(select([text("schema_name")])
@@ -98,7 +98,6 @@ def init_tenant(tenant, db):
         install_triggers(db)
     else:
         switch_tenant(tenant, db)
-
 
 def init_tenant_context(request, db):
     try:
