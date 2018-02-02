@@ -25,6 +25,11 @@ class DeviceAttr(db.Model):
     template_id = db.Column(db.Integer, db.ForeignKey('templates.id'), nullable=False)
     template = db.relationship("DeviceTemplate", back_populates="attrs")
 
+    # Any given template must not possess two attributes with the same type, label
+    __table_args__ = (
+        sqlalchemy.UniqueConstraint('template_id', 'type', 'label'),
+    )
+
     def __repr__(self):
         return "<Attr(label='%s', type='%s', value_type='%s')>" % (
             self.label, self.type, self.value_type)
@@ -38,7 +43,7 @@ class DeviceTemplate(db.Model):
     updated = db.Column(db.DateTime, onupdate=datetime.now)
 
     attrs = db.relationship("DeviceAttr", back_populates="template", lazy='joined', cascade="delete")
-    devices = db.relationship("Device", secondary='device_template', 
+    devices = db.relationship("Device", secondary='device_template',
                               back_populates="templates", passive_deletes='all')
 
     config_attrs = db.relationship('DeviceAttr',
