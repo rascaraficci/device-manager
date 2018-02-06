@@ -10,6 +10,7 @@ from flask import request
 from flask import make_response
 from flask import Blueprint
 from utils import *
+from conf import CONFIG
 from BackendHandler import OrionHandler, KafkaHandler, PersistenceHandler
 from sqlalchemy.exc import IntegrityError
 
@@ -120,9 +121,11 @@ def create_device():
         devices = []
 
         # Handlers
-        ctx_broker_handler = OrionHandler(service=tenant)
+        if CONFIG.orion:
+            ctx_broker_handler = OrionHandler(service=tenant)
+            subs_handler = PersistenceHandler(service=tenant)
+
         kafka_handler = KafkaHandler()
-        subs_handler = PersistenceHandler(service=tenant)
 
         for i in range(0, count):
             device_data, json_payload = parse_payload(request, device_schema)
@@ -139,19 +142,17 @@ def create_device():
 
             full_device = serialize_full_device(orm_device)
 
-            # TODO remove this in favor of kafka as data broker....
             # Updating handlers
-
-            # Generating 'device type' field for history
-            type_descr = "template"
-            for dev_type in full_device['attrs'].keys():
-                type_descr += "_" + str(dev_type)
-
-            ctx_broker_handler.create(full_device, type_descr)
             kafka_handler.create(full_device, meta={"service": tenant})
-
-            subid = subs_handler.create(full_device['id'], type_descr)
-            orm_device.persistence = subid
+            if CONFIG.orion:
+                # TODO remove this in favor of kafka as data broker....
+                ctx_broker_handler.create(full_device)
+                # Generating 'device type' field for history
+                type_descr = "template"
+                for dev_type in full_device['attrs'].keys():
+                    type_descr += "_" + str(dev_type)
+                subid = subs_handler.create(full_device['id'], type_descr)
+                orm_device.persistence = subid
 
         try:
             db.session.commit()
@@ -205,8 +206,9 @@ def remove_device(deviceid):
         orm_device = assert_device_exists(deviceid)
         data = serialize_full_device(orm_device)
 
-        subscription_handler = PersistenceHandler(service=tenant)
-        subscription_handler.remove(orm_device.persistence)
+        if CONFIG.orion:
+            subscription_handler = PersistenceHandler(service=tenant)
+            subscription_handler.remove(orm_device.persistence)
 
         db.session.delete(orm_device)
         db.session.commit()
@@ -242,20 +244,19 @@ def update_device(deviceid):
         # full_old_device = serialize_full_device(old_orm_device)
         full_device = serialize_full_device(updated_orm_device)
 
+        if CONFIG.orion:
+            # TODO revisit device data persistence
+            subsHandler = PersistenceHandler(service=tenant)
+            subsHandler.remove(old_device.persistence)
+            # Generating 'device type' field for history
+            type_descr = "template"
+            for dev_type in full_device['attrs'].keys():
+                type_descr += "_" + str(dev_type)
+            updated_device.persistence = subsHandler.create(deviceid, type_descr)
 
-        # TODO revisit device data persistence
-        subs_handler = PersistenceHandler(service=tenant)
-        # TODO remove this in favor of kafka as data broker....
-        ctx_broker_handler = OrionHandler(service=tenant)
-
-        subs_handler.remove(old_orm_device.persistence)
-        # Generating 'device type' field for history
-        type_descr = "template"
-        for dev_type in full_device['attrs'].keys():
-            type_descr += "_" + str(dev_type)
-        updated_orm_device.persistence = subs_handler.create(deviceid, type_descr)
-
-        ctx_broker_handler.update(full_device, type_descr)
+            # TODO remove this in favor of kafka as data broker....
+            ctx_broker_handler = OrionHandler(service=tenant)
+            ctx_broker_handler.update(serialize_full_device(old_device))
 
         kafka_handler = KafkaHandler()
         kafka_handler.update(full_device, meta={"service": tenant})

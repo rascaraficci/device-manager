@@ -27,6 +27,8 @@ class Config(object):
         self.kafka_host = os.environ.get('KAFKA_HOST', kafka_host)
         self.kafka_port = os.environ.get('KAFKA_PORT', kafka_port)
 
+        self.orion = os.environ.get('ORION', 'false') in ['True', 'true', 'TRUE', '1']
+
         # Data broker configuration
         # Full baseurl of data-broker
         self.data_broker = os.environ.get('BROKER', broker)
