@@ -9,7 +9,7 @@ be consumed by any component interested in them, such as IoT agents.
    :header-rows: 1
 
    * - Event
-     - Topic
+     - Service
      - Message type
    * - Device creation
      - dojot.device-manager.device
@@ -20,9 +20,9 @@ be consumed by any component interested in them, such as IoT agents.
    * - Device removal
      - dojot.device-manager.device
      - `Removal message`_
-   * - Device configuration
+   * - Device actuation
      - dojot.device-manager.device
-     - `Configuration message`_
+     - `Actuation message`_
 
 
 Creation message
@@ -121,8 +121,8 @@ Its payload is:
   - *id* (string): ID of the device being removed
 
 
-Configuration message
----------------------
+Actuation message
+-----------------
 
 This message is published whenever a device must be configured.
 The payload is:
@@ -130,43 +130,45 @@ The payload is:
 .. code-block:: json
 
   {
-    "event": "configure",
+    "event": "actuate",
     "meta": {
-      "topic": "/admin/cafe/attrs",
-      "id": "cafe"
+      "service": "admin"
     },
-    "data": {
-      "id": "cafe"
-    },
-    "device-attr1": "value"
+    "data" : {
+      "id" : "efac",
+      "attrs": {
+        "reset" : 1,
+        "step-motor" : "+45"
+      }
+    }
   }
 
 
-- *event* (string): "configure"
+- *event* (string): "actuate"
 - *meta*: Meta information about the message
 
   - *service* (string): Tenant associated to this device
-  - *id* (string): ID of the device to be configured
-  - *topic* (string): MQTT topic to be used for device configuration
 
-This message should be forwarded to the device. It can contain more attributes than
-the ones specified by DeviceManager. For instance, a thermostat could be configured
-with the following message:
+This message should be forwarded to the device. It can contain more attributes
+than the ones specified by DeviceManager. For instance, a thermostat could be
+configured with the following message:
 
 .. code-block:: json
 
   {
-    "event": "configure",
+    "event": "actuate",
     "meta": {
-      "topic": "/admin/cafe/attrs",
-      "id": "cafe"
+      "service": "admin"
     },
-    "data": {
-      "id": "cafe"
-    },
-    "target-temperature": "27"
+    "data" : {
+      "id" : "efac",
+      "attrs": {
+        "target_temperature" : 23.5
+      }
+    }
   }
 
-The attribute actually used by the device would be "target-temperature" so that
-it can adjust correctly the temperature. It's up to the receiver of this message
-to properly send the configuration to the device.
+The attribute actually used by the device would be "target_temperature" so that
+it can adjust correctly the temperature. It's up to the receiver of this
+message (an IoT agent, for instance) to properly send the configuration to the
+device.

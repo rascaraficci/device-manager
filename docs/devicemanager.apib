@@ -854,3 +854,42 @@ Replaces all attributes from a specific device.
 + Response 500 (application/json)
 
             {"status" : "failed to update device configuration"}
+
+
+### Configure device [PUT /device/{deviceid}/actuate]
+Send a configuration message to the device to change some of its attributes.
+The target attribute must be of type "actuator".
++ Parameters
+ + deviceid: efac (required, string): Device ID being invoked.
+ 
++ Request (application/json)
+    + Headers
+
+            Authorization: Bearer JWT
+
+    + Body
+
+            {
+                "topic": "/admin/efac/config",
+                "attrs": {
+                    "temperature" : 10.6,
+                    "fan" : 100
+                }
+            }
+
++ Response 200 (application/json)
+
+            {"status" : "configuration sent to device"}
+
++ Response 403 (application/json)
+
+            {
+                "status" : "some of the attributes are not configurable",
+                "attrs" : ["temperature"] 
+            }
+
++ Response 404 (application/json)
+
+            {"status": 404, "message": "No such device: xyzw"}
+
+

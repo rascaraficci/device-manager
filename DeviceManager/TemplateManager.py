@@ -32,7 +32,7 @@ def get_templates():
         init_tenant_context(request, db)
 
         page_number, per_page = get_pagination(request)
-        page = DeviceTemplate.query.paginate(page=int(page_number), 
+        page = DeviceTemplate.query.paginate(page=int(page_number),
                                              per_page=int(per_page),
                                              error_out=False)
         templates = template_list_schema.dump(page.items)
@@ -84,7 +84,7 @@ def create_template():
         return make_response(results, 200)
     except ValidationError as e:
         results = {'message': 'failed to parse attr', 'errors': errors}
-        return make_response(json.dumps(e.message), 500)
+        return make_response(json.dumps(e.message), 400)
     except HTTPRequestError as error:
         if isinstance(error.message, dict):
             return make_response(json.dumps(error.message), error.error_code)
