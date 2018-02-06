@@ -10,6 +10,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = CONFIG.get_db_url()
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
+
 class DeviceAttr(db.Model):
     __tablename__ = 'attrs'
 
@@ -34,6 +35,7 @@ class DeviceAttr(db.Model):
         return "<Attr(label='%s', type='%s', value_type='%s')>" % (
             self.label, self.type, self.value_type)
 
+
 class DeviceTemplate(db.Model):
     __tablename__ = 'templates'
 
@@ -56,6 +58,7 @@ class DeviceTemplate(db.Model):
 
     def __repr__(self):
         return "<Template(label='%s')>" % self.label
+
 
 class Device(db.Model):
     __tablename__ = 'devices'
@@ -83,6 +86,10 @@ class DeviceTemplateMap(db.Model):
 
 
 def assert_device_exists(device_id):
+    """
+    Assert that a device exists, returning the object retrieved from the
+    database.
+    """
     try:
         return Device.query.filter_by(id=device_id).one()
     except sqlalchemy.orm.exc.NoResultFound:

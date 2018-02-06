@@ -16,13 +16,13 @@ Creating templates and devices
 
 Right off the bat, let’s retrieve a token from ``auth``:
 
-.. code:: bash
+.. code-block:: bash
 
     curl -X POST http://localhost:8000/auth \
     -H 'Content-Type:application/json' \
     -d '{"username": "admin", "passwd" : "admin"}'
 
-.. code:: json
+.. code-block:: json
 
     {
       "jwt": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIU..."
@@ -43,7 +43,7 @@ A template is, simply put, a model from which devices can be created.
 They can be merged to build a single device (or a set of devices). It is
 created by sending a HTTP request to DeviceManager:
 
-.. code:: bash
+.. code-block:: bash
 
     curl -X POST http://localhost:8000/template \
     -H "Authorization: Bearer ${JWT}" \
@@ -76,7 +76,7 @@ Supported ``type`` values are “dynamic”, “static” and “meta”. Suppor
 
 The answer is:
 
-.. code:: json
+.. code-block:: json
 
     {
       "result": "ok",
@@ -117,7 +117,7 @@ The answer is:
 Let’s create one more template, so that we can see what happens when two
 templates are merged.
 
-.. code:: bash
+.. code-block:: bash
 
     curl -X POST http://localhost:8000/template \
     -H "Authorization: Bearer ${JWT}" \
@@ -135,7 +135,7 @@ templates are merged.
 
 Which results in:
 
-.. code:: json
+.. code-block:: json
 
     {
       "result": "ok",
@@ -158,11 +158,11 @@ Which results in:
 
 Let’s check all templates we’ve created so far.
 
-.. code:: bash
+.. code-block:: bash
 
     curl -X GET http://localhost:8000/template -H "Authorization: Bearer ${JWT}"
 
-.. code:: json
+.. code-block:: json
 
     {
       "templates": [
@@ -225,7 +225,7 @@ Let’s check all templates we’ve created so far.
 Now devices can be created using these two templates. Such request would
 be:
 
-.. code:: bash
+.. code-block:: bash
 
     curl -X POST http://localhost:8000/device \
     -H "Authorization: Bearer ${JWT}" \
@@ -240,7 +240,7 @@ be:
 
 The result is:
 
-.. code:: json
+.. code-block:: json
 
     {
       "device": {
@@ -312,13 +312,13 @@ A few considerations must be made:
 
 Let’s retrieve this new device:
 
-.. code:: bash
+.. code-block:: bash
 
     curl -X GET http://localhost:8000/device -H "Authorization: Bearer ${JWT}"
 
 This request will list all created devices for the tenant.
 
-.. code:: json
+.. code-block:: json
 
     {
       "pagination": {
@@ -385,11 +385,11 @@ Removing templates and devices
 Removing templates and devices is also very simple. Let’s remove the
 device created previously:
 
-.. code:: bash
+.. code-block:: bash
 
     curl -X DELETE http://localhost:8000/device/b7bd -H "Authorization: Bearer ${JWT}"
 
-.. code:: json
+.. code-block:: json
 
     {
       "removed_device": {
@@ -445,11 +445,11 @@ device created previously:
 
 Removing templates is also simple:
 
-.. code:: bash
+.. code-block:: bash
 
     curl -X DELETE http://localhost:8000/template/1 -H "Authorization: Bearer ${JWT}"
 
-.. code:: json
+.. code-block:: json
 
     {
       "removed": {
@@ -489,3 +489,170 @@ Removing templates is also simple:
 
 These are the very basic operations performed by DeviceManager. All
 operations can be found in `API documentation <api.html>`_.
+
+
+
+Sending actuation messages to devices
+-----------------------------------------
+
+You can invoke any device actuation via DeviceManager. In order to do so, you
+have to create some "actuator" attributes in a template. They represent a
+function exposed by the physical device, such as setting the target
+temperature, making a step-motor move a bit, resetting the device, etc. Let's
+create a very similar template from `Creating templates and devices`_ section
+and call it a 'Thermostat':
+
+.. code-block:: bash
+
+    curl -X POST http://localhost:8000/template \
+    -H "Authorization: Bearer ${JWT}" \
+    -H 'Content-Type:application/json' \
+    -d ' {
+      "label": "Thermostat",
+      "attrs": [
+        {
+          "label": "temperature",
+          "type": "dynamic",
+          "value_type": "float"
+        },
+        {
+          "label": "pressure",
+          "type": "dynamic",
+          "value_type": "float"
+        },
+        {
+          "label": "model",
+          "type": "static",
+          "value_type" : "string",
+          "static_value" : "Thermostat Rev01"
+        },
+        {
+          "label": "target_temperature",
+          "type": "actuator",
+          "value_type": "float"
+        }
+      ]
+    }'
+
+
+Note that we have one more attribute - ``target_temperature`` - to which we
+will send messages to set the target temperature. This attribute could also
+have the same name as ``temperature`` with no side-effects whatsoever. If an
+actuation request is received by dojot, only ``actuator``-type attribute are
+considered.
+
+This request should give an answer like this:
+
+.. code-block:: json
+
+    {
+      "result": "ok",
+      "template": {
+        "created": "2018-01-30T12:16:51.423705+00:00",
+        "label": "Thermostat",
+        "attrs": [
+          {
+            "template_id": "1",
+            "created": "2018-01-30T12:16:51.427113+00:00",
+            "label": "temperature",
+            "value_type": "float",
+            "type": "dynamic",
+            "id": 1
+          },
+          {
+            "template_id": "1",
+            "created": "2018-01-30T12:16:51.429224+00:00",
+            "label": "pressure",
+            "value_type": "float",
+            "type": "dynamic",
+            "id": 2
+          },
+          {
+            "static_value": "Thermostat Rev01",
+            "created": "2018-01-30T12:16:51.430194+00:00",
+            "label": "model",
+            "value_type": "string",
+            "type": "static",
+            "id": 3,
+            "template_id": "1"
+          },
+          {
+            "template_id": "1",
+            "created": "2018-01-30T12:16:51.430870+00:00",
+            "label": "target_temperature",
+            "value_type": "float",
+            "type": "actuator",
+            "id": 4
+          }
+        ],
+        "id": 1
+      }
+    }
+
+
+Creating a device based on it is no different than before:
+
+.. code-block:: bash
+
+  curl -X POST http://localhost:8000/device \
+    -H "Authorization: Bearer ${JWT}" \
+    -H 'Content-Type:application/json' \
+    -d ' {
+      "templates": [
+        "1"
+      ],
+      "label": "device"
+    }'
+
+This gives back the following data:
+
+.. code-block:: json
+
+  {
+    "message": "devices created",
+    "devices": [
+      {
+        "id": "356d",
+        "label": "device"
+      }
+    ]
+  }
+
+
+To send a configuration message to the device, you should send a request like
+this:
+
+.. code-block:: bash
+
+    curl -X PUT http://localhost:8000/device/356d/actuate \
+    -H "Authorization: Bearer ${JWT}" \
+    -H 'Content-Type:application/json' \
+    -d ' {
+        "attrs": {
+            "target_temperature" : 10.6
+        }
+    }'
+
+The request payload contains only the following attribute:
+
+- attrs: All the attributes and their respective values that will be configured
+  on the device. Each value can be as simple as a float or a string, or it could
+  hold a more complex structure, such as an object.
+
+Remember that the attribute must be an actuator for this request to succeed.
+If not, a message like the following one is returned:
+
+.. code-block:: json
+
+  {
+    "status": "some of the attributes are not configurable",
+    "attrs": [
+      "pressure"
+    ]
+  }
+
+The request will be published via Kafka. All elements that are interested in
+device notifications (such as IoT agents), will received it. What should be
+done with it is up to the component that processes this message. Check the
+documentation of each component (in particular, from IoT agents) to check what
+is done with it.

@@ -27,6 +27,9 @@ LOGGER.setLevel(logging.INFO)
 
 
 def serialize_full_device(orm_device):
+    """
+    Turn an object retrieved from database into something serializable.
+    """
     data = device_schema.dump(orm_device).data
     data['attrs'] = {}
     for template in orm_device.templates:
@@ -278,29 +281,68 @@ def update_device(deviceid):
             return format_response(e.error_code, e.message)
 
 
-@device.route('/device/<deviceid>/attrs', methods=['PUT'])
+def find_attribute(orm_device, attr_name, attr_type):
+    """
+    Find a particular attribute in a device retrieved from database.
+    Return the attribute, if found, 'None' otherwise
+    """
+    for template_id in orm_device['attrs']:
+        for attr in orm_device['attrs'][template_id]:
+            if (attr['label'] == attr_name) and (attr['type'] == attr_type):
+                return attr
+    return None
+
+@device.route('/device/<deviceid>/actuate', methods=['PUT'])
 def configure_device(deviceid):
+    """
+    Send actuation commands to the device
+    """
     try:
-        tenant = init_tenant_context(request, db)
-        # In fact, the actual device is not needed. We must be sure that it exists.
-        assert_device_exists(deviceid)
-        json_payload = json.loads(request.data)
+        LOGGER.info('Received request for /device/<id>/actuate.')
+        LOGGER.info('Device ID is: %s', deviceid)
+
+        # Meta information to be published along with device actuation message
+        meta = {
+            'service': ''
+        }
         kafka_handler = KafkaHandler()
-        # Remove topic metadata from JSON to be sent to the device
-        # Should this be moved to a HTTP header?
-        topic = json_payload["topic"]
-        del json_payload["topic"]
+        invalid_attrs = []
+        payload = {}
 
-        kafka_handler.configure(json_payload, meta = { "service" : tenant, "id" : deviceid, "topic": topic})
+        meta['service'] = init_tenant_context(request, db)
 
-        result = {'message': 'configuration sent'}
-        return make_response(result, 200)
+        orm_device = assert_device_exists(deviceid)
+        full_device = serialize_full_device(orm_device)
+        LOGGER.debug('Full device: %s', json.dumps(full_device))
 
-    except HTTPRequestError as e:
-        if isinstance(e.message, dict):
-            return make_response(json.dumps(e.message), e.error_code)
+        payload = json.loads(request.data)
+        LOGGER.debug('Parsed request payload: %s', json.dumps(payload))
+
+        payload['id'] = orm_device.id
+
+        for attr in payload['attrs']:
+            if find_attribute(full_device, attr, 'actuator') is None:
+                invalid_attrs.append(attr)
+
+        if not invalid_attrs:
+            LOGGER.info('Sending configuration message through Kafka.')
+            kafka_handler.configure(payload, meta)
+            LOGGER.info('Configuration sent.')
+            result = {'status': 'configuration sent to device'}
         else:
-            return format_response(e.error_code, e.message)
+            result = {
+                'status': 'some of the attributes are not configurable',
+                'attrs': invalid_attrs
+            }
+
+        LOGGER.info('Configuration sent.')
+        return make_response(json.dumps(result), 200)
+
+    except HTTPRequestError as error:
+        if isinstance(error.message, dict):
+            return make_response(json.dumps(error.message), error.error_code)
+        else:
+            return format_response(error.error_code, error.message)
 
 
 # Convenience template ops

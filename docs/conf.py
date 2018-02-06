@@ -99,7 +99,6 @@ html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 
-
 # -- Options for HTMLHelp output ------------------------------------------
 
 # Output file base name for HTML help builder.
@@ -181,3 +180,7 @@ epub_exclude_files = ['search.html']
 locale_dirs = ['locale/']  # path is example but recommended
 
 numfig = True
+
+
+def setup(app):
+    app.add_stylesheet('css/theme_overrides.css')
