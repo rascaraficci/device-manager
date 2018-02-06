@@ -15,6 +15,7 @@ LOGGER.setLevel(logging.INFO)
 
 template = Blueprint('template', __name__)
 
+
 def attr_format(request, result):
     """ formats output attr list acording to user input """
     attrs_format = request.args.get('attr_format', 'both')
@@ -31,9 +32,10 @@ def get_templates():
         init_tenant_context(request, db)
 
         page_number, per_page = get_pagination(request)
-        page = DeviceTemplate.query.paginate(page=int(page_number), per_page=int(per_page),
+        page = DeviceTemplate.query.paginate(page=int(page_number), 
+                                             per_page=int(per_page),
                                              error_out=False)
-        templates = template_list_schema.dump(page.items).data
+        templates = template_list_schema.dump(page.items)
         result = {
             'pagination': {
                 'page': page.page,
@@ -46,6 +48,12 @@ def get_templates():
 
         attr_format(request, result)
         return make_response(json.dumps(result), 200)
+
+    except ValidationError as e:
+        # This should not happen - an error during marshmallow's dump function
+        # occurred.
+        results = {'message': 'failed to parse attr', 'errors': errors}
+        return make_response(json.dumps(e.message), 500)
 
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
@@ -66,14 +74,17 @@ def create_template():
         try:
             db.session.commit()
         except IntegrityError as error:
-            raise HTTPRequestError(400,
-                                   'Template attribute constraints are violated by the request')
+            raise HTTPRequestError(400, 'Template attribute constraints are \
+                violated by the request')
 
         results = json.dumps({
-            'template': template_schema.dump(loaded_template).data,
+            'template': template_schema.dump(loaded_template),
             'result': 'ok'
         })
         return make_response(results, 200)
+    except ValidationError as e:
+        results = {'message': 'failed to parse attr', 'errors': errors}
+        return make_response(json.dumps(e.message), 500)
     except HTTPRequestError as error:
         if isinstance(error.message, dict):
             return make_response(json.dumps(error.message), error.error_code)
@@ -86,9 +97,12 @@ def get_template(templateid):
     try:
         init_tenant_context(request, db)
         tpl = assert_template_exists(templateid)
-        json_template = template_schema.dump(tpl).data
+        json_template = template_schema.dump(tpl)
         attr_format(request, json_template)
         return make_response(json.dumps(json_template), 200)
+    except ValidationError as e:
+        results = {'message': 'failed to parse attr', 'errors': errors}
+        return make_response(json.dumps(e.message), 500)
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
             return make_response(json.dumps(e.message), e.error_code)
@@ -102,15 +116,19 @@ def remove_template(templateid):
         init_tenant_context(request, db)
         tpl = assert_template_exists(templateid)
 
-        json_template = template_schema.dump(tpl).data
+        json_template = template_schema.dump(tpl)
         try:
             db.session.delete(tpl)
             db.session.commit()
         except IntegrityError:
-            raise HTTPRequestError(400, "Template cannot be removed as it is being used by devices")
+            raise HTTPRequestError(400, "Template cannot be removed as it is \
+                    being used by devices")
 
         results = json.dumps({'result': 'ok', 'removed': json_template})
         return make_response(results, 200)
+    except ValidationError as e:
+        results = {'message': 'failed to parse attr', 'errors': errors}
+        return make_response(json.dumps(e.message), 500)
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
             return make_response(json.dumps(e.message), e.error_code)
@@ -141,10 +159,13 @@ def update_template(templateid):
             handle_consistency_exception(error)
 
         results = {
-            'updated': template_schema.dump(old).data,
+            'updated': template_schema.dump(old),
             'result': 'ok'
         }
         return make_response(json.dumps(results), 200)
+    except ValidationError as e:
+        results = {'message': 'failed to parse attr', 'errors': errors}
+        return make_response(json.dumps(e.message), 500)
     except HTTPRequestError as error:
         if isinstance(error.message, dict):
             return make_response(json.dumps(error.message), error.error_code)

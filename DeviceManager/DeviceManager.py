@@ -27,10 +27,10 @@ LOGGER.setLevel(logging.INFO)
 
 
 def serialize_full_device(orm_device):
-    data = device_schema.dump(orm_device).data
+    data = device_schema.dump(orm_device)
     data['attrs'] = {}
     for template in orm_device.templates:
-        data['attrs'][template.id] = attr_list_schema.dump(template.attrs).data
+        data['attrs'][template.id] = attr_list_schema.dump(template.attrs)
     return data
 
 
