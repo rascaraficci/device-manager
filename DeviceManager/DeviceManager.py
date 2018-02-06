@@ -27,13 +27,10 @@ LOGGER.setLevel(logging.INFO)
 
 
 def serialize_full_device(orm_device):
-    """
-    Turn an object retrieved from database into something serializable.
-    """
-    data = device_schema.dump(orm_device).data
+    data = device_schema.dump(orm_device)
     data['attrs'] = {}
     for template in orm_device.templates:
-        data['attrs'][template.id] = attr_list_schema.dump(template.attrs).data
+        data['attrs'][template.id] = attr_list_schema.dump(template.attrs)
     return data
 
 
@@ -152,7 +149,7 @@ def create_device():
 
             ctx_broker_handler.create(full_device, type_descr)
             kafka_handler.create(full_device, meta={"service": tenant})
-            
+
             subid = subs_handler.create(full_device['id'], type_descr)
             orm_device.persistence = subid
 
@@ -244,7 +241,7 @@ def update_device(deviceid):
 
         # full_old_device = serialize_full_device(old_orm_device)
         full_device = serialize_full_device(updated_orm_device)
-       
+
 
         # TODO revisit device data persistence
         subs_handler = PersistenceHandler(service=tenant)

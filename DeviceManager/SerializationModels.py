@@ -1,6 +1,6 @@
 # object to json sweetness
 import json
-from marshmallow import Schema, fields, post_dump
+from marshmallow import Schema, fields, post_dump, ValidationError
 from utils import HTTPRequestError
 
 
@@ -66,21 +66,21 @@ def parse_payload(request, schema):
         if (content_type is None) or (content_type != "application/json"):
             raise HTTPRequestError(400, "Payload must be valid JSON, and Content-Type set accordingly")
         json_payload = json.loads(request.data)
+        data = schema.load(json_payload)
     except ValueError:
         raise HTTPRequestError(400, "Payload must be valid JSON, and Content-Type set accordingly")
-
-    data, errors = schema.load(json_payload)
-    if errors:
-        results = {'message':'failed to parse input', 'errors': errors}
+    except ValidationError as errors:
+        results = {'message': 'failed to parse input', 'errors': errors}
         raise HTTPRequestError(400, results)
     return data, json_payload
 
 
 def load_attrs(attr_list, parent_template, base_type, db):
     for attr in attr_list:
-        entity, errors = attr_schema.load(attr)
-        if errors:
-            results = {'message':'failed to parse attr', 'errors': errors}
+        try:
+            entity = attr_schema.load(attr)
+        except ValidationError as errors:
+            results = {'message': 'failed to parse attr', 'errors': errors}
             raise HTTPRequestError(400, results)
 
         orm_attr = base_type(template=parent_template, **entity)
