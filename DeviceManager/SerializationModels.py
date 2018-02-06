@@ -3,7 +3,6 @@ import json
 from marshmallow import Schema, fields, post_dump, ValidationError
 from utils import HTTPRequestError
 
-
 class AttrSchema(Schema):
     id = fields.Int()
     label = fields.Str(required=True)
