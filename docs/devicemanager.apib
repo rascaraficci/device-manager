@@ -785,8 +785,7 @@ Removes a device
             }
 
 ### Update device info [PUT]
-Replaces all attributes from a specific device.
-- TODO: updating devices is not yet working properly.
+Updates a device's configuration
 + Request (application/json)
     + Headers
 
@@ -795,53 +794,45 @@ Replaces all attributes from a specific device.
     + Body
 
             {
-                "device_id": "6888",
-                "frequency": 2000,
-                "label": "test-device",
-                "protocol": "MQTT",
-                "template": "83af"
+              "label": "updated_device",
+              "templates": [1]
             }
 
 + Response 200 (application/json)
 
             {
-                "device": {
-                    "updated": "2017-10-06T11:00:49.127223+00:00",
-                    "protocol": "MQTT",
-                    "created": "2017-10-06T10:48:18.220313+00:00",
-                    "label": "test-device",
-                    "frequency": 2000,
-                    "attrs": [
-                        {
-                            "template_id": "83af",
-                            "created": "2017-10-06T10:48:15.795690+00:00",
-                            "label": "custom.a",
-                            "value_type": "string",
-                            "type": "dynamic",
-                            "id": 1
-                        },
-                        {
-                            "template_id": "1",
-                            "created": "2017-10-06T10:48:15.797245+00:00",
-                            "label": "custom.b",
-                            "value_type": "string",
-                            "type": "dynamic",
-                            "id": 2
-                        },
-                        {
-                            "template_id": "1",
-                            "created": "2017-10-06T10:48:15.797639+00:00",
-                            "label": "custom.c",
-                            "value_type": "string",
-                            "type": "dynamic",
-                            "id": 3
-                        }
-                    ],
-                    "template": 1,
-                    "device_id": "6888"
+              "device": {
+                "attrs": {
+                  "1": [
+                    {
+                      "created": "2018-02-08T09:45:31.505301+00:00",
+                      "id": 1,
+                      "label": "a",
+                      "template_id": "1",
+                      "type": "dynamic",
+                      "value_type": "ingeger"
+                    },
+                    {
+                      "created": "2018-02-08T09:45:31.507894+00:00",
+                      "id": 2,
+                      "label": "b",
+                      "template_id": "1",
+                      "type": "dynamic",
+                      "value_type": "integer"
+                    }
+                  ]
                 },
-                "message": "device updated"
+                "created": "2018-02-08T09:51:39.506629+00:00",
+                "id": "06d0",
+                "label": "updated_device",
+                "templates": [
+                  1
+                ],
+                "updated": "2018-02-08T09:52:20.149300+00:00"
+              },
+              "message": "device updated"
             }
+
 
 + Response 400 (application/json)
 
@@ -861,7 +852,7 @@ Send a configuration message to the device to change some of its attributes.
 The target attribute must be of type "actuator".
 + Parameters
  + deviceid: efac (required, string): Device ID being invoked.
- 
+
 + Request (application/json)
     + Headers
 
@@ -885,11 +876,9 @@ The target attribute must be of type "actuator".
 
             {
                 "status" : "some of the attributes are not configurable",
-                "attrs" : ["temperature"] 
+                "attrs" : ["temperature"]
             }
 
 + Response 404 (application/json)
 
             {"status": 404, "message": "No such device: xyzw"}
-
-
