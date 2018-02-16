@@ -40,9 +40,12 @@ Its payload is a simple JSON:
       },
       "data": {
         "id": "efac",
+        "label" : "Device 1",
+        "templates" : [ 1, 2, 3],
         "attrs" : {
 
-        }
+        },
+        "created" : "2018-02-06T10:43:40.890330+00:00"
       }
     }
 
@@ -74,9 +77,12 @@ Its payload looks very similar to device creation:
       },
       "data": {
         "id": "efac",
+        "label" : "Device 1",
+        "templates" : [ 1, 2, 3],
         "attrs" : {
 
-        }
+        },
+        "created" : "2018-02-06T10:43:40.890330+00:00"
       }
     }
 
