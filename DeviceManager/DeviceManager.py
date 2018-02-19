@@ -201,7 +201,7 @@ def remove_device(deviceid):
         data = serialize_full_device(orm_device)
 
         kafka_handler = KafkaHandler()
-        kafka_handler.remove(deviceid, meta={"service": tenant})
+        kafka_handler.remove(data, meta={"service": tenant})
         if CONFIG.orion:
             subscription_handler = PersistenceHandler(service=tenant)
             subscription_handler.remove(orm_device.persistence)
