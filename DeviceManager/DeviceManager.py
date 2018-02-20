@@ -46,7 +46,7 @@ def auto_create_template(json_payload, new_device):
 def parse_template_list(template_list, new_device):
     new_device.templates = []
     for templateid in template_list:
-        new_device.templates.append(assert_template_exists(templateid))
+        new_device.templates.append(assert_template_exists(templateid, db.session))
 
 
 def generate_device_id():
@@ -225,8 +225,8 @@ def update_device(deviceid):
 
         # update sanity check
         if 'attrs' in json_payload:
-            error = "Attributes cannot be updated inline. Update the associated template instead."
-            return format_response(400, error)
+            LOGGER.warn('Got request with "attrs" field set. Ignoring.')
+            json_payload.pop('attrs')
 
         tenant = init_tenant_context(request, db)
         old_orm_device = assert_device_exists(deviceid)
@@ -242,7 +242,7 @@ def update_device(deviceid):
         if CONFIG.orion:
             # Create subscription pointing to history service (STH, logstash based persister)
             subsHandler = PersistenceHandler(service=tenant)
-            subsHandler.remove(old_device.persistence)
+            subsHandler.remove(old_orm_device.persistence)
             # Generating 'device type' field for subscription request
             type_descr = "template"
             for dev_type in full_device['attrs'].keys():
@@ -250,7 +250,7 @@ def update_device(deviceid):
             updated_orm_device.persistence = subsHandler.create(deviceid, type_descr)
 
             ctx_broker_handler = OrionHandler(service=tenant)
-            ctx_broker_handler.update(serialize_full_device(old_device))
+            ctx_broker_handler.update(serialize_full_device(old_orm_device))
 
         kafka_handler = KafkaHandler()
         kafka_handler.update(full_device, meta={"service": tenant})

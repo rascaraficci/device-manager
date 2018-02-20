@@ -85,20 +85,28 @@ class DeviceTemplateMap(db.Model):
                             primary_key=True, index=True, nullable=False)
 
 
-def assert_device_exists(device_id):
+def assert_device_exists(device_id, session=None):
     """
     Assert that a device exists, returning the object retrieved from the
     database.
     """
     try:
-        return Device.query.filter_by(id=device_id).one()
+        if session:
+            with session.no_autoflush:
+                return session.query(Device).filter_by(id=device_id).one()
+        else:
+            return Device.query.filter_by(id=device_id).one()
     except sqlalchemy.orm.exc.NoResultFound:
         raise HTTPRequestError(404, "No such device: %s" % device_id)
 
 
-def assert_template_exists(template_id):
+def assert_template_exists(template_id, session=None):
     try:
-        return DeviceTemplate.query.filter_by(id=template_id).one()
+        if session:
+            with session.no_autoflush:
+                return session.query(DeviceTemplate).filter_by(id=template_id).one()
+        else:
+            return DeviceTemplate.query.filter_by(id=template_id).one()
     except sqlalchemy.orm.exc.NoResultFound:
         raise HTTPRequestError(404, "No such template: %s" % template_id)
 
