@@ -131,11 +131,11 @@ class KafkaHandler:
         """
         send_notification(DeviceEvent.CREATE, device, meta)
 
-    def remove(self, device_id, meta):
+    def remove(self, device, meta):
         """
             Publishes event to kafka broker, notifying device removal
         """
-        send_notification(DeviceEvent.REMOVE, device_id, meta)
+        send_notification(DeviceEvent.REMOVE, device, meta)
 
     def update(self, device, meta):
         """

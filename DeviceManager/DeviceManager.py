@@ -46,7 +46,7 @@ def auto_create_template(json_payload, new_device):
 def parse_template_list(template_list, new_device):
     new_device.templates = []
     for templateid in template_list:
-        new_device.templates.append(assert_template_exists(templateid))
+        new_device.templates.append(assert_template_exists(templateid, db.session))
 
 
 def generate_device_id():
@@ -121,11 +121,12 @@ def create_device():
         devices = []
 
         # Handlers
+        kafka_handler = KafkaHandler()
         if CONFIG.orion:
             ctx_broker_handler = OrionHandler(service=tenant)
             subs_handler = PersistenceHandler(service=tenant)
 
-        kafka_handler = KafkaHandler()
+
 
         for i in range(0, count):
             device_data, json_payload = parse_payload(request, device_schema)
@@ -170,13 +171,6 @@ def create_device():
                 'devices': devices
             })
 
-        # TODO revisit iotagent notification procedure
-        # protocol_handler = IotaHandler(service=tenant)
-        # device_type = "virtual"
-        # if orm_device.protocol != "virtual":
-        #     device_type = "device"
-        #     protocol_handler.create(orm_device)
-
         return make_response(result, 200)
 
     except HTTPRequestError as e:
@@ -206,6 +200,8 @@ def remove_device(deviceid):
         orm_device = assert_device_exists(deviceid)
         data = serialize_full_device(orm_device)
 
+        kafka_handler = KafkaHandler()
+        kafka_handler.remove(data, meta={"service": tenant})
         if CONFIG.orion:
             subscription_handler = PersistenceHandler(service=tenant)
             subscription_handler.remove(orm_device.persistence)
@@ -229,8 +225,8 @@ def update_device(deviceid):
 
         # update sanity check
         if 'attrs' in json_payload:
-            error = "Attributes cannot be updated inline. Update the associated template instead."
-            return format_response(400, error)
+            LOGGER.warn('Got request with "attrs" field set. Ignoring.')
+            json_payload.pop('attrs')
 
         tenant = init_tenant_context(request, db)
         old_orm_device = assert_device_exists(deviceid)
@@ -241,22 +237,20 @@ def update_device(deviceid):
         parse_template_list(json_payload.get('templates', []), updated_orm_device)
         updated_orm_device.id = deviceid
 
-        # full_old_device = serialize_full_device(old_orm_device)
         full_device = serialize_full_device(updated_orm_device)
 
         if CONFIG.orion:
-            # TODO revisit device data persistence
+            # Create subscription pointing to history service (STH, logstash based persister)
             subsHandler = PersistenceHandler(service=tenant)
-            subsHandler.remove(old_device.persistence)
-            # Generating 'device type' field for history
+            subsHandler.remove(old_orm_device.persistence)
+            # Generating 'device type' field for subscription request
             type_descr = "template"
             for dev_type in full_device['attrs'].keys():
                 type_descr += "_" + str(dev_type)
-            updated_device.persistence = subsHandler.create(deviceid, type_descr)
+            updated_orm_device.persistence = subsHandler.create(deviceid, type_descr)
 
-            # TODO remove this in favor of kafka as data broker....
             ctx_broker_handler = OrionHandler(service=tenant)
-            ctx_broker_handler.update(serialize_full_device(old_device))
+            ctx_broker_handler.update(serialize_full_device(old_orm_device))
 
         kafka_handler = KafkaHandler()
         kafka_handler.update(full_device, meta={"service": tenant})
