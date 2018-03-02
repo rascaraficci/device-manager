@@ -1,8 +1,8 @@
 from app import app
 
 # initialize modules
-import DeviceManager
-import TemplateManager
+import DeviceHandler
+import TemplateHandler
 import ErrorManager
 
 if __name__ == '__main__':

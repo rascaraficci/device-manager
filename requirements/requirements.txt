@@ -1,7 +1,7 @@
 flask==0.12
 flask_sqlalchemy==2.3.0
 psycopg2==2.7.3
-marshmallow>=3.0.0b3
+marshmallow==3.0.0b6
 requests==2.18
 gunicorn==19.6.0
 gevent==1.1.1
