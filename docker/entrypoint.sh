@@ -9,7 +9,9 @@ if [ $1 = 'start' ]; then
             echo Executed $retries retries, aborting
             exit 1
         fi
-        docker/waitForDb.py
+        echo "Waiting for DB to come up"
+        python docker/waitForDb.py
+        echo "Finished waiting for DB"
         exec gunicorn DeviceManager.main:app \
                   --bind 0.0.0.0:5000 \
                   --reload -R \

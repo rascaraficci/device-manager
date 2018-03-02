@@ -4,3 +4,4 @@
 .vscode/
 .idea/
 docs/build/*
+*egg-info

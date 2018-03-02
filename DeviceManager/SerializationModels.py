@@ -65,7 +65,7 @@ def parse_payload(request, schema):
         if (content_type is None) or (content_type != "application/json"):
             raise HTTPRequestError(400, "Payload must be valid JSON, and Content-Type set accordingly")
         json_payload = json.loads(request.data)
-        data = schema.load(json_payload)
+        data = schema.load(json_payload).data
     except ValueError:
         raise HTTPRequestError(400, "Payload must be valid JSON, and Content-Type set accordingly")
     except ValidationError as errors:
@@ -75,9 +75,13 @@ def parse_payload(request, schema):
 
 
 def load_attrs(attr_list, parent_template, base_type, db):
+    """
+
+    :rtype:
+    """
     for attr in attr_list:
         try:
-            entity = attr_schema.load(attr)
+            entity = attr_schema.load(attr).data
         except ValidationError as errors:
             results = {'message': 'failed to parse attr', 'errors': errors}
             raise HTTPRequestError(400, results)

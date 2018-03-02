@@ -49,9 +49,9 @@ def get_topic(service, subject):
         "service": service
     }
 
-    jwt = "{}.{}.{}".format(base64.b64encode("model"),
-                            base64.b64encode(json.dumps(userinfo)),
-                            base64.b64encode("signature"))
+    jwt = "{}.{}.{}".format(base64.b64encode("model".encode()).decode(),
+                            base64.b64encode(json.dumps(userinfo).encode()).decode(),
+                            base64.b64encode("signature".encode()).decode())
 
     response = requests.get(target, headers={"authorization": jwt})
     if 200 <= response.status_code < 300:
