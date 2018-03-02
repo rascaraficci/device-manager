@@ -1,26 +1,49 @@
-version: '2'
+version: '2.1'
 services:
 
-  mongodb-devm-jenkins:
-    container_name: "mongodb-devm-jenkins"
-    image: "mongo"
+  data-broker:
+    image: dojot/data-broker
+    restart: always
+    depends_on:
+      - kafka
+      - data-broker-redis
 
-  mosquitto-devm-jenkins:
-    container_name: "mosquitto-devm-jenkins"
-    image: "tenstartups/mosquitto"
+  zookeeper:
+    image: "zookeeper:3.4"
+    restart: always
 
-  orion-devm-jenkins:
-    container_name: "orion-devm-jenkins"
-    image: fiware/orion
-    command: -dbhost mongodb-devm-jenkins
-    links:
-        - mongodb-devm-jenkins
+  postgres:
+    image: "postgres:9.4"
+    restart: always
+    environment:
+      POSTGRES_USER: "kong"
+      POSTGRES_DB: "kong"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  iotagent-devm-jenkins:
-    container_name: "iotagent-devm-jenkins"
-    image: "iotmid-docker:5000/jenkins/iotagent-json:7f188b8"
-    links:
-        - mongodb-devm-jenkins:mongodb
-        - orion-devm-jenkins:orion
-        - mosquitto-devm-jenkins:mosquitto
 
+  data-broker-redis:
+    image: redis
+    restart: always
+    networks:
+      default:
+        aliases:
+          - dbmredis
+
+  kafka:
+    image: "ches/kafka:0.10.1.1"
+    depends_on:
+      - zookeeper
+    restart: always
+    environment:
+      ZOOKEEPER_IP: zookeeper
+      KAFKA_NUM_PARTITIONS: 10
+
+  device-manager:
+    image: dredd-device-manager
+    depends_on:
+      - postgres
+      - kafka

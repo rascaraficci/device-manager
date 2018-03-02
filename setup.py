@@ -2,6 +2,7 @@
 import os
 
 import setuptools
+import sys
 
 from pip import download
 from pip import req
@@ -33,17 +34,33 @@ def get_requirements(reqfile):
     return deps
 
 
-setuptools.setup(
-    name='DeviceManager',
-    description='Dojot device manager.',
-    version=':versiontools:DeviceManager:',
+if sys.argv[1] == 'develop':
+    setuptools.setup(
+        name='DeviceManager',
+        description='Dojot device manager.',
+        version=':versiontools:DeviceManager:',
 
-    packages=setuptools.find_packages(),
-    include_package_data=True,
-    install_requires=get_requirements('requirements/requirements.txt'),
-    setup_requires=('versiontools'),
+        packages=setuptools.find_packages(),
+        include_package_data=True,
+        install_requires=get_requirements('requirements/requirements.txt'),
+        setup_requires=('versiontools'),
 
-    author='Matheus Magalhaes',
-    author_email='matheusr@cpqd.com.br',
-    url='dojot.com.br',
-)
+        author='Matheus Magalhaes',
+        author_email='matheusr@cpqd.com.br',
+        url='dojot.com.br',
+    )
+elif sys.argv[1] == 'tests':
+    setuptools.setup(
+        name='DeviceManager',
+        description='Dojot device manager.',
+        version=':versiontools:DeviceManager:',
+
+        packages=setuptools.find_packages(),
+        include_package_data=True,
+        install_requires=get_requirements('tests/requirements.txt'),
+        setup_requires=('versiontools'),
+
+        author='Matheus Magalhaes',
+        author_email='matheusr@cpqd.com.br',
+        url='dojot.com.br',
+    )
