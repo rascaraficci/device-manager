@@ -100,6 +100,22 @@ class DeviceHandler(object):
         raise HTTPRequestError(500, "Failed to generate unique device_id")
 
     @staticmethod
+    def list_ids(req):
+        """
+        Fetches the list of known device ids.
+        :rtype JSON
+        :raises HTTPRequestError: If no authorization token was provided (no
+        tenant was informed)
+        """
+
+        init_tenant_context(req, db)
+
+        data = []
+        for id in db.session.query(Device.id).all():
+            data.append(id[0])
+        return data
+
+    @staticmethod
     def get_devices(req):
         """
         Fetches known devices, potentially limited by a given value. Ordering
@@ -111,6 +127,9 @@ class DeviceHandler(object):
         :raises HTTPRequestError: If no authorization token was provided (no
         tenant was informed)
         """
+
+        if req.args.get('idsOnly', 'false').lower() in ['true', '1', '']:
+            return DeviceHandler.list_ids(req)
 
         init_tenant_context(req, db)
 
