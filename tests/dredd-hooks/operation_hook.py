@@ -1,8 +1,8 @@
 from __future__ import absolute_import
 import dredd_hooks as hooks
 import json
-from DeviceHandler import DeviceHandler
-from TemplateHandler import TemplateHandler
+from DeviceManager.DeviceHandler import DeviceHandler
+from DeviceManager.TemplateHandler import TemplateHandler
 from token_generator import generate_token
 
 

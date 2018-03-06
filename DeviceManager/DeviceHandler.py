@@ -6,18 +6,19 @@
 import logging
 from flask import request
 from flask import Blueprint
-from utils import *
-from conf import CONFIG
-from BackendHandler import OrionHandler, KafkaHandler, PersistenceHandler
 from sqlalchemy.exc import IntegrityError
 
-from DatabaseModels import db, assert_device_exists, assert_template_exists, handle_consistency_exception, \
-    assert_device_relation_exists
-from DatabaseModels import DeviceTemplate, DeviceAttr, Device, DeviceTemplateMap
-from SerializationModels import *
-from TenancyManager import init_tenant_context
+from DeviceManager.utils import *
+from DeviceManager.conf import CONFIG
+from DeviceManager.BackendHandler import OrionHandler, KafkaHandler, PersistenceHandler
 
-from app import app
+from DeviceManager.DatabaseModels import db, assert_device_exists, assert_template_exists
+from DeviceManager.DatabaseModels import handle_consistency_exception, assert_device_relation_exists
+from DeviceManager.DatabaseModels import DeviceTemplate, DeviceAttr, Device, DeviceTemplateMap
+from DeviceManager.SerializationModels import *
+from DeviceManager.TenancyManager import init_tenant_context
+from DeviceManager.app import app
+
 
 device = Blueprint('device', __name__)
 
@@ -403,7 +404,7 @@ class DeviceHandler(object):
         tenant was informed)
         :raises HTTPRequestError: If this device or template could not be found
         in database.
-        :return A status on whether the device was updated, and the new 
+        :return A status on whether the device was updated, and the new
         structure for that device.
         :rtype JSON
         """
@@ -419,7 +420,7 @@ class DeviceHandler(object):
             handle_consistency_exception(error)
 
         result = {
-            'message': 'device updated', 
+            'message': 'device updated',
             'device': serialize_full_device(orm_device)
         }
 
@@ -437,7 +438,7 @@ class DeviceHandler(object):
         tenant was informed)
         :raises HTTPRequestError: If this device or template could not be found
         in database.
-        :return A status on whether the device was updated, and the new 
+        :return A status on whether the device was updated, and the new
         structure for that device.
         :rtype JSON
         """

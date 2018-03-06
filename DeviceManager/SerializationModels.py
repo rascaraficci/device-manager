@@ -1,7 +1,8 @@
 # object to json sweetness
 import json
 from marshmallow import Schema, fields, post_dump, ValidationError
-from utils import HTTPRequestError
+
+from DeviceManager.utils import HTTPRequestError
 
 class AttrSchema(Schema):
     id = fields.Int()

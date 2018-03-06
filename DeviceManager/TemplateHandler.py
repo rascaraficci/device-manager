@@ -2,14 +2,14 @@ import logging
 from flask import Blueprint, request
 from sqlalchemy.exc import IntegrityError
 
-from DatabaseModels import db
-from DatabaseModels import handle_consistency_exception, assert_template_exists
-from DatabaseModels import DeviceTemplate, DeviceAttr
-from SerializationModels import *
-from TenancyManager import init_tenant_context
+from DeviceManager.DatabaseModels import db
+from DeviceManager.DatabaseModels import handle_consistency_exception, assert_template_exists
+from DeviceManager.DatabaseModels import DeviceTemplate, DeviceAttr
+from DeviceManager.SerializationModels import *
+from DeviceManager.TenancyManager import init_tenant_context
 
-from app import app
-from utils import *
+from DeviceManager.app import app
+from DeviceManager.utils import *
 
 LOGGER = logging.getLogger('device-manager.' + __name__)
 LOGGER.addHandler(logging.StreamHandler())

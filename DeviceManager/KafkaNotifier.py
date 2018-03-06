@@ -1,10 +1,12 @@
 import base64
 import logging
 import json
+
 import requests
-from conf import CONFIG
 from kafka import KafkaProducer
 from kafka.errors import KafkaTimeoutError
+
+from DeviceManager.conf import CONFIG
 
 LOGGER = logging.getLogger('device-manager.' + __name__)
 LOGGER.addHandler(logging.StreamHandler())
