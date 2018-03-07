@@ -1,6 +1,10 @@
 from __future__ import absolute_import
 import dredd_hooks as hooks
 import json
+
+# This shouldn't be needed
+from werkzeug.datastructures import MultiDict
+
 from DeviceManager.DeviceHandler import DeviceHandler
 from DeviceManager.TemplateHandler import TemplateHandler
 from token_generator import generate_token
@@ -178,15 +182,18 @@ def update_template_id(transaction):
 
 @hooks.after_each
 def clean_scenario(transaction):
+    # This shouldn't be needed - controller class shouln't expose flask dependent params
+    # TODO remove
+    args = MultiDict([
+        ('page_size', 10),
+        ('page_num', 1),
+        ('attr_format', 'both')
+    ])
     req = {
         'headers': {
             'authorization': generate_token()
         },
-        'args': {
-            'page_size': 10,
-            'page_num': 1,
-            'attr_format': 'both'
-        },
+        'args': args,
         'body': ''
     }
 
