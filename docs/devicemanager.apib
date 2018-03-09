@@ -498,8 +498,6 @@ which describes all the attributes to be applied to this device.
 
             {"status" : "failed to configure device"}
 
-
-
 ## Device info [/device/{id}]
 Access a specific device
 + parameters
@@ -568,13 +566,14 @@ Retrieves all information from a specific device
             }
 
 
-### Get the current list of devices [GET /device{?page_size,page_num}]
+### Get the current list of devices [GET /device{?page_size,page_num,idsOnly}]
 Get the full list of devices with all their associated attributes.
 Each attribute from *attrs* is the template ID from where the attributes came from.
 In this example, there is only one template (ID 1).
 + Parameters
     + page_size: 20 (integer, optional)
     + page_num: 1 (integer, optional)
+    + idsOnly: false (booelan, optional) - Return only the ids of all existing devices. Ignores any `page_size` and `page_num` configurations
 
 + Request
       + Headers
@@ -637,6 +636,17 @@ In this example, there is only one template (ID 1).
                     "total": 1
                 }
             }
+
++ Request List only device ids
+    `idsOnly` query parameter set to `true`
+    + Headers
+
+            Authorization: Bearer JWT
+
++ Response 200 (application/json)
+
+            ["4f2b","1e4a","3762"]
+
 ### Get the current list of devices associated with given template [GET /device/template/{template_id}{?page_size,page_num}]
 Get the full list of devices that belong to a given template..
 + Parameters

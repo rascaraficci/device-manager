@@ -1,6 +1,7 @@
 import json
 from sqlalchemy.sql import exists, select, text
-from utils import HTTPRequestError, decode_base64
+
+from DeviceManager.utils import HTTPRequestError, decode_base64
 
 def install_triggers(db):
     query = """

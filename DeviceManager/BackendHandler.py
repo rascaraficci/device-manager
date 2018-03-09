@@ -7,9 +7,8 @@ import logging
 import traceback
 import requests
 
-from utils import HTTPRequestError
-
-from KafkaNotifier import send_notification, DeviceEvent
+from DeviceManager.utils import HTTPRequestError
+from DeviceManager.KafkaNotifier import send_notification, DeviceEvent
 
 LOGGER = logging.getLogger('device-manager.' + __name__)
 LOGGER.addHandler(logging.StreamHandler())

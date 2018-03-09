@@ -2,7 +2,7 @@
 
 import json
 from flask import make_response
-from app import app
+from DeviceManager.app import app
 
 
 @app.errorhandler(404)

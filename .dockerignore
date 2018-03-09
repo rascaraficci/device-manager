@@ -1,5 +1,4 @@
-doc/
 *.md
+*.rst
 Dockerfile
 LICENSE
-tests

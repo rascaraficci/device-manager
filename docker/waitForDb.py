@@ -1,6 +1,7 @@
 import psycopg2
 from time import sleep
 import argparse
+
 from DeviceManager.conf import CONFIG
 
 

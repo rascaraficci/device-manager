@@ -43,7 +43,12 @@ services:
       KAFKA_NUM_PARTITIONS: 10
 
   device-manager:
-    image: dredd-device-manager
+    image: dojot/device-manager
     depends_on:
       - postgres
       - kafka
+
+  test-runner:
+    image: dredd/test
+    depends_on:
+      - device-manager
