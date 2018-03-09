@@ -4,6 +4,7 @@
 """
 
 import logging
+import re
 from flask import request
 from flask import Blueprint
 from sqlalchemy.exc import IntegrityError
@@ -134,9 +135,30 @@ class DeviceHandler(object):
         init_tenant_context(req, db)
 
         page_number, per_page = get_pagination(req)
-        page = Device.query.paginate(page=page_number,
-                                     per_page=per_page,
-                                     error_out=False)
+        pagination = {'page': page_number, 'per_page': per_page, 'error_out': False}
+
+        parsed_query = []
+        query = req.args.getlist('attr')
+        for attr in query:
+            parsed = re.search('^(.+){1}=(.+){1}$', attr)
+            parsed_query.append("attrs.label = '{}'".format(parsed.group(1)))
+            parsed_query.append("attrs.static_value = '{}'".format(parsed.group(2)))
+
+        target_label = req.args.get('label', None)
+        if target_label:
+            parsed_query.append("devices.label = '{}'".format(target_label))
+
+        if len(parsed_query):
+            page = db.session.query(Device) \
+                             .join(DeviceTemplateMap) \
+                             .join(DeviceTemplate) \
+                             .join(DeviceAttr) \
+                             .filter(*parsed_query) \
+                             .paginate(**pagination)
+        else:
+            page = db.session.query(Device).paginate(**pagination)
+
+
         devices = []
         for d in page.items:
             devices.append(serialize_full_device(d))

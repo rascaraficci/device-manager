@@ -50,5 +50,3 @@ services:
 
   test-runner:
     image: dredd/test
-    depends_on:
-      - device-manager
