@@ -3,6 +3,11 @@ services:
   - docker
 python:
   - '3.6'
+cache:
+  directories:
+  - node_modules
+before_install:
+  - npm install aglio
 script:
   - 'docker build -t dojot/device-manager .'
   - 'docker build -t dredd/base -f tests/dredd.dockerfile .'
@@ -11,3 +16,11 @@ script:
   - 'docker-compose -p test -f tests/docker-compose.yaml run --rm test-runner'
 after_success:
   - travis/publish.sh
+deploy:
+  provider: pages
+  local-dir: ./docs
+  skip-cleanup: true
+  github-token: $GITHUB_TOKEN  # Set in travis-ci.org dashboard, marked secure
+  keep-history: true
+  on:
+    branch: master
