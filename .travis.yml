@@ -14,6 +14,7 @@ script:
   - 'docker build -t dredd/test -f tests/tests.dockerfile .'
   - 'docker-compose -p test -f tests/docker-compose.yaml up -d kafka data-broker postgres device-manager'
   - 'docker-compose -p test -f tests/docker-compose.yaml run --rm test-runner'
+  - node_modules/.bin/aglio -i ./docs/apiary.apib -o ./docs/apiary_${TRAVIS_BRANCH}.html
 after_success:
   - travis/publish.sh
 deploy:

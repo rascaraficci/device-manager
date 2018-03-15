@@ -30,7 +30,7 @@ import os
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ['sphinxcontrib.apiblueprint']
+extensions = []
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -189,6 +189,7 @@ else:
 rst_epilog = """
     .. _Github pages API description: https://dojot.github.io/{0}/apiary_{1}.html
 """.format(project, GIT_BRANCH)
+
 
 def setup(app):
     app.add_stylesheet('css/theme_overrides.css')
