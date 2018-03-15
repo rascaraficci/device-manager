@@ -4,9 +4,10 @@ from sqlalchemy.exc import IntegrityError
 
 from DeviceManager.DatabaseModels import db
 from DeviceManager.DatabaseModels import handle_consistency_exception, assert_template_exists
-from DeviceManager.DatabaseModels import DeviceTemplate, DeviceAttr
+from DeviceManager.DatabaseModels import DeviceTemplate, DeviceAttr, DeviceTemplateMap
 from DeviceManager.SerializationModels import *
 from DeviceManager.TenancyManager import init_tenant_context
+from DeviceManager.KafkaNotifier import send_raw, DeviceEvent
 
 from DeviceManager.app import app
 from DeviceManager.utils import *
@@ -164,7 +165,7 @@ class TemplateHandler:
         :raises HTTPRequestError: If this template could not be found in
         database.
         """
-        init_tenant_context(req, db)
+        service = init_tenant_context(req, db)
 
         # find old version of the template, if any
         old = assert_template_exists(template_id)
@@ -182,6 +183,23 @@ class TemplateHandler:
             db.session.commit()
         except IntegrityError as error:
             handle_consistency_exception(error)
+
+        # notify interested parties that a set of devices might have been implicitly updated
+        affected = db.session.query(DeviceTemplateMap) \
+                             .filter(DeviceTemplateMap.template_id==template_id) \
+                             .all()
+        
+        affected_devices = []
+        for device in affected:
+            affected_devices.append(device.device_id)
+
+        event = {
+            "event": DeviceEvent.TEMPLATE, 
+            "affected": affected_devices, 
+            "template": template_schema.dump(old).data,
+            "meta": {"service": service}
+        }
+        send_raw(event, service)
 
         results = {
             'updated': template_schema.dump(old).data,

@@ -18,6 +18,7 @@ class DeviceEvent:
     UPDATE = "update"
     REMOVE = "remove"
     CONFIGURE = "configure"
+    TEMPLATE = "template.update"
 
 
 class NotificationMessage:
@@ -73,6 +74,16 @@ def send_notification(event, device, meta):
             LOGGER.error("Failed to retrieve named topic to publish to")
 
         kf_prod.send(topic, full_msg.to_json())
+        kf_prod.flush()
+    except KafkaTimeoutError:
+        LOGGER.error("Kafka timed out.")
+
+def send_raw(raw_data, tenant):
+    try:
+        topic = get_topic(tenant, CONFIG.subject)
+        if topic is None:
+            LOGGER.error("Failed to retrieve named topic to publish to")
+        kf_prod.send(topic, raw_data)
         kf_prod.flush()
     except KafkaTimeoutError:
         LOGGER.error("Kafka timed out.")
