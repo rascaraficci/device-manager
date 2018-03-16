@@ -16,7 +16,7 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
+import os
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
@@ -30,7 +30,7 @@
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ['sphinxcontrib.apiblueprint']
+extensions = []
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -45,7 +45,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'DeviceManager'
+project = u'device-manager'
 copyright = u'2018, CPqD'
 author = u'Matheus Magalhães, Giovanni Curiel dos Santos'
 
@@ -180,6 +180,10 @@ epub_exclude_files = ['search.html']
 locale_dirs = ['locale/']  # path is example but recommended
 
 numfig = True
+
+rst_epilog = """
+    .. _Github pages API description: https://dojot.github.io/{0}/apiary_{1}.html
+""".format(project, os.environ['READTHEDOCS_PROJECT'], os.environ['READTHEDOCS_VERSION'])
 
 
 def setup(app):
