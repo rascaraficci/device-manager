@@ -35,12 +35,8 @@ class HTTPRequestError(Exception):
 
 def get_pagination(request):
     try:
-        page = 1
-        per_page = 20
-        if 'page_size' in request.args.keys():
-            per_page = int(request.args['page_size'])
-        if 'page_num' in request.args.keys():
-            page = int(request.args['page_num'])
+        page = int(request.args.get('page_num', '1'))
+        per_page = int(request.args.get('page_size', '20'))
 
         # sanity checks
         if page < 1:
