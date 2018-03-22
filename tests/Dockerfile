@@ -1,4 +1,4 @@
-FROM giovannicuriel/dredd-python
+FROM dojot/dredd-python:3.6
 
 RUN mkdir -p /usr/src/app/requirements && mkdir -p /usr/src/app/tests
 WORKDIR /usr/src/app
