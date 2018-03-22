@@ -351,6 +351,9 @@ class DeviceHandler(object):
             'templates', []), updated_orm_device)
         updated_orm_device.id = device_id
 
+        db.session.delete(old_orm_device)
+        db.session.add(updated_orm_device)
+
         full_device = serialize_full_device(updated_orm_device)
 
         if CONFIG.orion:
@@ -370,9 +373,6 @@ class DeviceHandler(object):
 
         kafka_handler = KafkaHandler()
         kafka_handler.update(full_device, meta={"service": tenant})
-
-        db.session.delete(old_orm_device)
-        db.session.add(updated_orm_device)
 
         try:
             db.session.commit()
