@@ -12,7 +12,7 @@ class MetaSchema(Schema):
     updated = fields.DateTime(dump_only=True)
     type = fields.Str(required=True)
     value_type = fields.Str(required=True)
-    static_value = fields.Str()
+    static_value = fields.Field()
 
 class AttrSchema(Schema):
     id = fields.Int()
@@ -21,8 +21,8 @@ class AttrSchema(Schema):
     updated = fields.DateTime(dump_only=True)
     type = fields.Str(required=True)
     value_type = fields.Str(required=True)
-    static_value = fields.Str()
-    template_id = fields.Str()
+    static_value = fields.Field()
+    template_id = fields.Str(dump_only=True)
 
     metadata = fields.Nested(MetaSchema, many=True, attribute='children')
 
@@ -30,10 +30,8 @@ class AttrSchema(Schema):
     def remove_null_values(self, data):
         return {key: value for key, value in data.items() if value is not None}
 
-
 attr_schema = AttrSchema()
 attr_list_schema = AttrSchema(many=True)
-
 
 class TemplateSchema(Schema):
     id = fields.Int()
@@ -48,10 +46,8 @@ class TemplateSchema(Schema):
     def remove_null_values(self, data):
         return {key: value for key, value in data.items() if value is not None}
 
-
 template_schema = TemplateSchema()
 template_list_schema = TemplateSchema(many=True)
-
 
 class DeviceSchema(Schema):
     id = fields.String(dump_only=True)
@@ -67,10 +63,8 @@ class DeviceSchema(Schema):
     def remove_null_values(self, data):
         return {key: value for key, value in data.items() if value is not None}
 
-
 device_schema = DeviceSchema()
 device_list_schema = DeviceSchema(many=True)
-
 
 def parse_payload(request, schema):
     try:
@@ -85,7 +79,6 @@ def parse_payload(request, schema):
         results = {'message': 'failed to parse input', 'errors': errors}
         raise HTTPRequestError(400, results)
     return data, json_payload
-
 
 def load_attrs(attr_list, parent_template, base_type, db):
     """

@@ -11,7 +11,6 @@ app.config['SQLALCHEMY_DATABASE_URI'] = CONFIG.get_db_url()
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
-
 class DeviceAttr(db.Model):
     __tablename__ = 'attrs'
 
@@ -126,6 +125,4 @@ def assert_device_relation_exists(device_id, template_id):
 
 
 def handle_consistency_exception(error):
-    # message = error.message.replace('\n','')
-    message = re.sub(r"(^\(.*?\))|\n", "", error.message)
-    raise HTTPRequestError(400, message)
+    raise HTTPRequestError(400, error.orig.diag.message_primary)
