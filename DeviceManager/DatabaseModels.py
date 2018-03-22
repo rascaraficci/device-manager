@@ -24,12 +24,18 @@ class DeviceAttr(db.Model):
     value_type = db.Column(db.String(32), nullable=False)
     static_value = db.Column(db.String(128))
 
-    template_id = db.Column(db.Integer, db.ForeignKey('templates.id'), nullable=False)
+    template_id = db.Column(db.Integer, db.ForeignKey('templates.id'))
     template = db.relationship("DeviceTemplate", back_populates="attrs")
+
+    parent_id = db.Column(db.Integer, db.ForeignKey('attrs.id'))
+    parent = db.relationship("DeviceAttr", remote_side=[id])
+    children = db.relationship("DeviceAttr", back_populates="parent", cascade="delete")
 
     # Any given template must not possess two attributes with the same type, label
     __table_args__ = (
         sqlalchemy.UniqueConstraint('template_id', 'type', 'label'),
+        sqlalchemy.CheckConstraint("((template_id IS NULL) AND NOT (parent_id IS NULL)) OR \
+                                     (NOT (template_id IS NULL) AND (parent_id IS NULL))")
     )
 
     def __repr__(self):
