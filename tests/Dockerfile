@@ -1,4 +1,4 @@
-FROM dredd/base
+FROM giovannicuriel/dredd-python
 
 RUN mkdir -p /usr/src/app/requirements && mkdir -p /usr/src/app/tests
 WORKDIR /usr/src/app
