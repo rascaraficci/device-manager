@@ -183,6 +183,7 @@ class TemplateHandler:
 
         for attr in old.attrs:
             db.session.delete(attr)
+        db.session.flush()
         for attr in json_payload['attrs']:
             mapped = DeviceAttr(template=old, **attr)
             db.session.add(mapped)
