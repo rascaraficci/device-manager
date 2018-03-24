@@ -16,13 +16,9 @@ def format_response(status, message=None):
 
     return make_response(payload, status)
 
-
 def create_id():
     """ Generates a random hex id for managed entities """
-    # TODO this is far too small for any practical deployment, but helps keep
-    #      the demo process simple
-    return '%04x' % random.randrange(16**4)
-
+    return '%05x' % random.randrange(16**6)
 
 # from auth service
 class HTTPRequestError(Exception):
