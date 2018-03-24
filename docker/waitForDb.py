@@ -30,13 +30,14 @@ def wait_for_db(db_args):
         print('Will try again in ' + str(db_args.wait))
         sleep(db_args.wait)
 
-    print('Postgres is ready')
+    print('Max retries reached, failed to connect to Postgres')
+    exit(1)
 
 
 if __name__ == '__main__':
     desc = """Waits for database"""
     parser = argparse.ArgumentParser(description=desc)
-    parser.add_argument('-w', '--wait', help="", default=5)
-    parser.add_argument('-r', '--retries', help="", default=20)
+    parser.add_argument('-w', '--wait', help="", default=5, type=int)
+    parser.add_argument('-r', '--retries', help="", default=20, type=int)
     args = parser.parse_args()
     wait_for_db(args)
