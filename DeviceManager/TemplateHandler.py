@@ -22,11 +22,20 @@ template = Blueprint('template', __name__)
 def attr_format(req, result):
     """ formats output attr list acording to user input """
     attrs_format = req.args.get('attr_format', 'both')
+
+    def remove(d,k):
+        try:
+            LOGGER.info('will remove {}'.format(k))
+            d.pop(k)
+        except KeyError:
+            pass
+
     if attrs_format == 'split':
-        del result['attrs']
+        remove(result, 'attrs')
     elif attrs_format == 'single':
-        del result['config_attrs']
-        del result['data_attrs']
+        remove(result, 'config_attrs')
+        remove(result, 'data_attrs')
+
     return result
 
 
@@ -53,7 +62,7 @@ class TemplateHandler:
         page = DeviceTemplate.query.paginate(page=int(page_number),
                                              per_page=int(per_page),
                                              error_out=False)
-        templates = template_list_schema.dump(page.items).data
+        templates = list(map(lambda x: attr_format(req, x), template_list_schema.dump(page.items).data))
         result = {
             'pagination': {
                 'page': page.page,
@@ -64,7 +73,6 @@ class TemplateHandler:
             'templates': templates
         }
 
-        attr_format(req, result)
         return result
 
     @staticmethod
@@ -175,6 +183,7 @@ class TemplateHandler:
 
         for attr in old.attrs:
             db.session.delete(attr)
+        db.session.flush()
         for attr in json_payload['attrs']:
             mapped = DeviceAttr(template=old, **attr)
             db.session.add(mapped)
@@ -188,14 +197,14 @@ class TemplateHandler:
         affected = db.session.query(DeviceTemplateMap) \
                              .filter(DeviceTemplateMap.template_id==template_id) \
                              .all()
-        
+
         affected_devices = []
         for device in affected:
             affected_devices.append(device.device_id)
 
         event = {
-            "event": DeviceEvent.TEMPLATE, 
-            "affected": affected_devices, 
+            "event": DeviceEvent.TEMPLATE,
+            "affected": affected_devices,
             "template": template_schema.dump(old).data,
             "meta": {"service": service}
         }

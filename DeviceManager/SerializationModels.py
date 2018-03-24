@@ -3,6 +3,16 @@ import json
 from marshmallow import Schema, fields, post_dump, ValidationError
 
 from DeviceManager.utils import HTTPRequestError
+from DeviceManager.DatabaseModels import DeviceAttr
+
+class MetaSchema(Schema):
+    id = fields.Int()
+    label = fields.Str(required=True)
+    created = fields.DateTime(dump_only=True)
+    updated = fields.DateTime(dump_only=True)
+    type = fields.Str(required=True)
+    value_type = fields.Str(required=True)
+    static_value = fields.Field()
 
 class AttrSchema(Schema):
     id = fields.Int()
@@ -11,17 +21,17 @@ class AttrSchema(Schema):
     updated = fields.DateTime(dump_only=True)
     type = fields.Str(required=True)
     value_type = fields.Str(required=True)
-    static_value = fields.Str()
-    template_id = fields.Str()
+    static_value = fields.Field()
+    template_id = fields.Str(dump_only=True)
+
+    metadata = fields.Nested(MetaSchema, many=True, attribute='children')
 
     @post_dump
     def remove_null_values(self, data):
         return {key: value for key, value in data.items() if value is not None}
 
-
 attr_schema = AttrSchema()
 attr_list_schema = AttrSchema(many=True)
-
 
 class TemplateSchema(Schema):
     id = fields.Int()
@@ -36,10 +46,8 @@ class TemplateSchema(Schema):
     def remove_null_values(self, data):
         return {key: value for key, value in data.items() if value is not None}
 
-
 template_schema = TemplateSchema()
 template_list_schema = TemplateSchema(many=True)
-
 
 class DeviceSchema(Schema):
     id = fields.String(dump_only=True)
@@ -55,10 +63,8 @@ class DeviceSchema(Schema):
     def remove_null_values(self, data):
         return {key: value for key, value in data.items() if value is not None}
 
-
 device_schema = DeviceSchema()
 device_list_schema = DeviceSchema(many=True)
-
 
 def parse_payload(request, schema):
     try:
@@ -74,7 +80,6 @@ def parse_payload(request, schema):
         raise HTTPRequestError(400, results)
     return data, json_payload
 
-
 def load_attrs(attr_list, parent_template, base_type, db):
     """
 
@@ -83,9 +88,17 @@ def load_attrs(attr_list, parent_template, base_type, db):
     for attr in attr_list:
         try:
             entity = attr_schema.load(attr).data
+            try:
+                children = entity.pop('children')
+            except KeyError:
+                children = []
+
+            orm_entity = base_type(template=parent_template, **entity)
+            db.session.add(orm_entity)
+
+            for child in children:
+                orm_child = DeviceAttr(parent=orm_entity, **child)
+                db.session.add(orm_child)
         except ValidationError as errors:
             results = {'message': 'failed to parse attr', 'errors': errors}
             raise HTTPRequestError(400, results)
-
-        orm_attr = base_type(template=parent_template, **entity)
-        db.session.add(orm_attr)
