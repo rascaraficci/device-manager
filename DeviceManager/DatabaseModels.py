@@ -11,6 +11,16 @@ app.config['SQLALCHEMY_DATABASE_URI'] = CONFIG.get_db_url()
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
+class DeviceOverride(db.Model):
+    __tablename__ = 'overrides'
+
+    id = db.Column(db.Integer, db.Sequence('override_id'), primary_key=True)
+
+    did = db.Column(db.Integer, db.Sequence('override_id'), primary_key=True)
+    aid = db.Column(db.Integer, db.Sequence('override_id'), primary_key=True)
+
+    static_value = db.Column(db.String(128))
+
 class DeviceAttr(db.Model):
     __tablename__ = 'attrs'
 
