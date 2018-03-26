@@ -90,6 +90,7 @@ class TemplateHandler:
         """
         init_tenant_context(req, db)
         tpl, json_payload = parse_payload(req, template_schema)
+        LOGGER.info(tpl)
         loaded_template = DeviceTemplate(**tpl)
         load_attrs(json_payload['attrs'], loaded_template, DeviceAttr, db)
         db.session.add(loaded_template)

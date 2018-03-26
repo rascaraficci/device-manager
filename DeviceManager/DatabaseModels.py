@@ -16,8 +16,11 @@ class DeviceOverride(db.Model):
 
     id = db.Column(db.Integer, db.Sequence('override_id'), primary_key=True)
 
-    did = db.Column(db.Integer, db.Sequence('override_id'), primary_key=True)
-    aid = db.Column(db.Integer, db.Sequence('override_id'), primary_key=True)
+    did = db.Column(db.String(8), db.ForeignKey('devices.id'))
+    aid = db.Column(db.Integer, db.ForeignKey('attrs.id'))
+
+    device = db.relationship('Device', back_populates='overrides')
+    attr = db.relationship('DeviceAttr', back_populates='overrides')
 
     static_value = db.Column(db.String(128))
 
@@ -39,6 +42,9 @@ class DeviceAttr(db.Model):
     parent_id = db.Column(db.Integer, db.ForeignKey('attrs.id'))
     parent = db.relationship("DeviceAttr", remote_side=[id], back_populates="children")
     children = db.relationship("DeviceAttr", back_populates="parent", cascade="delete")
+
+    # remove known overrides if this attribute is removed
+    overrides = db.relationship('DeviceOverride', cascade="delete")
 
     # Any given template must not possess two attributes with the same type, label
     __table_args__ = (
@@ -86,6 +92,7 @@ class Device(db.Model):
 
     # template_id = db.Column(db.Integer, db.ForeignKey('templates.id'), nullable=False)
     templates = db.relationship("DeviceTemplate", secondary='device_template', back_populates="devices")
+    overrides = db.relationship("DeviceOverride", back_populates="device", cascade="delete")
 
     persistence = db.Column(db.String(128))
 
