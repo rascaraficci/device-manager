@@ -27,7 +27,7 @@ class DeviceAttr(db.Model):
     template = db.relationship("DeviceTemplate", back_populates="attrs")
 
     parent_id = db.Column(db.Integer, db.ForeignKey('attrs.id'))
-    parent = db.relationship("DeviceAttr", remote_side=[id])
+    parent = db.relationship("DeviceAttr", remote_side=[id], back_populates="children")
     children = db.relationship("DeviceAttr", back_populates="parent", cascade="delete")
 
     # Any given template must not possess two attributes with the same type, label
@@ -38,8 +38,8 @@ class DeviceAttr(db.Model):
     )
 
     def __repr__(self):
-        return "<Attr(label='%s', type='%s', value_type='%s')>" % (
-            self.label, self.type, self.value_type)
+        return "<Attr(label='{}', type='{}', value_type='{}', children='{}', parent={})>".format(
+            self.label, self.type, self.value_type, self.children, self.parent)
 
 
 class DeviceTemplate(db.Model):
@@ -63,7 +63,7 @@ class DeviceTemplate(db.Model):
                                                      DeviceAttr.type.in_(('static', 'dynamic'))))
 
     def __repr__(self):
-        return "<Template(label='%s')>" % self.label
+        return "<Template(label={}, attrs={})>".format(self.label, self.attrs)
 
 
 class Device(db.Model):
