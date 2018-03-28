@@ -28,7 +28,10 @@ class AttrSchema(Schema):
 
     @post_dump
     def remove_null_values(self, data):
-        return {key: value for key, value in data.items() if value is not None}
+        return {
+            key: value for key, value in data.items() \
+            if (value is not None) and ((isinstance(value, list) and len(value)) or not isinstance(value, list))
+        }
 
 attr_schema = AttrSchema()
 attr_list_schema = AttrSchema(many=True)
