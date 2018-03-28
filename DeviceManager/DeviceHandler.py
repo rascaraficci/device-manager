@@ -21,19 +21,23 @@ from DeviceManager.SerializationModels import *
 from DeviceManager.TenancyManager import init_tenant_context
 from DeviceManager.app import app
 
-
 device = Blueprint('device', __name__)
 
 LOGGER = logging.getLogger('device-manager.' + __name__)
 LOGGER.addHandler(logging.StreamHandler())
 LOGGER.setLevel(logging.INFO)
 
-
 def serialize_full_device(orm_device):
     data = device_schema.dump(orm_device).data
     data['attrs'] = {}
     for template in orm_device.templates:
         data['attrs'][template.id] = attr_list_schema.dump(template.attrs).data
+
+    for override in orm_device.overrides:
+        for attr in data['attrs'][override.attr.template_id]:
+            if attr['id'] == override.aid:
+                attr['static_value'] = override.static_value
+
     return data
 
 def find_template(template_list, id):
@@ -75,7 +79,6 @@ def parse_template_list(template_list, new_device):
     for template_id in template_list:
         new_device.templates.append(assert_template_exists(template_id, db.session))
 
-
 def find_attribute(orm_device, attr_name, attr_type):
     """
     Find a particular attribute in a device retrieved from database.
@@ -86,7 +89,6 @@ def find_attribute(orm_device, attr_name, attr_type):
             if (attr['label'] == attr_name) and (attr['type'] == attr_type):
                 return attr
     return None
-
 
 class DeviceHandler(object):
 
@@ -361,21 +363,22 @@ class DeviceHandler(object):
         device_data, json_payload = parse_payload(req, device_schema)
 
         # update sanity check
-        if 'attrs' in json_payload:
-            LOGGER.warn('Got request with "attrs" field set. Ignoring.')
-            json_payload.pop('attrs')
+        # if 'attrs' in json_payload:
+        #     LOGGER.warn('Got request with "attrs" field set. Ignoring.')
+        #     json_payload.pop('attrs')
 
         tenant = init_tenant_context(req, db)
         old_orm_device = assert_device_exists(device_id)
+        db.session.delete(old_orm_device)
+        db.session.flush()
 
         # handled separately by parse_template_list
         device_data.pop('templates')
         updated_orm_device = Device(**device_data)
-        parse_template_list(json_payload.get(
-            'templates', []), updated_orm_device)
+        parse_template_list(json_payload.get('templates', []), updated_orm_device)
+        auto_create_template(json_payload, updated_orm_device)
         updated_orm_device.id = device_id
 
-        db.session.delete(old_orm_device)
         db.session.add(updated_orm_device)
 
         full_device = serialize_full_device(updated_orm_device)
