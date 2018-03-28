@@ -5,6 +5,7 @@
 
 import logging
 import re
+from datetime import datetime
 from flask import request
 from flask import Blueprint
 from sqlalchemy.exc import IntegrityError
@@ -378,6 +379,8 @@ class DeviceHandler(object):
         parse_template_list(json_payload.get('templates', []), updated_orm_device)
         auto_create_template(json_payload, updated_orm_device)
         updated_orm_device.id = device_id
+        updated_orm_device.updated = datetime.now()
+        updated_orm_device.created = old_orm_device.created
 
         db.session.add(updated_orm_device)
 
