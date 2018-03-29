@@ -21,6 +21,7 @@ from DeviceManager.DatabaseModels import DeviceOverride
 from DeviceManager.SerializationModels import *
 from DeviceManager.TenancyManager import init_tenant_context
 from DeviceManager.app import app
+from .StatusMonitor import StatusMonitor
 
 device = Blueprint('device', __name__)
 
