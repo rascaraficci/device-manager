@@ -5,6 +5,7 @@
 
 import logging
 import re
+from datetime import datetime
 from flask import request
 from flask import Blueprint
 from sqlalchemy.exc import IntegrityError
@@ -16,10 +17,10 @@ from DeviceManager.BackendHandler import OrionHandler, KafkaHandler, Persistence
 from DeviceManager.DatabaseModels import db, assert_device_exists, assert_template_exists
 from DeviceManager.DatabaseModels import handle_consistency_exception, assert_device_relation_exists
 from DeviceManager.DatabaseModels import DeviceTemplate, DeviceAttr, Device, DeviceTemplateMap
+from DeviceManager.DatabaseModels import DeviceOverride
 from DeviceManager.SerializationModels import *
 from DeviceManager.TenancyManager import init_tenant_context
 from DeviceManager.app import app
-
 
 device = Blueprint('device', __name__)
 
@@ -27,14 +28,23 @@ LOGGER = logging.getLogger('device-manager.' + __name__)
 LOGGER.addHandler(logging.StreamHandler())
 LOGGER.setLevel(logging.INFO)
 
-
 def serialize_full_device(orm_device):
     data = device_schema.dump(orm_device).data
     data['attrs'] = {}
     for template in orm_device.templates:
         data['attrs'][template.id] = attr_list_schema.dump(template.attrs).data
+
+    for override in orm_device.overrides:
+        for attr in data['attrs'][override.attr.template_id]:
+            if attr['id'] == override.aid:
+                attr['static_value'] = override.static_value
+
     return data
 
+def find_template(template_list, id):
+    for template in template_list:
+        if template.id == int(id):
+            return template
 
 def auto_create_template(json_payload, new_device):
     if ('attrs' in json_payload) and (new_device.templates is None):
@@ -44,13 +54,31 @@ def auto_create_template(json_payload, new_device):
         new_device.templates = [device_template]
         load_attrs(json_payload['attrs'], device_template, DeviceAttr, db)
 
+    # TODO: perhaps it'd be best if all ids were random hex strings?
+    if ('attrs' in json_payload) and (new_device.templates is not None):
+        for attr in json_payload['attrs']:
+            orm_template = find_template(new_device.templates, attr['template_id'])
+            if orm_template is None:
+                raise HTTPRequestError(400, 'Unknown template "{}" in attr list'.format(template))
+
+            target = int(attr['id'])
+            found = False
+            for orm_attr in orm_template.attrs:
+                if target == orm_attr.id:
+                    found = True
+                    orm_override = DeviceOverride(
+                        device=new_device,
+                        attr=orm_attr,
+                        static_value=attr['static_value']
+                    )
+                    db.session.add(orm_override)
+            if not found:
+                raise HTTPRequestError(400, "Unkown attribute \"{}\" in override list".format(target))
 
 def parse_template_list(template_list, new_device):
     new_device.templates = []
     for template_id in template_list:
-        new_device.templates.append(
-            assert_template_exists(template_id, db.session))
-
+        new_device.templates.append(assert_template_exists(template_id, db.session))
 
 def find_attribute(orm_device, attr_name, attr_type):
     """
@@ -62,7 +90,6 @@ def find_attribute(orm_device, attr_name, attr_type):
             if (attr['label'] == attr_name) and (attr['type'] == attr_type):
                 return attr
     return None
-
 
 class DeviceHandler(object):
 
@@ -337,21 +364,24 @@ class DeviceHandler(object):
         device_data, json_payload = parse_payload(req, device_schema)
 
         # update sanity check
-        if 'attrs' in json_payload:
-            LOGGER.warn('Got request with "attrs" field set. Ignoring.')
-            json_payload.pop('attrs')
+        # if 'attrs' in json_payload:
+        #     LOGGER.warn('Got request with "attrs" field set. Ignoring.')
+        #     json_payload.pop('attrs')
 
         tenant = init_tenant_context(req, db)
         old_orm_device = assert_device_exists(device_id)
+        db.session.delete(old_orm_device)
+        db.session.flush()
 
         # handled separately by parse_template_list
         device_data.pop('templates')
         updated_orm_device = Device(**device_data)
-        parse_template_list(json_payload.get(
-            'templates', []), updated_orm_device)
+        parse_template_list(json_payload.get('templates', []), updated_orm_device)
+        auto_create_template(json_payload, updated_orm_device)
         updated_orm_device.id = device_id
+        updated_orm_device.updated = datetime.now()
+        updated_orm_device.created = old_orm_device.created
 
-        db.session.delete(old_orm_device)
         db.session.add(updated_orm_device)
 
         full_device = serialize_full_device(updated_orm_device)
