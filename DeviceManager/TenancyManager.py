@@ -1,5 +1,5 @@
 import json
-from sqlalchemy.sql import exists, select, text
+from sqlalchemy.sql import exists, select, text, column
 
 from DeviceManager.utils import HTTPRequestError, decode_base64
 
@@ -99,6 +99,19 @@ def init_tenant(tenant, db):
         install_triggers(db)
     else:
         switch_tenant(tenant, db)
+
+def list_tenants(db):
+    query = 'select schema_name from information_schema.schemata;'
+    tenants = db.session.execute(query)
+    result = []
+    for i in tenants:
+        if i.schema_name.startswith('pg_'):
+            continue
+        if i.schema_name in ['public', 'information_schema']:
+            continue
+
+        result.append(i.schema_name)
+    return result
 
 def init_tenant_context(request, db):
     try:
