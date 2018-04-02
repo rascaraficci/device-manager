@@ -8,7 +8,6 @@ import redis
 
 from .conf import CONFIG
 from .KafkaNotifier import get_topic
-from .TenancyManager import list_tenants
 from .DatabaseModels import db
 
 import threading
