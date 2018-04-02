@@ -2,6 +2,8 @@ import json
 from sqlalchemy.sql import exists, select, text, column
 
 from DeviceManager.utils import HTTPRequestError, decode_base64
+from .DatabaseModels import db
+from .StatusMonitor import StatusMonitor
 
 def install_triggers(db):
     query = """
@@ -81,6 +83,7 @@ def get_allowed_service(token):
 def create_tenant(tenant, db):
     db.session.execute("create schema \"%s\";" % tenant)
     db.session.commit()
+    StatusMonitor(tenant)
 
 def switch_tenant(tenant, db):
     db.session.execute("SET search_path TO %s" % tenant)

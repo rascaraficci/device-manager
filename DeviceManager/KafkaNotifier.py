@@ -44,7 +44,8 @@ topic_map = {}
 
 def get_topic(service, subject):
     if service in topic_map.keys():
-        return topic_map[service]
+        if subject in topic_map[service].keys():
+            return topic_map[service][subject]
 
     target = "{}/topic/{}".format(CONFIG.data_broker, subject)
     userinfo = {
@@ -59,7 +60,9 @@ def get_topic(service, subject):
     response = requests.get(target, headers={"authorization": jwt})
     if 200 <= response.status_code < 300:
         payload = response.json()
-        topic_map[service] = payload['topic']
+        if topic_map.get(service, None) is None:
+            topic_map[service] = {}
+        topic_map[service][subject] = payload['topic']
         return payload['topic']
     return None
 
@@ -70,6 +73,7 @@ def send_notification(event, device, meta):
     full_msg = NotificationMessage(event, device, meta)
     try:
         topic = get_topic(meta['service'], CONFIG.subject)
+        LOGGER.info("topic for '{}' is '{}'".format(CONFIG.subject, topic))
         if topic is None:
             LOGGER.error("Failed to retrieve named topic to publish to")
 
