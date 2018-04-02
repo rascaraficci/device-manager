@@ -8,7 +8,7 @@ import redis
 
 from .conf import CONFIG
 from .KafkaNotifier import get_topic
-from .DatabaseModels import db
+from .DatabaseModels import db, Device
 
 import threading
 
@@ -105,12 +105,24 @@ class StatusMonitor:
         }
         self.producer.send(self.topic, message)
 
+    @staticmethod
+    def default_exp(tenant, device, exp=5):
+        db.session.execute("SET search_path TO %s" % tenant)
+        device = db.session.query(Device).filter(Device.id == device).one()
+        for template in device.templates:
+            for attr in template.config_attrs:
+                if (attr.type == "meta") and (attr.label == "device_timeout"):
+                    return int(attr.static_value)/1000.0
+        return exp
+
+
     def set_online(self, tenant, device, partition, exp):
         """
         Brands given device as online for the stipulated period of time 'exp'
         """
         if exp is None:
-            exp = 5
+            exp = StatusMonitor.default_exp(tenant, device)
+
         print('will set {}:{} online for {}s'.format(tenant, device, exp))
 
         key = StatusMonitor.get_key_for(tenant, device, partition)
@@ -119,7 +131,6 @@ class StatusMonitor:
             # publish online event
             self.notify(tenant, device, 'online')
 
-            pass
         self.redis.set(key, time.time() + exp)
 
     def begin(self, partition):
