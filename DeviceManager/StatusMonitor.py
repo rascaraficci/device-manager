@@ -106,14 +106,14 @@ class StatusMonitor:
         self.producer.send(self.topic, message)
 
     @staticmethod
-    def default_exp(tenant, device, exp=5):
+    def default_exp(tenant, device):
         db.session.execute("SET search_path TO %s" % tenant)
         device = db.session.query(Device).filter(Device.id == device).one()
         for template in device.templates:
             for attr in template.config_attrs:
                 if (attr.type == "meta") and (attr.label == "device_timeout"):
                     return int(attr.static_value)/1000.0
-        return exp
+        return CONFIG.status_timeout
 
 
     def set_online(self, tenant, device, partition, exp):

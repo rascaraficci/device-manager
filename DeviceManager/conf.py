@@ -18,6 +18,7 @@ class Config(object):
                  device_subject="device-data",
                  redis_host="device-manager-redis",
                  redis_port="6379",
+                 status_timeout="5",
                  create_db=True):
         # Postgres configuration data
         self.dbname = os.environ.get('DBNAME', db)
@@ -38,6 +39,7 @@ class Config(object):
         # Which subject to publish new device information to
         self.subject = os.environ.get('SUBJECT', subject)
         self.device_subject = os.environ.get('DEVICE_SUBJECT', device_subject)
+        self.status_timeout = int(os.environ.get('STATUS_TIMEOUT', status_timeout))
 
         self.redis_host = os.environ.get('REDIS_HOST', redis_host)
         self.redis_port = int(os.environ.get('REDIS_PORT', redis_port))
