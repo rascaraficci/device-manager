@@ -182,12 +182,22 @@ class TemplateHandler:
         updated, json_payload = parse_payload(req, template_schema)
         old.label = updated['label']
 
-        for attr in old.attrs:
-            db.session.delete(attr)
-        db.session.flush()
-        for attr in json_payload['attrs']:
-            mapped = DeviceAttr(template=old, **attr)
-            db.session.add(mapped)
+        new = json_payload['attrs']
+        for a in old.attrs:
+            found = False
+            for idx, b in enumerate(new):
+                if (a.label == b['label']) and (a.type == b['type']):
+                    found = True
+                    a.value_type = b.get('value_type', None)
+                    a.static_value = b.get('static_value', None)
+                    new.pop(idx)
+                    break
+            if not found:
+                db.session.delete(a)
+
+        for a in new:
+            db.session.add(DeviceAttr(template=old, **a))
+
 
         try:
             db.session.commit()

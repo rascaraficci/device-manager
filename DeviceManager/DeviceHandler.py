@@ -367,11 +367,6 @@ class DeviceHandler(object):
         """
         device_data, json_payload = parse_payload(req, device_schema)
 
-        # update sanity check
-        # if 'attrs' in json_payload:
-        #     LOGGER.warn('Got request with "attrs" field set. Ignoring.')
-        #     json_payload.pop('attrs')
-
         tenant = init_tenant_context(req, db)
         old_orm_device = assert_device_exists(device_id)
         db.session.delete(old_orm_device)
