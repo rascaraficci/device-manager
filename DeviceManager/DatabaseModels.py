@@ -2,6 +2,7 @@ from datetime import datetime
 import re
 import sqlalchemy
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import event
 
 from DeviceManager.app import app
 from DeviceManager.utils import HTTPRequestError
@@ -46,6 +47,11 @@ class DeviceAttr(db.Model):
     # remove known overrides if this attribute is removed
     overrides = db.relationship('DeviceOverride', cascade="delete")
 
+    # remove known pre shared keys if this attribute is removed
+    pre_shared_keys = db.relationship('DeviceAttrsPsk',
+                                      cascade="delete",
+                                      back_populates="attrs")
+
     # Any given template must not possess two attributes with the same type, label
     __table_args__ = (
         sqlalchemy.UniqueConstraint('template_id', 'type', 'label'),
@@ -66,9 +72,14 @@ class DeviceTemplate(db.Model):
     created = db.Column(db.DateTime, default=datetime.now)
     updated = db.Column(db.DateTime, onupdate=datetime.now)
 
-    attrs = db.relationship("DeviceAttr", back_populates="template", lazy='joined', cascade="delete")
-    devices = db.relationship("Device", secondary='device_template',
-                              back_populates="templates", passive_deletes='all')
+    attrs = db.relationship("DeviceAttr",
+                            back_populates="template",
+                            lazy='joined',
+                            cascade="delete")
+    devices = db.relationship("Device",
+                              secondary='device_template',
+                              back_populates="templates",
+                              passive_deletes='all')
 
     config_attrs = db.relationship('DeviceAttr',
                              primaryjoin=db.and_(DeviceAttr.template_id == id,
@@ -90,9 +101,12 @@ class Device(db.Model):
     created = db.Column(db.DateTime, default=datetime.now)
     updated = db.Column(db.DateTime, onupdate=datetime.now)
 
-    # template_id = db.Column(db.Integer, db.ForeignKey('templates.id'), nullable=False)
     templates = db.relationship("DeviceTemplate", secondary='device_template', back_populates="devices")
     overrides = db.relationship("DeviceOverride", back_populates="device", cascade="delete")
+
+    pre_shared_keys = db.relationship('DeviceAttrsPsk',
+                                      cascade='delete',
+                                      back_populates="devices")
 
     persistence = db.Column(db.String(128))
 
@@ -106,6 +120,21 @@ class DeviceTemplateMap(db.Model):
                           primary_key=True, index=True)
     template_id = db.Column(db.Integer, db.ForeignKey('templates.id'),
                             primary_key=True, index=True, nullable=False)
+
+
+class DeviceAttrsPsk(db.Model):
+    __tablename__ = 'pre_shared_keys'
+
+    attr_id = db.Column(db.Integer, db.ForeignKey('attrs.id'), primary_key=True)
+    device_id = db.Column(db.String(8), db.ForeignKey('devices.id'), primary_key=True)
+    psk = db.Column(db.Binary(1024), nullable=False)
+
+    devices = db.relationship("Device", back_populates="pre_shared_keys")
+    attrs = db.relationship("DeviceAttr", back_populates="pre_shared_keys")
+
+    def __repr__(self):
+        return "<PSK(device_id='%s', attr_id='%s', psk='%s')>" % (
+            self.device_id, self.attr_id, self.psk)
 
 
 def assert_device_exists(device_id, session=None):
@@ -143,3 +172,12 @@ def assert_device_relation_exists(device_id, template_id):
 
 def handle_consistency_exception(error):
     raise HTTPRequestError(400, error.orig.diag.message_primary)
+
+
+@event.listens_for(DeviceAttr.value_type, 'set')
+def receive_set(target, value, old_value, initiator):
+    # we need to watch DeviceAttr's value_type to clean the pre_shared_key if
+    # the value changes from psk to something else
+    if old_value == 'psk' and value != 'psk':
+        for key in target.pre_shared_keys:
+            db.session.delete(key)

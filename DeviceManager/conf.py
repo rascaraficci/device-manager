@@ -1,7 +1,7 @@
 """ Service configuration module """
 
 import os
-
+from Crypto.Protocol import KDF
 
 class Config(object):
     """ Abstracts configuration, either retrieved from environment or from ctor arguments """
@@ -43,6 +43,21 @@ class Config(object):
 
         self.redis_host = os.environ.get('REDIS_HOST', redis_host)
         self.redis_port = int(os.environ.get('REDIS_PORT', redis_port))
+
+        # crypto configuration
+        if not os.environ.get('DEV_MNGR_CRYPTO_PASS'):
+           raise Exception("environment variable 'DEV_MNGR_CRYPTO_PASS' not configured")
+        if not os.environ.get('DEV_MNGR_CRYPTO_IV'):
+            raise Exception("environment variable 'DEV_MNGR_CRYPTO_IV' not configured")
+        if not os.environ.get('DEV_MNGR_CRYPTO_SALT'):
+            raise Exception("environment variable 'DEV_MNGR_CRYPTO_SALT' not configured")
+
+        salt = os.environ.get('DEV_MNGR_CRYPTO_SALT')
+        salt = salt.encode('ASCII')
+        password = os.environ.get('DEV_MNGR_CRYPTO_PASS')
+        key = KDF.PBKDF2(password, salt, dkLen=16, count=1000, prf=None)
+        self.crypto = { 'key': key,
+                        'iv': os.environ.get('DEV_MNGR_CRYPTO_IV')}
 
     def get_db_url(self):
         """ From the config, return a valid postgresql url """

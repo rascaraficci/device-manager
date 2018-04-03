@@ -6,6 +6,7 @@
 import logging
 import re
 from datetime import datetime
+import secrets
 from flask import request
 from flask import Blueprint
 from sqlalchemy.exc import IntegrityError
@@ -16,7 +17,7 @@ from DeviceManager.BackendHandler import OrionHandler, KafkaHandler, Persistence
 
 from DeviceManager.DatabaseModels import db, assert_device_exists, assert_template_exists
 from DeviceManager.DatabaseModels import handle_consistency_exception, assert_device_relation_exists
-from DeviceManager.DatabaseModels import DeviceTemplate, DeviceAttr, Device, DeviceTemplateMap
+from DeviceManager.DatabaseModels import DeviceTemplate, DeviceAttr, Device, DeviceTemplateMap, DeviceAttrsPsk
 from DeviceManager.DatabaseModels import DeviceOverride
 from DeviceManager.SerializationModels import *
 from DeviceManager.TenancyManager import init_tenant_context
@@ -29,7 +30,7 @@ LOGGER = logging.getLogger('device-manager.' + __name__)
 LOGGER.addHandler(logging.StreamHandler())
 LOGGER.setLevel(logging.INFO)
 
-def serialize_full_device(orm_device, tenant):
+def serialize_full_device(orm_device, tenant, sensitive_data=False):
     data = device_schema.dump(orm_device).data
     status = StatusMonitor.get_status(tenant, orm_device.id)
     if status is not None:
@@ -43,6 +44,13 @@ def serialize_full_device(orm_device, tenant):
             if attr['id'] == override.aid:
                 attr['static_value'] = override.static_value
 
+    if sensitive_data:
+        for psk_data in orm_device.pre_shared_keys:
+            for template_id in data['attrs']:
+                for attr in data['attrs'][template_id]:
+                    if attr['id'] == psk_data.attr_id:
+                        dec = decrypt(psk_data.psk)
+                        attr['static_value'] = dec.decode('ascii')
     return data
 
 def find_template(template_list, id):
@@ -148,7 +156,7 @@ class DeviceHandler(object):
         return data
 
     @staticmethod
-    def get_devices(req):
+    def get_devices(req, sensitive_data=False):
         """
         Fetches known devices, potentially limited by a given value. Ordering
         might be user-configurable too.
@@ -192,7 +200,7 @@ class DeviceHandler(object):
 
         devices = []
         for d in page.items:
-            devices.append(serialize_full_device(d, tenant))
+            devices.append(serialize_full_device(d, tenant, sensitive_data))
 
         result = {
             'pagination': {
@@ -206,12 +214,14 @@ class DeviceHandler(object):
         return result
 
     @staticmethod
-    def get_device(req, device_id):
+    def get_device(req, device_id, sensitive_data=False):
         """
         Fetches a single device.
 
         :param req: The received HTTP request, as created by Flask.
         :param device_id: The requested device.
+        :param sensitive_data: Informs if sensitive data like keys should be
+        returned
         :return A Device
         :rtype Device, as described in DatabaseModels package
         :raises HTTPRequestError: If no authorization token was provided (no
@@ -222,7 +232,7 @@ class DeviceHandler(object):
 
         tenant = init_tenant_context(req, db)
         orm_device = assert_device_exists(device_id)
-        return serialize_full_device(orm_device, tenant)
+        return serialize_full_device(orm_device, tenant, sensitive_data)
 
     @staticmethod
     def create_device(req):
@@ -567,6 +577,102 @@ class DeviceHandler(object):
         }
         return result
 
+    @staticmethod
+    def gen_psk(req, device_id):
+        """
+        Generates pre shared keys to a specifics device
+
+        :param req: The received HTTP request, as created by Flask.
+        :param device_id: The target device.
+        :return The keys generated.
+        :rtype JSON
+        :raises HTTPRequestError: If no authorization token was provided (no
+        tenant was informed)
+        :raises HTTPRequestError: If this device could not be found in
+        database.
+        """
+
+        tenant = init_tenant_context(req, db)
+
+        device_orm = assert_device_exists(device_id, db.session)
+        if not device_orm:
+            raise HTTPRequestError(404, "No such device: {}".format(device_id))
+
+        device = serialize_full_device(device_orm, True)
+
+        # checks if the key length has been specified
+        if not 'key_length' in request.args.keys():
+            raise HTTPRequestError(400, "Missing key_length parameter")
+
+        key_length = int(request.args['key_length'])
+
+        # todo remove this magic number
+        if key_length > 1024 or key_length <= 0:
+            raise HTTPRequestError(400, "key_length must be greater than 0 and lesser than {}".format(1024))
+        
+        is_all_psk_attr_valid = False
+        target_attrs_data = []
+
+        # find the target attributes
+        # first case: if there are specified attributes
+        if 'attrs' in request.args.keys():
+            target_attrs = request.args['attrs'].split(",")
+
+            for template_id in device["templates"]:
+                for attr in device["attrs"][template_id]:
+                    if attr["value_type"] == "psk" and attr["label"] in target_attrs:
+                        target_attrs_data.append(attr)
+                        is_all_psk_attr_valid = True
+
+            if not is_all_psk_attr_valid:
+                raise HTTPRequestError(400, "Not found some attributes, "
+                    "please check them")
+                    
+            if len(target_attrs) != len(target_attrs_data):
+                if not is_all_psk_attr_valid:
+                    raise HTTPRequestError(400,
+                                    "Some attribute is not a 'psk' type_value")
+                else:
+                    raise HTTPRequestError(400, "Not found some attributes, "
+                        "please check them")
+        else: # second case: if there are not specified attributes
+            for template_id in device["templates"]:
+                for attr in device["attrs"][template_id]:
+                    if attr["value_type"] == "psk":
+                        target_attrs_data.append(attr)
+                        is_all_psk_attr_valid = True
+
+            if not is_all_psk_attr_valid:
+                # there is no psk key, do not worry it is not a problem
+                raise HTTPRequestError(204, "")
+
+        # generate the pre shared key on selected attributes
+        result = []
+        for attr in target_attrs_data:
+            psk = secrets.token_hex(key_length)
+            psk_hex = psk
+            attr["static_value"] = psk_hex
+            encrypted_psk = encrypt(psk)
+            psk_entry = DeviceAttrsPsk.query.filter_by(device_id=device["id"],
+                                                       attr_id=attr["id"]).first()
+            if not psk_entry:
+                db.session.add(DeviceAttrsPsk(device_id=device["id"],
+                                              attr_id=attr["id"],
+                                              psk=encrypted_psk))
+            else:
+                psk_entry.psk = encrypted_psk
+
+            result.append( {'attribute': attr["label"], 'psk': psk_hex} )
+        
+        device_orm.updated = datetime.now()
+        db.session.commit()
+
+        # send an update message on kafka
+        kafka_handler = KafkaHandler()
+        kafka_handler.update(device, meta={"service": tenant})
+
+        return result
+
 
 @device.route('/device', methods=['GET'])
 def flask_get_devices():
@@ -706,6 +812,20 @@ def flask_remove_template_from_device(device_id, template_id):
 def flask_get_by_template(template_id):
     try:
         result = DeviceHandler.get_by_template(request, template_id)
+        resp = make_response(json.dumps(result), 200)
+        resp.mimetype = "application/json"
+        return resp
+    except HTTPRequestError as e:
+        if isinstance(e.message, dict):
+            return make_response(json.dumps(e.message), e.error_code)
+        else:
+            return format_response(e.error_code, e.message)
+
+
+@device.route('/device/gen_psk/<device_id>', methods=['POST'])
+def flask_gen_psk(device_id):
+    try:
+        result = DeviceHandler.gen_psk(request, device_id)
         resp = make_response(json.dumps(result), 200)
         resp.mimetype = "application/json"
         return resp

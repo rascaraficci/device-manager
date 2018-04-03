@@ -867,3 +867,74 @@ Removes a device
                 "message": "No such device: aaaa",
                 "status": 404
             }
+            
+### Generate PSK [POST /device/gen_psk/{device_id}{?key_length,attrs}]
+Generates pre shared keys for a specific device.
+
+This endpoint generates a random key to attributes with the 'type_value' equal 
+to 'psk'. The generated key is returned just once, i.e, the user can not retrive
+it via /device.
+
+Calling this endpoint twice with the same target attributes will override the previous one.
+
++ Parameters
+    + device_id: 26e2aa (string, required) - Device id
+    + key_length: 8 (integer, required) - Key's length in bytes
+    + attrs: key01,key02 (string, optional) - Comma separated list with the 
+    target attributes. If this parameter is not present the all aplicable 
+    attributes will be the target.
+
++ Request
+
+    + Headers
+    
+            Authorization: Bearer JWT
+
++ Response 200 (application/json)
+
+    + Body
+    
+            {
+                [
+                    {
+                        "attribute": "key01",
+                        "psk": "9ee5c4eeca90b431"
+                    },
+                    {
+                        "attribute": "key02",
+                        "psk": "b31576eedd9eb537"
+                    }                    
+                ]
+            }
+
++ Response 204 (application/json)
+
++ Response 404 (application/json)
+
+        {
+            "message": "No such device: 26e24a"
+        }
+
++ Response 400 (application/json)
+
+        {
+            "message": "Missing key_length parameter"
+        }
+
++ Response 400 (application/json)
+
+        {
+            "message": "key_length must be greater than 0 and lesser than 1024"
+        }
+
++ Response 400 (application/json)
+
+        {
+            "message": "Not found some attributes, please check them"
+        }
+
++ Response 400 (application/json)
+
+        {
+            "message": "Some attribute is not a 'psk' type_value"
+        }
