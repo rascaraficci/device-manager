@@ -29,8 +29,11 @@ LOGGER = logging.getLogger('device-manager.' + __name__)
 LOGGER.addHandler(logging.StreamHandler())
 LOGGER.setLevel(logging.INFO)
 
-def serialize_full_device(orm_device):
+def serialize_full_device(orm_device, tenant):
     data = device_schema.dump(orm_device).data
+    status = StatusMonitor.get_status(tenant, orm_device.id)
+    if status is not None:
+        data['status'] = status
     data['attrs'] = {}
     for template in orm_device.templates:
         data['attrs'][template.id] = attr_list_schema.dump(template.attrs).data
@@ -160,7 +163,7 @@ class DeviceHandler(object):
         if req.args.get('idsOnly', 'false').lower() in ['true', '1', '']:
             return DeviceHandler.list_ids(req)
 
-        init_tenant_context(req, db)
+        tenant = init_tenant_context(req, db)
 
         page_number, per_page = get_pagination(req)
         pagination = {'page': page_number, 'per_page': per_page, 'error_out': False}
@@ -189,7 +192,7 @@ class DeviceHandler(object):
 
         devices = []
         for d in page.items:
-            devices.append(serialize_full_device(d))
+            devices.append(serialize_full_device(d, tenant))
 
         result = {
             'pagination': {
@@ -217,9 +220,9 @@ class DeviceHandler(object):
         database.
         """
 
-        init_tenant_context(req, db)
+        tenant = init_tenant_context(req, db)
         orm_device = assert_device_exists(device_id)
-        return serialize_full_device(orm_device)
+        return serialize_full_device(orm_device, tenant)
 
     @staticmethod
     def create_device(req):
@@ -286,7 +289,7 @@ class DeviceHandler(object):
                 }
             )
 
-            full_device = serialize_full_device(orm_device)
+            full_device = serialize_full_device(orm_device, tenant)
 
             # Updating handlers
             kafka_handler.create(full_device, meta={"service": tenant})
@@ -334,7 +337,7 @@ class DeviceHandler(object):
 
         tenant = init_tenant_context(req, db)
         orm_device = assert_device_exists(device_id)
-        data = serialize_full_device(orm_device)
+        data = serialize_full_device(orm_device, tenant)
 
         kafka_handler = KafkaHandler()
         kafka_handler.remove(data, meta={"service": tenant})
@@ -385,7 +388,7 @@ class DeviceHandler(object):
 
         db.session.add(updated_orm_device)
 
-        full_device = serialize_full_device(updated_orm_device)
+        full_device = serialize_full_device(updated_orm_device, tenant)
 
         if CONFIG.orion:
             # Create subscription pointing to history service
@@ -400,7 +403,7 @@ class DeviceHandler(object):
                 device_id, type_descr)
 
             ctx_broker_handler = OrionHandler(service=tenant)
-            ctx_broker_handler.update(serialize_full_device(old_orm_device), type_descr)
+            ctx_broker_handler.update(serialize_full_device(old_orm_device, tenant), type_descr)
 
         kafka_handler = KafkaHandler()
         kafka_handler.update(full_device, meta={"service": tenant})
@@ -412,7 +415,7 @@ class DeviceHandler(object):
 
         result = {
             'message': 'device updated',
-            'device': serialize_full_device(updated_orm_device)
+            'device': serialize_full_device(updated_orm_device, tenant)
         }
         return result
 
@@ -438,7 +441,7 @@ class DeviceHandler(object):
         meta['service'] = init_tenant_context(req, db)
 
         orm_device = assert_device_exists(device_id)
-        full_device = serialize_full_device(orm_device)
+        full_device = serialize_full_device(orm_device, meta['service'])
         LOGGER.debug('Full device: %s', json.dumps(full_device))
 
         payload = json.loads(req.data)
@@ -480,7 +483,7 @@ class DeviceHandler(object):
         structure for that device.
         :rtype JSON
         """
-        init_tenant_context(req, db)
+        tenant = init_tenant_context(req, db)
         orm_device = assert_device_exists(device_id)
         orm_template = assert_template_exists(template_id)
 
@@ -493,7 +496,7 @@ class DeviceHandler(object):
 
         result = {
             'message': 'device updated',
-            'device': serialize_full_device(orm_device)
+            'device': serialize_full_device(orm_device, tenant)
         }
 
         return result
@@ -514,7 +517,7 @@ class DeviceHandler(object):
         structure for that device.
         :rtype JSON
         """
-        init_tenant_context(req, db)
+        tenant = init_tenant_context(req, db)
         updated_device = assert_device_exists(device_id)
         relation = assert_device_relation_exists(device_id, template_id)
 
@@ -525,7 +528,7 @@ class DeviceHandler(object):
         db.session.commit()
         result = {
             'message': 'device updated',
-            'device': serialize_full_device(updated_device)
+            'device': serialize_full_device(updated_device, tenant)
         }
 
         return result
@@ -545,7 +548,7 @@ class DeviceHandler(object):
         :return A list of devices that are associated to the selected template.
         :rtype JSON
         """
-        init_tenant_context(req, db)
+        tenant = init_tenant_context(req, db)
 
         page_number, per_page = get_pagination(req)
         page = (
@@ -556,7 +559,7 @@ class DeviceHandler(object):
         )
         devices = []
         for d in page.items:
-            devices.append(serialize_full_device(d))
+            devices.append(serialize_full_device(d, tenant))
 
         result = {
             'pagination': {

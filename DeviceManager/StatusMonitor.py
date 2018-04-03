@@ -98,9 +98,6 @@ class StatusMonitor:
                 'tenant': tenant,
                 'status': status,
                 'reason': 'statusUpdate'
-            },
-            'attrs': {
-                'status': status
             }
         }
         self.producer.send(self.topic, message)
@@ -194,6 +191,6 @@ class StatusMonitor:
             else:
                 return 'offline'
 
-        return None
+        return 'offline'
 
 
