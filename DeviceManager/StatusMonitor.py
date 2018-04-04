@@ -98,9 +98,6 @@ class StatusMonitor:
                 'tenant': tenant,
                 'status': status,
                 'reason': 'statusUpdate'
-            },
-            'attrs': {
-                'status': status
             }
         }
         self.producer.send(self.topic, message)
@@ -188,12 +185,12 @@ class StatusMonitor:
         match = StatusMonitor.get_key_for(tenant, device, '*')
         cursor, data = client.scan(0, match, count=1000)
         if len(data):
-            exp = client.get(data)
-            if time.time() < exp:
+            exp = float(client.get(data[0]).decode('utf-8'))
+            if (exp is not None) and (time.time() < exp):
                 return 'online'
             else:
                 return 'offline'
 
-        return None
+        return 'offline'
 
 
