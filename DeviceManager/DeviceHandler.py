@@ -860,4 +860,18 @@ def flask_internal_get_devices():
             return format_response(e.error_code, e.message)
 
 
+@device.route('/internal/device/<device_id>', methods=['GET'])
+def flask_internal_get_device(device_id):
+    try:
+        result = DeviceHandler.get_device(request, device_id, True)
+        resp = make_response(json.dumps(result), 200)
+        resp.mimetype = "application/json"
+        return resp
+    except HTTPRequestError as e:
+        if isinstance(e.message, dict):
+            return make_response(json.dumps(e.message), e.error_code)
+        else:
+            return format_response(e.error_code, e.message)
+
+
 app.register_blueprint(device)
