@@ -519,7 +519,7 @@ class DeviceHandler(object):
         # Here (for now) there are no more validations to perform, as template
         # removal cannot violate attribute constraints
 
-        db.session.remove(relation)
+        db.session.delete(relation)
         db.session.commit()
         result = {
             'message': 'device updated',
