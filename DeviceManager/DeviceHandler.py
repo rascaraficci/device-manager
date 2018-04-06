@@ -836,4 +836,28 @@ def flask_gen_psk(device_id):
             return format_response(e.error_code, e.message)
 
 
+# Internal endpoints
+@device.route('/internal/device', methods=['GET'])
+def flask_internal_get_devices():
+    """
+    Fetches known devices, potentially limited by a given value. Ordering might
+    be user-configurable too.
+
+    Check API description for more information about request parameters and
+    headers.
+    """
+    try:
+        result = DeviceHandler.get_devices(request, True)
+        resp = make_response(json.dumps(result), 200)
+        resp.mimetype = "application/json"
+        return resp
+    except HTTPRequestError as e:
+        if isinstance(e.message, dict):
+            resp = make_response(json.dumps(e.message), e.error_code)
+            resp.mimetype = "application/json"
+            return resp
+        else:
+            return format_response(e.error_code, e.message)
+
+
 app.register_blueprint(device)
