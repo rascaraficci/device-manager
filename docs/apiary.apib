@@ -938,3 +938,151 @@ Calling this endpoint twice with the same target attributes will override the pr
         {
             "message": "Some attribute is not a 'psk' type_value"
         }
+        
+# Group Internal
+Internal endpoins must not be expose outside the platform. They are used to
+internal communcation with other services.
+
+## Device
+
+### Get device info [GET /internal/device/{device_id}]
+Retrieves all information from a specific device.
+
++ Parameters
+    + device_id: 206706 (string, required) - Device id
+    
++ Request
+    + Headers
+
+            Authorization: Bearer JWT
+
++ Response 200
+
+            {
+               "templates" : [
+                  1
+               ],
+               "status" : "offline",
+               "updated" : "2018-04-09T19:41:33.648424+00:00",
+               "attrs" : {
+                  "1" : [
+                     {
+                        "type" : "dynamic",
+                        "template_id" : "1",
+                        "id" : 3,
+                        "label" : "fan",
+                        "value_type" : "bool",
+                        "created" : "2018-04-09T19:35:41.336844+00:00"
+                     },
+                     {
+                        "created" : "2018-04-09T19:35:41.334938+00:00",
+                        "value_type" : "float",
+                        "id" : 2,
+                        "label" : "temperature",
+                        "template_id" : "1",
+                        "type" : "dynamic"
+                     },
+                     {
+                        "template_id" : "1",
+                        "label" : "key",
+                        "id" : 1,
+                        "created" : "2018-04-09T19:35:41.329676+00:00",
+                        "value_type" : "psk",
+                        "type" : "static",
+                        "static_value" : "64b5f380f4d140ff"
+                     }
+                  ]
+               },
+               "label" : "secure_sensor",
+               "id" : "206706",
+               "created" : "2018-04-09T19:35:50.164960+00:00"
+            }
+
+
+
++ Response 404 (application/json)
+
+            {
+                "message": "No such device: aaaa",
+                "status": 404
+            }
+
+
+### Get the current list of devices [GET /internal/device{?page_size,page_num,idsOnly}]
+Get the full list of devices with all their associated attributes.
+Each attribute from *attrs* is the template ID from where the attributes came from.
+In this example, there is only one template (ID 1).
++ Parameters
+    + page_size: 20 (integer, optional)
+    + page_num: 1 (integer, optional)
+    + idsOnly: false (booelan, optional) - Return only the ids of all existing devices. Ignores any `page_size` and `page_num` configurations
+
++ Request
+      + Headers
+
+            Authorization: Bearer JWT
+
++ Response 200 (application/json)
+
+            {
+               "pagination" : {
+                  "page" : 1,
+                  "total" : 1,
+                  "next_page" : null,
+                  "has_next" : false
+               },
+               "devices" : [
+                  {
+                     "id" : "206706",
+                     "templates" : [
+                        1
+                     ],
+                     "created" : "2018-04-09T19:35:50.164960+00:00",
+                     "label" : "secure_sensor",
+                     "status" : "offline",
+                     "updated" : "2018-04-09T19:41:33.648424+00:00",
+                     "attrs" : {
+                        "1" : [
+                           {
+                              "id" : 3,
+                              "created" : "2018-04-09T19:35:41.336844+00:00",
+                              "value_type" : "bool",
+                              "template_id" : "1",
+                              "label" : "fan",
+                              "type" : "dynamic"
+                           },
+                           {
+                              "label" : "temperature",
+                              "type" : "dynamic",
+                              "template_id" : "1",
+                              "value_type" : "float",
+                              "created" : "2018-04-09T19:35:41.334938+00:00",
+                              "id" : 2
+                           },
+                           {
+                              "value_type" : "psk",
+                              "template_id" : "1",
+                              "type" : "static",
+                              "label" : "key",
+                              "id" : 1,
+                              "static_value" : "64b5f380f4d140ff",
+                              "created" : "2018-04-09T19:35:41.329676+00:00"
+                           }
+                        ]
+                     }
+                  }
+               ]
+            }
+
+
++ Request List only device ids
+    `idsOnly` query parameter set to `true`
+    + Headers
+
+            Authorization: Bearer JWT
+
++ Response 200 (application/json)
+
+            ["206706","204266","58af00"]
+
+
