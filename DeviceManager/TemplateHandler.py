@@ -216,7 +216,9 @@ class TemplateHandler:
         event = {
             "event": DeviceEvent.TEMPLATE,
             "affected": affected_devices,
-            "template": template_schema.dump(old).data,
+            "data": {
+                "template": template_schema.dump(old).data
+            },
             "meta": {"service": service}
         }
         send_raw(event, service)
