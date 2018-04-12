@@ -222,7 +222,7 @@ class TemplateHandler:
             "event": DeviceEvent.TEMPLATE,
             "data": {
                 "affected": affected_devices,
-                "template": template_schema.dump(old).data
+                "template": template_schema.dump(old)
             },
             "meta": {"service": service}
         }
