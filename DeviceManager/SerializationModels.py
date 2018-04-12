@@ -1,5 +1,6 @@
 # object to json sweetness
 import json
+import re
 from marshmallow import Schema, fields, post_dump, ValidationError
 
 from DeviceManager.utils import HTTPRequestError
@@ -14,9 +15,15 @@ class MetaSchema(Schema):
     value_type = fields.Str(required=True)
     static_value = fields.Field()
 
+def validate_attr_label(input):
+    if re.match(r'^[a-zA-Z0-9_-]+$', input) is None:
+        print('validation for {} failed'.format(input))
+        raise ValidationError("Labels must contain letters, numbers or dashes(-_)")
+    return '-- invalid --'
+
 class AttrSchema(Schema):
     id = fields.Int()
-    label = fields.Str(required=True)
+    label = fields.Str(required=True, validate=validate_attr_label, allow_none=False, missing=None)
     created = fields.DateTime(dump_only=True)
     updated = fields.DateTime(dump_only=True)
     type = fields.Str(required=True)
@@ -75,11 +82,11 @@ def parse_payload(request, schema):
         if (content_type is None) or (content_type != "application/json"):
             raise HTTPRequestError(400, "Payload must be valid JSON, and Content-Type set accordingly")
         json_payload = json.loads(request.data)
-        data = schema.load(json_payload).data
+        data = schema.load(json_payload)
     except ValueError:
         raise HTTPRequestError(400, "Payload must be valid JSON, and Content-Type set accordingly")
     except ValidationError as errors:
-        results = {'message': 'failed to parse input', 'errors': errors}
+        results = {'message': 'failed to parse input', 'errors': errors.messages}
         raise HTTPRequestError(400, results)
     return data, json_payload
 
@@ -90,7 +97,7 @@ def load_attrs(attr_list, parent_template, base_type, db):
     """
     for attr in attr_list:
         try:
-            entity = attr_schema.load(attr).data
+            entity = attr_schema.load(attr)
             try:
                 children = entity.pop('children')
             except KeyError:
@@ -103,5 +110,5 @@ def load_attrs(attr_list, parent_template, base_type, db):
                 orm_child = DeviceAttr(parent=orm_entity, **child)
                 db.session.add(orm_child)
         except ValidationError as errors:
-            results = {'message': 'failed to parse attr', 'errors': errors}
+            results = {'message': 'failed to parse attr', 'errors': errors.messages}
             raise HTTPRequestError(400, results)
