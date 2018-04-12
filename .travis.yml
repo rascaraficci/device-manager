@@ -6,10 +6,6 @@ python:
 cache:
   directories:
   - node_modules
-env:
-  - DEV_MNGR_CRYPTO_PASS="KamehameHA"
-  - DEV_MNGR_CRYPTO_IV=1234567890123456
-  - DEV_MNGR_CRYPTO_SALT="shuriken"
 before_install:
   - npm install aglio
 script:

@@ -11,7 +11,7 @@ import secrets
 from flask import request, jsonify, Blueprint, make_response
 from sqlalchemy.exc import IntegrityError
 
-# from DeviceManager.utils import *
+from DeviceManager.utils import *
 from DeviceManager.utils import create_id, get_pagination, format_response
 from DeviceManager.utils import HTTPRequestError
 from DeviceManager.conf import CONFIG
@@ -24,7 +24,7 @@ from DeviceManager.DatabaseModels import DeviceOverride
 from DeviceManager.SerializationModels import device_list_schema, device_schema
 from DeviceManager.SerializationModels import attr_list_schema
 from DeviceManager.SerializationModels import parse_payload, load_attrs
-from DeviceManager.TenancyManager import init_tenant_context
+from DeviceManager.TenancyManager import init_tenant_context, init_tenant_context2
 from DeviceManager.app import app
 from .StatusMonitor import StatusMonitor
 
@@ -166,6 +166,8 @@ class DeviceHandler(object):
         might be user-configurable too.
 
         :param req: The received HTTP request, as created by Flask.
+        :param sensitive_data: Informs if sensitive data like keys should be
+        returned
         :return A JSON containing pagination information and the device list
         :rtype JSON
         :raises HTTPRequestError: If no authorization token was provided (no
@@ -582,12 +584,15 @@ class DeviceHandler(object):
         return result
 
     @staticmethod
-    def gen_psk(req, device_id):
+    def gen_psk(token, device_id, key_length, target_attributes=None):
         """
         Generates pre shared keys to a specifics device
 
-        :param req: The received HTTP request, as created by Flask.
+        :param token: The authorization token (JWT).
         :param device_id: The target device.
+        :param key_length: The key length to be generated.
+        :param target_attributes: A list with the target attributes, None means
+        all suitable attributes.
         :return The keys generated.
         :rtype JSON
         :raises HTTPRequestError: If no authorization token was provided (no
@@ -596,7 +601,7 @@ class DeviceHandler(object):
         database.
         """
 
-        tenant = init_tenant_context(req, db)
+        tenant = init_tenant_context2(token, db)
 
         device_orm = assert_device_exists(device_id, db.session)
         if not device_orm:
@@ -605,11 +610,6 @@ class DeviceHandler(object):
         device = serialize_full_device(device_orm, True)
 
         # checks if the key length has been specified
-        if not 'key_length' in request.args.keys():
-            raise HTTPRequestError(400, "Missing key_length parameter")
-
-        key_length = int(request.args['key_length'])
-
         # todo remove this magic number
         if key_length > 1024 or key_length <= 0:
             raise HTTPRequestError(400, "key_length must be greater than 0 and lesser than {}".format(1024))
@@ -619,12 +619,10 @@ class DeviceHandler(object):
 
         # find the target attributes
         # first case: if there are specified attributes
-        if 'attrs' in request.args.keys():
-            target_attrs = request.args['attrs'].split(",")
-
+        if target_attributes:
             for template_id in device["templates"]:
                 for attr in device["attrs"][template_id]:
-                    if attr["value_type"] == "psk" and attr["label"] in target_attrs:
+                    if attr["value_type"] == "psk" and attr["label"] in target_attributes:
                         target_attrs_data.append(attr)
                         is_all_psk_attr_valid = True
 
@@ -632,7 +630,7 @@ class DeviceHandler(object):
                 raise HTTPRequestError(400, "Not found some attributes, "
                     "please check them")
                     
-            if len(target_attrs) != len(target_attrs_data):
+            if len(target_attributes) != len(target_attrs_data):
                 if not is_all_psk_attr_valid:
                     raise HTTPRequestError(400,
                                     "Some attribute is not a 'psk' type_value")
@@ -809,13 +807,28 @@ def flask_get_by_template(template_id):
 @device.route('/device/gen_psk/<device_id>', methods=['POST'])
 def flask_gen_psk(device_id):
     try:
-        result = DeviceHandler.gen_psk(request, device_id)
-        resp = make_response(json.dumps(result), 200)
-        resp.mimetype = "application/json"
-        return resp
+        # retrieve the authorization token
+        token = retrieve_auth_token(request)
+
+        # retrieve the key_length parameter (mandatory)
+        if not 'key_length' in request.args.keys():
+            raise HTTPRequestError(400, "Missing key_length parameter")
+        key_length = int(request.args['key_length'])
+
+        # retrieve the attrs parameter (optional)
+        target_attributes = None
+        if 'attrs' in request.args.keys():
+            target_attributes = request.args['attrs'].split(",")
+
+        result = DeviceHandler.gen_psk(token,
+                                       device_id,
+                                       key_length,
+                                       target_attributes)
+
+        return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
-            return make_response(json.dumps(e.message), e.error_code)
+            return make_response(jsonify(e.message), e.error_code)
         else:
             return format_response(e.error_code, e.message)
 
@@ -832,14 +845,10 @@ def flask_internal_get_devices():
     """
     try:
         result = DeviceHandler.get_devices(request, True)
-        resp = make_response(json.dumps(result), 200)
-        resp.mimetype = "application/json"
-        return resp
+        return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
-            resp = make_response(json.dumps(e.message), e.error_code)
-            resp.mimetype = "application/json"
-            return resp
+            return make_response(jsonify(e.message), e.error_code)
         else:
             return format_response(e.error_code, e.message)
 
@@ -848,12 +857,10 @@ def flask_internal_get_devices():
 def flask_internal_get_device(device_id):
     try:
         result = DeviceHandler.get_device(request, device_id, True)
-        resp = make_response(json.dumps(result), 200)
-        resp.mimetype = "application/json"
-        return resp
+        return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
-            return make_response(json.dumps(e.message), e.error_code)
+            return make_response(jsonify(e.message), e.error_code)
         else:
             return format_response(e.error_code, e.message)
 

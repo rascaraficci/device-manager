@@ -125,3 +125,10 @@ def init_tenant_context(request, db):
     tenant = get_allowed_service(token)
     init_tenant(tenant, db)
     return tenant
+
+
+def init_tenant_context2(token, db):
+
+    tenant = get_allowed_service(token)
+    init_tenant(tenant, db)
+    return tenant

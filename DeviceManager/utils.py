@@ -78,3 +78,11 @@ def decrypt(encrypted):
     plain_text = unpad(plain_text_pad)
 
     return plain_text
+
+def retrieve_auth_token(request):
+    token = None
+    try:
+        token = request.headers['authorization']
+    except KeyError:
+        raise HTTPRequestError(401, "No authorization token has been supplied")
+    return token

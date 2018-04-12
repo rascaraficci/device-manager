@@ -876,9 +876,9 @@ it via /device.
 Calling this endpoint twice with the same target attributes will override the previous one.
 
 + Parameters
-    + device_id: 26e2aa (string, required) - Device id
+    + device_id: efac (string, required) - Device id
     + key_length: 8 (integer, required) - Key's length in bytes
-    + attrs: key01,key02 (string, optional) - Comma separated list with the 
+    + attrs: shared_key (string, optional) - Comma separated list with the 
     target attributes. If this parameter is not present the all aplicable 
     attributes will be the target.
 
@@ -892,18 +892,12 @@ Calling this endpoint twice with the same target attributes will override the pr
 
     + Body
     
-            {
-                [
-                    {
-                        "attribute": "key01",
-                        "psk": "9ee5c4eeca90b431"
-                    },
-                    {
-                        "attribute": "key02",
-                        "psk": "b31576eedd9eb537"
-                    }                    
-                ]
-            }
+            [
+                {
+                    "attribute": "shared_key",
+                    "psk": "9ee5c4eeca90b431"
+                }                  
+            ]
 
 + Response 204 (application/json)
 
@@ -941,32 +935,34 @@ Calling this endpoint twice with the same target attributes will override the pr
 Internal endpoins must not be expose outside the platform. They are used to
 internal communcation with other services.
 
-## Device
+
+## Device [/internal/device]
+
 
 ### Get device info [GET /internal/device/{device_id}]
 Retrieves all information from a specific device.
 
 + Parameters
-    + device_id: 206706 (string, required) - Device id
+    + device_id: efac (string, required) - Device id
     
 + Request
     + Headers
 
             Authorization: Bearer JWT
 
-+ Response 200
++ Response 200 (application/json)
 
             {
                "templates" : [
-                  1
+                  "4865"
                ],
                "status" : "offline",
                "updated" : "2018-04-09T19:41:33.648424+00:00",
                "attrs" : {
-                  "1" : [
+                  "4865" : [
                      {
                         "type" : "dynamic",
-                        "template_id" : "1",
+                        "template_id" : "4865",
                         "id" : 3,
                         "label" : "fan",
                         "value_type" : "bool",
@@ -977,12 +973,12 @@ Retrieves all information from a specific device.
                         "value_type" : "float",
                         "id" : 2,
                         "label" : "temperature",
-                        "template_id" : "1",
+                        "template_id" : "4865",
                         "type" : "dynamic"
                      },
                      {
-                        "template_id" : "1",
-                        "label" : "key",
+                        "template_id" : "4865",
+                        "label" : "shared_key",
                         "id" : 1,
                         "created" : "2018-04-09T19:35:41.329676+00:00",
                         "value_type" : "psk",
@@ -992,7 +988,7 @@ Retrieves all information from a specific device.
                   ]
                },
                "label" : "secure_sensor",
-               "id" : "206706",
+               "id" : "efac",
                "created" : "2018-04-09T19:35:50.164960+00:00"
             }
 
@@ -1033,35 +1029,35 @@ In this example, there is only one template (ID 1).
                   {
                      "id" : "206706",
                      "templates" : [
-                        1
+                        "4865"
                      ],
                      "created" : "2018-04-09T19:35:50.164960+00:00",
                      "label" : "secure_sensor",
                      "status" : "offline",
                      "updated" : "2018-04-09T19:41:33.648424+00:00",
                      "attrs" : {
-                        "1" : [
+                        "4865" : [
                            {
                               "id" : 3,
                               "created" : "2018-04-09T19:35:41.336844+00:00",
                               "value_type" : "bool",
-                              "template_id" : "1",
+                              "template_id" : "4865",
                               "label" : "fan",
                               "type" : "dynamic"
                            },
                            {
                               "label" : "temperature",
                               "type" : "dynamic",
-                              "template_id" : "1",
+                              "template_id" : "4865",
                               "value_type" : "float",
                               "created" : "2018-04-09T19:35:41.334938+00:00",
                               "id" : 2
                            },
                            {
                               "value_type" : "psk",
-                              "template_id" : "1",
+                              "template_id" : "4865",
                               "type" : "static",
-                              "label" : "key",
+                              "label" : "shared_key",
                               "id" : 1,
                               "static_value" : "64b5f380f4d140ff",
                               "created" : "2018-04-09T19:35:41.329676+00:00"
@@ -1081,6 +1077,6 @@ In this example, there is only one template (ID 1).
 
 + Response 200 (application/json)
 
-            ["206706","204266","58af00"]
+            ["206706", "204266", "58af00"]
 
 
