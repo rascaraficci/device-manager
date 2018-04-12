@@ -10,7 +10,7 @@ from DeviceManager.conf import CONFIG
 
 LOGGER = logging.getLogger('device-manager.' + __name__)
 LOGGER.addHandler(logging.StreamHandler())
-LOGGER.setLevel(logging.DEBUG)
+LOGGER.setLevel(logging.WARNING)
 
 
 class DeviceEvent:
@@ -73,7 +73,7 @@ def send_notification(event, device, meta):
     full_msg = NotificationMessage(event, device, meta)
     try:
         topic = get_topic(meta['service'], CONFIG.subject)
-        LOGGER.info("topic for '{}' is '{}'".format(CONFIG.subject, topic))
+        LOGGER.debug("topic for '{}' is '{}'".format(CONFIG.subject, topic))
         if topic is None:
             LOGGER.error("Failed to retrieve named topic to publish to")
 

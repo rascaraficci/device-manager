@@ -34,13 +34,13 @@ LOGGER.addHandler(logging.StreamHandler())
 LOGGER.setLevel(logging.INFO)
 
 def serialize_full_device(orm_device, tenant):
-    data = device_schema.dump(orm_device).data
+    data = device_schema.dump(orm_device)
     status = StatusMonitor.get_status(tenant, orm_device.id)
     if status is not None:
         data['status'] = status
     data['attrs'] = {}
     for template in orm_device.templates:
-        data['attrs'][template.id] = attr_list_schema.dump(template.attrs).data
+        data['attrs'][template.id] = attr_list_schema.dump(template.attrs)
 
     for override in orm_device.overrides:
         for attr in data['attrs'][override.attr.template_id]:
@@ -458,12 +458,12 @@ class DeviceHandler(object):
             LOGGER.info('Configuration sent.')
             result = {'status': 'configuration sent to device'}
         else:
+            LOGGER.info('invalid attributes detected in command: {}'.format(invalid_attrs))
             result = {
                 'status': 'some of the attributes are not configurable',
                 'attrs': invalid_attrs
             }
 
-        LOGGER.info('Configuration sent.')
         return result
 
     @staticmethod

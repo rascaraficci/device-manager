@@ -65,7 +65,10 @@ class TemplateHandler:
         page = DeviceTemplate.query.paginate(page=int(page_number),
                                              per_page=int(per_page),
                                              error_out=False)
-        templates = list(map(lambda x: attr_format(req, x), template_list_schema.dump(page.items).data))
+        templates = []
+        for template in page.items:
+            templates.append(attr_format(req, template_schema.dump(template)))
+
         result = {
             'pagination': {
                 'page': page.page,
@@ -93,7 +96,6 @@ class TemplateHandler:
         """
         init_tenant_context(req, db)
         tpl, json_payload = parse_payload(req, template_schema)
-        LOGGER.info(tpl)
         loaded_template = DeviceTemplate(**tpl)
         load_attrs(json_payload['attrs'], loaded_template, DeviceAttr, db)
         db.session.add(loaded_template)
@@ -105,7 +107,7 @@ class TemplateHandler:
             raise HTTPRequestError(400, 'Template attribute constraints are violated by the request')
 
         results = {
-            'template': template_schema.dump(loaded_template).data,
+            'template': template_schema.dump(loaded_template),
             'result': 'ok'
         }
         return results
@@ -125,7 +127,7 @@ class TemplateHandler:
         """
         init_tenant_context(req, db)
         tpl = assert_template_exists(template_id)
-        json_template = template_schema.dump(tpl).data
+        json_template = template_schema.dump(tpl)
         attr_format(req, json_template)
         return json_template
 
@@ -148,7 +150,7 @@ class TemplateHandler:
         init_tenant_context(req, db)
         tpl = assert_template_exists(template_id)
 
-        json_template = template_schema.dump(tpl).data
+        json_template = template_schema.dump(tpl)
         try:
             db.session.delete(tpl)
             db.session.commit()
@@ -219,13 +221,13 @@ class TemplateHandler:
         event = {
             "event": DeviceEvent.TEMPLATE,
             "affected": affected_devices,
-            "template": template_schema.dump(old).data,
+            "template": template_schema.dump(old),
             "meta": {"service": service}
         }
         send_raw(event, service)
 
         results = {
-            'updated': template_schema.dump(old).data,
+            'updated': template_schema.dump(old),
             'result': 'ok'
         }
         return results
