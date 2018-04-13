@@ -5,13 +5,15 @@
 
 import logging
 import re
+import json
 from datetime import datetime
 import secrets
-from flask import request
-from flask import Blueprint
+from flask import request, jsonify, Blueprint, make_response
 from sqlalchemy.exc import IntegrityError
 
-from DeviceManager.utils import *
+# from DeviceManager.utils import *
+from DeviceManager.utils import create_id, get_pagination, format_response
+from DeviceManager.utils import HTTPRequestError
 from DeviceManager.conf import CONFIG
 from DeviceManager.BackendHandler import OrionHandler, KafkaHandler, PersistenceHandler
 
@@ -19,7 +21,9 @@ from DeviceManager.DatabaseModels import db, assert_device_exists, assert_templa
 from DeviceManager.DatabaseModels import handle_consistency_exception, assert_device_relation_exists
 from DeviceManager.DatabaseModels import DeviceTemplate, DeviceAttr, Device, DeviceTemplateMap, DeviceAttrsPsk
 from DeviceManager.DatabaseModels import DeviceOverride
-from DeviceManager.SerializationModels import *
+from DeviceManager.SerializationModels import device_list_schema, device_schema
+from DeviceManager.SerializationModels import attr_list_schema
+from DeviceManager.SerializationModels import parse_payload, load_attrs
 from DeviceManager.TenancyManager import init_tenant_context
 from DeviceManager.app import app
 from .StatusMonitor import StatusMonitor
@@ -31,13 +35,13 @@ LOGGER.addHandler(logging.StreamHandler())
 LOGGER.setLevel(logging.INFO)
 
 def serialize_full_device(orm_device, tenant, sensitive_data=False):
-    data = device_schema.dump(orm_device).data
+    data = device_schema.dump(orm_device)
     status = StatusMonitor.get_status(tenant, orm_device.id)
     if status is not None:
         data['status'] = status
     data['attrs'] = {}
     for template in orm_device.templates:
-        data['attrs'][template.id] = attr_list_schema.dump(template.attrs).data
+        data['attrs'][template.id] = attr_list_schema.dump(template.attrs)
 
     for override in orm_device.overrides:
         for attr in data['attrs'][override.attr.template_id]:
@@ -71,7 +75,7 @@ def auto_create_template(json_payload, new_device):
         for attr in json_payload['attrs']:
             orm_template = find_template(new_device.templates, attr['template_id'])
             if orm_template is None:
-                raise HTTPRequestError(400, 'Unknown template "{}" in attr list'.format(template))
+                raise HTTPRequestError(400, 'Unknown template "{}" in attr list'.format(orm_template))
 
             target = int(attr['id'])
             found = False
@@ -464,12 +468,12 @@ class DeviceHandler(object):
             LOGGER.info('Configuration sent.')
             result = {'status': 'configuration sent to device'}
         else:
+            LOGGER.info('invalid attributes detected in command: {}'.format(invalid_attrs))
             result = {
                 'status': 'some of the attributes are not configurable',
                 'attrs': invalid_attrs
             }
 
-        LOGGER.info('Configuration sent.')
         return result
 
     @staticmethod
@@ -685,14 +689,10 @@ def flask_get_devices():
     """
     try:
         result = DeviceHandler.get_devices(request)
-        resp = make_response(json.dumps(result), 200)
-        resp.mimetype = "application/json"
-        return resp
+        return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
-            resp = make_response(json.dumps(e.message), e.error_code)
-            resp.mimetype = "application/json"
-            return resp
+            return make_response(jsonify(e.message), e.error_code)
         else:
             return format_response(e.error_code, e.message)
 
@@ -707,12 +707,10 @@ def flask_create_device():
     """
     try:
         result = DeviceHandler.create_device(request)
-        resp = make_response(json.dumps(result), 200)
-        resp.mimetype = "application/json"
-        return resp
+        return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
-            return make_response(json.dumps(e.message), e.error_code)
+            return make_response(jsonify(e.message), e.error_code)
         else:
             return format_response(e.error_code, e.message)
 
@@ -721,12 +719,10 @@ def flask_create_device():
 def flask_get_device(device_id):
     try:
         result = DeviceHandler.get_device(request, device_id)
-        resp = make_response(json.dumps(result), 200)
-        resp.mimetype = "application/json"
-        return resp
+        return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
-            return make_response(json.dumps(e.message), e.error_code)
+            return make_response(jsonify(e.message), e.error_code)
         else:
             return format_response(e.error_code, e.message)
 
@@ -735,12 +731,10 @@ def flask_get_device(device_id):
 def flask_remove_device(device_id):
     try:
         results = DeviceHandler.delete_device(request, device_id)
-        resp = make_response(json.dumps(results), 200)
-        resp.mimetype = "application/json"
-        return resp
+        return make_response(jsonify(results), 200)
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
-            return make_response(json.dumps(e.message), e.error_code)
+            return make_response(jsonify(e.message), e.error_code)
         else:
             return format_response(e.error_code, e.message)
 
@@ -749,12 +743,10 @@ def flask_remove_device(device_id):
 def flask_update_device(device_id):
     try:
         results = DeviceHandler.update_device(request, device_id)
-        resp = make_response(json.dumps(results), 200)
-        resp.mimetype = "application/json"
-        return resp
+        return make_response(jsonify(results), 200)
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
-            return make_response(json.dumps(e.message), e.error_code)
+            return make_response(jsonify(e.message), e.error_code)
         else:
             return format_response(e.error_code, e.message)
 
@@ -766,13 +758,11 @@ def flask_configure_device(device_id):
     """
     try:
         result = DeviceHandler.configure_device(request, device_id)
-        resp = make_response(json.dumps(result), 200)
-        resp.mimetype = "application/json"
-        return resp
+        return make_response(jsonify(result), 200)
 
     except HTTPRequestError as error:
         if isinstance(error.message, dict):
-            return make_response(json.dumps(error.message), error.error_code)
+            return make_response(jsonify(error.message), error.error_code)
         else:
             return format_response(error.error_code, error.message)
 
@@ -783,12 +773,10 @@ def flask_add_template_to_device(device_id, template_id):
     try:
         result = DeviceHandler.add_template_to_device(
             request, device_id, template_id)
-        resp = make_response(json.dumps(result), 200)
-        resp.mimetype = "application/json"
-        return resp
+        return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
-            return make_response(json.dumps(e.message), e.error_code)
+            return make_response(jsonify(e.message), e.error_code)
         else:
             return format_response(e.error_code, e.message)
 
@@ -798,12 +786,10 @@ def flask_remove_template_from_device(device_id, template_id):
     try:
         result = DeviceHandler.remove_template_from_device(
             request, device_id, template_id)
-        resp = make_response(json.dumps(result), 200)
-        resp.mimetype = "application/json"
-        return resp
+        return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
-            return make_response(json.dumps(e.message), e.error_code)
+            return make_response(jsonify(e.message), e.error_code)
         else:
             return format_response(e.error_code, e.message)
 
@@ -812,12 +798,10 @@ def flask_remove_template_from_device(device_id, template_id):
 def flask_get_by_template(template_id):
     try:
         result = DeviceHandler.get_by_template(request, template_id)
-        resp = make_response(json.dumps(result), 200)
-        resp.mimetype = "application/json"
-        return resp
+        return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
-            return make_response(json.dumps(e.message), e.error_code)
+            return make_response(jsonify(e.message), e.error_code)
         else:
             return format_response(e.error_code, e.message)
 

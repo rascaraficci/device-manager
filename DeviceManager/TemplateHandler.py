@@ -1,16 +1,19 @@
 import logging
-from flask import Blueprint, request
+from flask import Blueprint, request, jsonify, make_response
 from sqlalchemy.exc import IntegrityError
 
 from DeviceManager.DatabaseModels import db
 from DeviceManager.DatabaseModels import handle_consistency_exception, assert_template_exists
 from DeviceManager.DatabaseModels import DeviceTemplate, DeviceAttr, DeviceTemplateMap
-from DeviceManager.SerializationModels import *
+from DeviceManager.SerializationModels import template_list_schema, template_schema
+from DeviceManager.SerializationModels import attr_list_schema, attr_schema
+from DeviceManager.SerializationModels import parse_payload, load_attrs
+from DeviceManager.SerializationModels import ValidationError
 from DeviceManager.TenancyManager import init_tenant_context
 from DeviceManager.KafkaNotifier import send_raw, DeviceEvent
 
 from DeviceManager.app import app
-from DeviceManager.utils import *
+from DeviceManager.utils import format_response, HTTPRequestError, get_pagination
 
 LOGGER = logging.getLogger('device-manager.' + __name__)
 LOGGER.addHandler(logging.StreamHandler())
@@ -62,7 +65,10 @@ class TemplateHandler:
         page = DeviceTemplate.query.paginate(page=int(page_number),
                                              per_page=int(per_page),
                                              error_out=False)
-        templates = list(map(lambda x: attr_format(req, x), template_list_schema.dump(page.items).data))
+        templates = []
+        for template in page.items:
+            templates.append(attr_format(req, template_schema.dump(template)))
+
         result = {
             'pagination': {
                 'page': page.page,
@@ -90,19 +96,18 @@ class TemplateHandler:
         """
         init_tenant_context(req, db)
         tpl, json_payload = parse_payload(req, template_schema)
-        LOGGER.info(tpl)
         loaded_template = DeviceTemplate(**tpl)
         load_attrs(json_payload['attrs'], loaded_template, DeviceAttr, db)
         db.session.add(loaded_template)
 
         try:
             db.session.commit()
-        except IntegrityError:
-            raise HTTPRequestError(400, 'Template attribute constraints are \
-                violated by the request')
+        except IntegrityError as e:
+            LOGGER.info(e)
+            raise HTTPRequestError(400, 'Template attribute constraints are violated by the request')
 
         results = {
-            'template': template_schema.dump(loaded_template).data,
+            'template': template_schema.dump(loaded_template),
             'result': 'ok'
         }
         return results
@@ -122,7 +127,7 @@ class TemplateHandler:
         """
         init_tenant_context(req, db)
         tpl = assert_template_exists(template_id)
-        json_template = template_schema.dump(tpl).data
+        json_template = template_schema.dump(tpl)
         attr_format(req, json_template)
         return json_template
 
@@ -145,7 +150,7 @@ class TemplateHandler:
         init_tenant_context(req, db)
         tpl = assert_template_exists(template_id)
 
-        json_template = template_schema.dump(tpl).data
+        json_template = template_schema.dump(tpl)
         try:
             db.session.delete(tpl)
             db.session.commit()
@@ -215,14 +220,16 @@ class TemplateHandler:
 
         event = {
             "event": DeviceEvent.TEMPLATE,
-            "affected": affected_devices,
-            "template": template_schema.dump(old).data,
+            "data": {
+                "affected": affected_devices,
+                "template": template_schema.dump(old)
+            },
             "meta": {"service": service}
         }
         send_raw(event, service)
 
         results = {
-            'updated': template_schema.dump(old).data,
+            'updated': template_schema.dump(old),
             'result': 'ok'
         }
         return results
@@ -232,17 +239,15 @@ class TemplateHandler:
 def flask_get_templates():
     try:
         result = TemplateHandler.get_templates(request)
-        resp = make_response(json.dumps(result), 200)
-        resp.mimetype = "application/json"
-        return resp
+        return make_response(jsonify(result), 200)
 
     except ValidationError as e:
         results = {'message': 'failed to parse attr', 'errors': e}
-        return make_response(json.dumps(results), 500)
+        return make_response(jsonify(results), 500)
 
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
-            return make_response(json.dumps(e.message), e.error_code)
+            return make_response(jsonify(e.message), e.error_code)
         else:
             return format_response(e.error_code, e.message)
 
@@ -251,16 +256,14 @@ def flask_get_templates():
 def flask_create_template():
     try:
         result = TemplateHandler.create_template(request)
-        resp = make_response(json.dumps(result), 200)
-        resp.mimetype = "application/json"
-        return resp
+        return make_response(jsonify(result), 200)
 
     except ValidationError as e:
         results = {'message': 'failed to parse attr', 'errors': e}
-        return make_response(json.dumps(results), 400)
+        return make_response(jsonify(results), 400)
     except HTTPRequestError as error:
         if isinstance(error.message, dict):
-            return make_response(json.dumps(error.message), error.error_code)
+            return make_response(jsonify(error.message), error.error_code)
         else:
             return format_response(error.error_code, error.message)
 
@@ -269,15 +272,13 @@ def flask_create_template():
 def flask_get_template(template_id):
     try:
         result = TemplateHandler.get_template(request, template_id)
-        resp = make_response(json.dumps(result), 200)
-        resp.mimetype = "application/json"
-        return resp
+        return make_response(jsonify(result), 200)
     except ValidationError as e:
         results = {'message': 'failed to parse attr', 'errors': e}
-        return make_response(json.dumps(results), 500)
+        return make_response(jsonify(results), 500)
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
-            return make_response(json.dumps(e.message), e.error_code)
+            return make_response(jsonify(e.message), e.error_code)
         else:
             return format_response(e.error_code, e.message)
 
@@ -286,15 +287,13 @@ def flask_get_template(template_id):
 def flask_remove_template(template_id):
     try:
         result = TemplateHandler.remove_template(request, template_id)
-        resp = make_response(json.dumps(result), 200)
-        resp.mimetype = "application/json"
-        return resp
+        return make_response(jsonify(result), 200)
     except ValidationError as e:
         results = {'message': 'failed to parse attr', 'errors': e}
-        return make_response(json.dumps(results), 500)
+        return make_response(jsonify(results), 500)
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
-            return make_response(json.dumps(e.message), e.error_code)
+            return make_response(jsonify(e.message), e.error_code)
         else:
             return format_response(e.error_code, e.message)
 
@@ -303,15 +302,13 @@ def flask_remove_template(template_id):
 def flask_update_template(template_id):
     try:
         result = TemplateHandler.update_template(request, template_id)
-        resp = make_response(json.dumps(result), 200)
-        resp.mimetype = "application/json"
-        return resp
+        return make_response(jsonify(result), 200)
     except ValidationError as e:
         results = {'message': 'failed to parse attr', 'errors': e}
-        return make_response(json.dumps(results), 500)
+        return make_response(jsonify(results), 500)
     except HTTPRequestError as error:
         if isinstance(error.message, dict):
-            return make_response(json.dumps(error.message), error.error_code)
+            return make_response(jsonify(error.message), error.error_code)
         else:
             return format_response(error.error_code, error.message)
 

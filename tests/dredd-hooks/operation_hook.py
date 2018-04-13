@@ -203,6 +203,7 @@ def clean_scenario(transaction):
 
     result = TemplateHandler.get_templates(Request(req))
     for template in result['templates']:
+        # print(template)
         TemplateHandler.remove_template(Request(req), template['id'])
 
 
@@ -211,9 +212,9 @@ def order_attributes(transaction):
     template = json.loads(transaction['expected']['body'])
     sort_attributes(template['templates'][0], 'data_attrs')
     sort_attributes(template['templates'][0], 'attrs')
-    transaction['expected']['body'] = json.dumps(template);
+    transaction['expected']['body'] = json.dumps(template)
 
     template = json.loads(transaction['real']['body'])
     sort_attributes(template['templates'][0], 'data_attrs')
     sort_attributes(template['templates'][0], 'attrs')
-    transaction['real']['body'] = json.dumps(template);
+    transaction['real']['body'] = json.dumps(template)
