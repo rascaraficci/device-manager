@@ -40,6 +40,11 @@ def create_sample_template():
                 "type": "static",
                 "value_type": "string",
                 "static_value": "model-001"
+            },
+            {
+                "label": "shared_key",
+                "type": "static",
+                "value_type": "psk"
             }
         ]
     }
@@ -76,17 +81,15 @@ def register_new_device(transaction):
 
 
 @hooks.before('Devices > Device info > Get the current list of devices > Example 2')
+@hooks.before('Internal > Device > Get the current list of devices > Example 2')
 def update_onlyids_query(transaction):
     transaction['request']['uri'] = transaction['request']['uri'].replace('idsOnly=false',
                                                                           'idsOnly=true')
     transaction['fullPath'] = transaction['fullPath'].replace('idsOnly=false', 'idsOnly=true')
 
-@hooks.before('Devices > Device info > Get device info')
+
 @hooks.before('Devices > Device info > Get the current list of devices > Example 1')
 @hooks.before('Devices > Device info > Get the current list of devices associated with given template')
-@hooks.before('Devices > Device info > Update device info')
-@hooks.before('Devices > Device info > Configure device')
-@hooks.before('Devices > Device info > Delete device')
 def create_single_device(transaction):
     global template_id, device_id
     create_sample_template()
@@ -107,18 +110,32 @@ def create_single_device(transaction):
     }
     result = DeviceHandler.create_device(Request(req))
     device_id = result['devices'][0]['id']
-
+    
+@hooks.before('Internal > Device > Get the current list of devices > Example 1')
+def create_single_device_and_gen_psk(transaction):
+    global device_id
+    create_single_device(transaction)
+    DeviceHandler.gen_psk(generate_token(), device_id, 16, None)
 
 @hooks.before('Devices > Device info > Get device info')
 @hooks.before('Devices > Device info > Update device info')
 @hooks.before('Devices > Device info > Configure device')
 @hooks.before('Devices > Device info > Delete device')
-def update_device_id(transaction):
+@hooks.before('Devices > Device info > Generate PSK')
+def create_device_and_update_device_id(transaction):
     global device_id
+    create_single_device(transaction)
     transaction['fullPath'] = transaction['fullPath'].replace('efac', device_id)
-
-
+    
+@hooks.before('Internal > Device > Get device info')
+def prepare_env_psk(transaction):
+    global device_id    
+    create_device_and_update_device_id(transaction)
+    DeviceHandler.gen_psk(generate_token(), device_id, 16, None)
+    
+    
 @hooks.before_validation('Devices > Device info > Get device info')
+@hooks.before_validation('Internal > Device > Get device info')
 def update_expected_ids_single_device(transaction):
     global template_id, device_id
     expected_body = json.loads(transaction['expected']['body'])
@@ -159,6 +176,7 @@ def update_expected_ids_single_device_delete(transaction):
 
 @hooks.before('Devices > Device info > Get the current list of devices associated with given template')
 @hooks.before('Devices > Device info > Get the current list of devices > Example 1')
+@hooks.before('Internal > Device > Get the current list of devices > Example 1')
 def update_expected_ids_multiple_devices(transaction):
     global template_id, device_id
     expected_body = json.loads(transaction['expected']['body'])
