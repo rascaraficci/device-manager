@@ -1,3 +1,5 @@
+from flask_migrate import Migrate
+
 from DeviceManager.app import app
 
 # initialize modules
@@ -11,6 +13,8 @@ from .TenancyManager import list_tenants
 
 for tenant in list_tenants(db):
     StatusMonitor(tenant)
+
+migrate = Migrate(app, db)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', threaded=True)
