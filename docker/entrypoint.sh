@@ -8,6 +8,12 @@ function migrate () {
     unset FLASK_APP
 }
 
+function 020_stamp () {
+    export FLASK_APP=DeviceManager/main.py
+    flask db stamp 6beff7876a3a
+    unset FLASK_APP
+}
+
 if [ ${command} = 'start' ]; then
     flag=0
     retries=0
@@ -45,4 +51,6 @@ if [ ${command} = 'start' ]; then
     done
 elif [ ${command} = 'migrate' ] ; then
     migrate
+elif [ ${command} = '020_stamp'] ; then
+    020_stamp
 fi
