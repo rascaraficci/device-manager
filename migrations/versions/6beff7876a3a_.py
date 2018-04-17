@@ -1,7 +1,7 @@
 """empty message
 
 Revision ID: 6beff7876a3a
-Revises: 
+Revises:
 Create Date: 2018-04-16 15:34:37.785153
 
 """
@@ -28,14 +28,14 @@ def upgrade():
     sa.UniqueConstraint('id')
     )
     op.create_table('templates',
-    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('id', sa.Integer(), sa.Sequence('template_id'), nullable=False),
     sa.Column('label', sa.String(length=128), nullable=False),
     sa.Column('created', sa.DateTime(), nullable=True),
     sa.Column('updated', sa.DateTime(), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('attrs',
-    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('id', sa.Integer(), sa.Sequence('attr_id'), nullable=False),
     sa.Column('label', sa.String(length=128), nullable=False),
     sa.Column('created', sa.DateTime(), nullable=True),
     sa.Column('updated', sa.DateTime(), nullable=True),
@@ -44,7 +44,7 @@ def upgrade():
     sa.Column('static_value', sa.String(length=128), nullable=True),
     sa.Column('template_id', sa.Integer(), nullable=True),
     sa.Column('parent_id', sa.Integer(), nullable=True),
-    sa.CheckConstraint('((template_id IS NULL) AND NOT (parent_id IS NULL)) OR                                      (NOT (template_id IS NULL) AND (parent_id IS NULL))'),
+    sa.CheckConstraint('((template_id IS NULL) AND NOT (parent_id IS NULL)) OR (NOT (template_id IS NULL) AND (parent_id IS NULL))'),
     sa.ForeignKeyConstraint(['parent_id'], ['attrs.id'], ),
     sa.ForeignKeyConstraint(['template_id'], ['templates.id'], ),
     sa.PrimaryKeyConstraint('id'),
@@ -60,7 +60,7 @@ def upgrade():
     op.create_index(op.f('ix_device_template_device_id'), 'device_template', ['device_id'], unique=False)
     op.create_index(op.f('ix_device_template_template_id'), 'device_template', ['template_id'], unique=False)
     op.create_table('overrides',
-    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('id', sa.Integer(), sa.Sequence('override_id'), nullable=False),
     sa.Column('did', sa.String(length=8), nullable=True),
     sa.Column('aid', sa.Integer(), nullable=True),
     sa.Column('static_value', sa.String(length=128), nullable=True),
