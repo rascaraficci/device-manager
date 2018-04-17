@@ -103,9 +103,9 @@ def init_tenant(tenant, db):
     else:
         switch_tenant(tenant, db)
 
-def list_tenants(db):
+def list_tenants(session):
     query = 'select schema_name from information_schema.schemata;'
-    tenants = db.session.execute(query)
+    tenants = session.execute(query)
     result = []
     for i in tenants:
         if i.schema_name.startswith('pg_'):

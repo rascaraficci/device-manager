@@ -10,4 +10,4 @@ ADD . /usr/src/app
 
 ENV PYTHONPATH=":/usr/src/app"
 EXPOSE 5000
-CMD ["./docker/entrypoint.sh", "start"]
+CMD ["./docker/entrypoint.sh"]

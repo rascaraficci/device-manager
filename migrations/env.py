@@ -18,8 +18,7 @@ logger = logging.getLogger('alembic.env')
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
 from flask import current_app
-config.set_main_option('sqlalchemy.url',
-                       current_app.config.get('SQLALCHEMY_DATABASE_URI'))
+config.set_main_option('sqlalchemy.url', current_app.config.get('SQLALCHEMY_DATABASE_URI'))
 target_metadata = current_app.extensions['migrate'].db.metadata
 
 # other values from the config, defined by the needs of env.py,
@@ -27,6 +26,7 @@ target_metadata = current_app.extensions['migrate'].db.metadata
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
 
+from DeviceManager.TenancyManager import list_tenants
 
 def run_migrations_offline():
     """Run migrations in 'offline' mode.
@@ -75,11 +75,14 @@ def run_migrations_online():
                       process_revision_directives=process_revision_directives,
                       **current_app.extensions['migrate'].configure_args)
 
-    try:
-        with context.begin_transaction():
-            context.run_migrations()
-    finally:
-        connection.close()
+    for tenant in list_tenants(connection):
+        try:
+            logger.info('About to migrate tenant {}'.format(tenant))
+            connection.execute('set search_path to "{}"'.format(tenant))
+            with context.begin_transaction():
+                context.run_migrations()
+        finally:
+            connection.close()
 
 if context.is_offline_mode():
     run_migrations_offline()

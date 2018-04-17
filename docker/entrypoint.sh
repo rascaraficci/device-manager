@@ -1,4 +1,13 @@
 #!/bin/bash
+
+command=${1:-start}
+
+function migrate () {
+    export FLASK_APP=DeviceManager/main.py
+    flask db upgrade
+    unset FLASK_APP
+}
+
 if [ $1 = 'start' ]; then
     flag=0
     retries=0
@@ -34,4 +43,6 @@ if [ $1 = 'start' ]; then
             let retries++
         fi
     done
+elif [ $1 = 'migrate' ] ; then
+    migrate
 fi

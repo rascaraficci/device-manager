@@ -11,7 +11,7 @@ from .DatabaseModels import db
 from .StatusMonitor import StatusMonitor
 from .TenancyManager import list_tenants
 
-for tenant in list_tenants(db):
+for tenant in list_tenants(db.session):
     StatusMonitor(tenant)
 
 migrate = Migrate(app, db)
