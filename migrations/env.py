@@ -47,14 +47,7 @@ def run_migrations_offline():
         context.run_migrations()
 
 
-def run_migrations_online(single_tenant=None):
-    """Run migrations in 'online' mode.
-
-    In this scenario we need to create an Engine
-    and associate a connection with the context.
-
-    """
-
+def get_context():
     # this callback is used to prevent an auto-migration from being generated
     # when there are no changes to the schema
     # reference: http://alembic.zzzcomputing.com/en/latest/cookbook.html
@@ -68,22 +61,33 @@ def run_migrations_online(single_tenant=None):
     engine = engine_from_config(config.get_section(config.config_ini_section),
                                 prefix='sqlalchemy.',
                                 poolclass=pool.NullPool)
-
     connection = engine.connect()
     context.configure(connection=connection,
                       target_metadata=target_metadata,
                       process_revision_directives=process_revision_directives,
                       **current_app.extensions['migrate'].configure_args)
+    return context, connection
+
+def run_migrations_online(single_tenant=None):
+    """Run migrations in 'online' mode.
+
+    In this scenario we need to create an Engine
+    and associate a connection with the context.
+
+    """
 
     if single_tenant is not None:
         logger.info('About to migrate tenant {}'.format(single_tenant))
+        context, connection = get_context()
         try:
             with context.begin_transaction():
                 context.run_migrations()
         finally:
             connection.close()
     else:
-        for tenant in list_tenants(connection):
+        ctx, conn = get_context()
+        for tenant in list_tenants(conn):
+            context, connection = get_context()
             try:
                 logger.info('About to migrate tenant {}'.format(tenant))
                 connection.execute('set search_path to "{}"'.format(tenant))
@@ -91,6 +95,7 @@ def run_migrations_online(single_tenant=None):
                     context.run_migrations()
             finally:
                 connection.close()
+        conn.close()
 
 if context.is_offline_mode():
     run_migrations_offline()
