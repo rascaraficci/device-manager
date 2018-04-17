@@ -1,6 +1,7 @@
 from __future__ import with_statement
 from alembic import context
 from sqlalchemy import engine_from_config, pool
+from sqlalchemy import MetaData, Table, ForeignKeyConstraint, Index
 from logging.config import fileConfig
 import logging
 
@@ -47,7 +48,66 @@ def run_migrations_offline():
         context.run_migrations()
 
 
-def get_context():
+def include_schemas(names):
+    # produce an include object function that filters on the given schemas
+    def include_object(object, name, type_, reflected, compare_to):
+        # print("got data {} type: {} name: {}, compare_to: {}".format(object, type_, name, compare_to))
+        if type_ == "table":
+            print("got table {} {} {}".format(name, object.schema, names))
+            return object.schema in names
+        return True
+
+    return include_object
+
+
+def _get_table_key(name, schema):
+    if schema is None:
+        return name
+    else:
+        return schema + "." + name
+
+
+def tometadata(table, metadata, schema):
+    key = _get_table_key(table.name, schema)
+    if key in metadata.tables:
+        return metadata.tables[key]
+
+    args = []
+    for c in table.columns:
+        args.append(c.copy(schema=schema))
+    new_table = Table(
+        table.name, metadata, schema=schema,
+        *args, **table.kwargs
+    )
+    for c in table.constraints:
+        if isinstance(c, ForeignKeyConstraint):
+            constraint_schema = schema
+        else:
+            constraint_schema = schema
+        new_table.append_constraint(
+            c.copy(schema=constraint_schema, target_table=new_table))
+
+    for index in table.indexes:
+        # skip indexes that would be generated
+        # by the 'index' flag on Column
+        if len(index.columns) == 1 and \
+                list(index.columns)[0].index:
+            continue
+        Index(index.name,
+              unique=index.unique,
+              *[new_table.c[col] for col in index.columns.keys()],
+              **index.kwargs)
+
+    return table._schema_item_copy(new_table)
+
+def get_context(tenant=None):
+    global target_metadata
+    if tenant is not None:
+        metax = MetaData()
+        for table in target_metadata.tables.values():
+            tometadata(table, metax, tenant)
+        target_metadata = metax
+
     # this callback is used to prevent an auto-migration from being generated
     # when there are no changes to the schema
     # reference: http://alembic.zzzcomputing.com/en/latest/cookbook.html
@@ -62,13 +122,16 @@ def get_context():
                                 prefix='sqlalchemy.',
                                 poolclass=pool.NullPool)
     connection = engine.connect()
+    # connection.execution_options(schema_translate_map={None: tenant})
     context.configure(connection=connection,
                       target_metadata=target_metadata,
                       process_revision_directives=process_revision_directives,
+                      include_schemas=True,
+                      include_object=include_schemas([tenant]),
                       **current_app.extensions['migrate'].configure_args)
     return context, connection
 
-def run_migrations_online(single_tenant=None):
+def run_migrations_online():
     """Run migrations in 'online' mode.
 
     In this scenario we need to create an Engine
@@ -76,26 +139,22 @@ def run_migrations_online(single_tenant=None):
 
     """
 
-    if single_tenant is not None:
-        logger.info('About to migrate tenant {}'.format(single_tenant))
+    tenants = []
+    ctx, conn = get_context()
+    try:
+        tenants = list_tenants(conn)
+    finally:
+        conn.close()
+
+    for tenant in tenants:
         context, connection = get_context()
         try:
+            logger.info('About to migrate tenant {}'.format(tenant))
+            connection.execute('set search_path to "{}"'.format(tenant))
             with context.begin_transaction():
                 context.run_migrations()
         finally:
             connection.close()
-    else:
-        ctx, conn = get_context()
-        for tenant in list_tenants(conn):
-            context, connection = get_context()
-            try:
-                logger.info('About to migrate tenant {}'.format(tenant))
-                connection.execute('set search_path to "{}"'.format(tenant))
-                with context.begin_transaction():
-                    context.run_migrations()
-            finally:
-                connection.close()
-        conn.close()
 
 if context.is_offline_mode():
     run_migrations_offline()
