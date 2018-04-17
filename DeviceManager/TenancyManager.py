@@ -1,9 +1,12 @@
 import json
 from sqlalchemy.sql import exists, select, text, column
+from flask_alembic import Alembic
 
 from DeviceManager.utils import HTTPRequestError, decode_base64
 from .DatabaseModels import db
+from .app import app
 from .StatusMonitor import StatusMonitor
+
 
 def install_triggers(db):
     query = """
@@ -98,7 +101,13 @@ def init_tenant(tenant, db):
     if not tenant_exists:
         create_tenant(tenant, db)
         switch_tenant(tenant, db)
-        db.create_all()
+
+        # Makes sure alembic install its meta information tables into the db (schema/namespace)
+        alembic = Alembic()
+        alembic.init_app(app, run_mkdir=False)
+        with app.app_context():
+            alembic.upgrade()
+
         install_triggers(db)
     else:
         switch_tenant(tenant, db)

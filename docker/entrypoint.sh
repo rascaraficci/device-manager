@@ -8,7 +8,7 @@ function migrate () {
     unset FLASK_APP
 }
 
-if [ $1 = 'start' ]; then
+if [ ${command} = 'start' ]; then
     flag=0
     retries=0
     max_retries=5
@@ -22,9 +22,9 @@ if [ $1 = 'start' ]; then
     fi
     echo "Finished waiting for DB"
 
-    while [ $flag -eq 0 ]; do
-        if [ $retries -eq $max_retries ]; then
-            echo Executed $retries retries, aborting
+    while [ ${flag} -eq 0 ]; do
+        if [ ${retries} -eq ${max_retries} ]; then
+            echo Executed ${retries} retries, aborting
             exit 1
         fi
 
@@ -38,11 +38,11 @@ if [ $1 = 'start' ]; then
         if [ $? -eq 0 ]; then
             flag=1
         else
-            echo "Cannot start application, retying in $sleep_time seconds..."
-            sleep $sleep_time
+            echo "Cannot start application, retying in ${sleep_time} seconds..."
+            sleep ${sleep_time}
             let retries++
         fi
     done
-elif [ $1 = 'migrate' ] ; then
+elif [ ${command} = 'migrate' ] ; then
     migrate
 fi

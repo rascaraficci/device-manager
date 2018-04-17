@@ -47,7 +47,7 @@ def run_migrations_offline():
         context.run_migrations()
 
 
-def run_migrations_online():
+def run_migrations_online(single_tenant=None):
     """Run migrations in 'online' mode.
 
     In this scenario we need to create an Engine
@@ -75,14 +75,22 @@ def run_migrations_online():
                       process_revision_directives=process_revision_directives,
                       **current_app.extensions['migrate'].configure_args)
 
-    for tenant in list_tenants(connection):
+    if single_tenant is not None:
+        logger.info('About to migrate tenant {}'.format(single_tenant))
         try:
-            logger.info('About to migrate tenant {}'.format(tenant))
-            connection.execute('set search_path to "{}"'.format(tenant))
             with context.begin_transaction():
                 context.run_migrations()
         finally:
             connection.close()
+    else:
+        for tenant in list_tenants(connection):
+            try:
+                logger.info('About to migrate tenant {}'.format(tenant))
+                connection.execute('set search_path to "{}"'.format(tenant))
+                with context.begin_transaction():
+                    context.run_migrations()
+            finally:
+                connection.close()
 
 if context.is_offline_mode():
     run_migrations_offline()
