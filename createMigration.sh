@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# This helps devs create easier to maintain migratinos for device-manager
+# This helps devs create easier to maintain migrations for device-manager
 # When migrations are run, pg schemas (namespaces) are set up in runtime, but it is quite
 # cumbersome to generate said "shema-less" migrations in the first place.
 #
@@ -26,7 +26,7 @@ done
 flask db migrate --directory ${target}
 result=$?
 
-if [ $result != 0 ] ; then
+if [ ${result} != 0 ] ; then
     flask db upgrade --directory ${target}
     flask db migrate --directory ${target}
 fi
