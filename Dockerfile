@@ -1,10 +1,13 @@
-FROM python:3.6
+FROM python:3.6-alpine
 
 RUN mkdir -p /usr/src/app/requirements
 WORKDIR /usr/src/app
 
 ADD requirements/requirements.txt requirements/
-RUN pip install -r requirements/requirements.txt
+RUN apk update && \
+    apk add postgresql-dev gcc musl-dev && \
+    pip install -r requirements/requirements.txt && \
+    apk del gcc
 
 ADD . /usr/src/app
 
