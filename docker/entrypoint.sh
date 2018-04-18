@@ -51,6 +51,6 @@ if [ ${command} = 'start' ]; then
     done
 elif [ ${command} = 'migrate' ] ; then
     migrate
-elif [ ${command} = '020_stamp'] ; then
+elif [ ${command} = '020_stamp' ] ; then
     020_stamp
 fi

@@ -1,9 +1,10 @@
 from __future__ import with_statement
+import logging
+from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
-from sqlalchemy import MetaData, Table, ForeignKeyConstraint, Index
-from logging.config import fileConfig
-import logging
+from flask import current_app
+from DeviceManager.TenancyManager import list_tenants
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -18,7 +19,6 @@ logger = logging.getLogger('alembic.env')
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
-from flask import current_app
 config.set_main_option('sqlalchemy.url', current_app.config.get('SQLALCHEMY_DATABASE_URI'))
 target_metadata = current_app.extensions['migrate'].db.metadata
 
@@ -27,7 +27,6 @@ target_metadata = current_app.extensions['migrate'].db.metadata
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
 
-from DeviceManager.TenancyManager import list_tenants
 
 def run_migrations_offline():
     """Run migrations in 'offline' mode.
@@ -47,71 +46,13 @@ def run_migrations_offline():
     with context.begin_transaction():
         context.run_migrations()
 
-
-def include_schemas(names):
-    # produce an include object function that filters on the given schemas
-    def include_object(object, name, type_, reflected, compare_to):
-        # print("got data {} type: {} name: {}, compare_to: {}".format(object, type_, name, compare_to))
-        if type_ == "table":
-            print("got table {} {} {}".format(name, object.schema, names))
-            return object.schema in names
-        return True
-
-    return include_object
-
-
-def _get_table_key(name, schema):
-    if schema is None:
-        return name
-    else:
-        return schema + "." + name
-
-
-def tometadata(table, metadata, schema):
-    key = _get_table_key(table.name, schema)
-    if key in metadata.tables:
-        return metadata.tables[key]
-
-    args = []
-    for c in table.columns:
-        args.append(c.copy(schema=schema))
-    new_table = Table(
-        table.name, metadata, schema=schema,
-        *args, **table.kwargs
-    )
-    for c in table.constraints:
-        if isinstance(c, ForeignKeyConstraint):
-            constraint_schema = schema
-        else:
-            constraint_schema = schema
-        new_table.append_constraint(
-            c.copy(schema=constraint_schema, target_table=new_table))
-
-    for index in table.indexes:
-        # skip indexes that would be generated
-        # by the 'index' flag on Column
-        if len(index.columns) == 1 and \
-                list(index.columns)[0].index:
-            continue
-        Index(index.name,
-              unique=index.unique,
-              *[new_table.c[col] for col in index.columns.keys()],
-              **index.kwargs)
-
-    return table._schema_item_copy(new_table)
-
-def get_context(tenant=None):
-    global target_metadata
-    if tenant is not None:
-        metax = MetaData()
-        for table in target_metadata.tables.values():
-            tometadata(table, metax, tenant)
-        target_metadata = metax
+def get_context():
 
     # this callback is used to prevent an auto-migration from being generated
     # when there are no changes to the schema
     # reference: http://alembic.zzzcomputing.com/en/latest/cookbook.html
     def process_revision_directives(context, revision, directives):
+        #pylint: disable=unused-argument
         if getattr(config.cmd_opts, 'autogenerate', False):
             script = directives[0]
             if script.upgrade_ops.is_empty():
@@ -122,12 +63,9 @@ def get_context(tenant=None):
                                 prefix='sqlalchemy.',
                                 poolclass=pool.NullPool)
     connection = engine.connect()
-    # connection.execution_options(schema_translate_map={None: tenant})
     context.configure(connection=connection,
                       target_metadata=target_metadata,
                       process_revision_directives=process_revision_directives,
-                      include_schemas=True,
-                      include_object=include_schemas([tenant]),
                       **current_app.extensions['migrate'].configure_args)
     return context, connection
 
@@ -140,19 +78,19 @@ def run_migrations_online():
     """
 
     tenants = []
-    ctx, conn = get_context()
+    conn = get_context()[1]
     try:
         tenants = list_tenants(conn)
     finally:
         conn.close()
 
     for tenant in tenants:
-        context, connection = get_context()
+        ctx, connection = get_context()
         try:
-            logger.info('About to migrate tenant {}'.format(tenant))
+            logger.info('About to migrate tenant %s', tenant)
             connection.execute('set search_path to "{}"'.format(tenant))
-            with context.begin_transaction():
-                context.run_migrations()
+            with ctx.begin_transaction():
+                ctx.run_migrations()
         finally:
             connection.close()
 
