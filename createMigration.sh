@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # This helps devs create easier to maintain migrations for device-manager
 # When migrations are run, pg schemas (namespaces) are set up in runtime, but it is quite
@@ -7,15 +7,15 @@
 # This creates a clean slate alembic migrations environment to generate new migrations
 # for the project.
 
-function get_dir() {
-    local newdir=$(tr -cd '[:alnum:]' < /dev/urandom | fold -w10 | head -n1)
+get_dir() {
+    newdir=$(tr -cd '[:alnum:]' < /dev/urandom | fold -w10 | head -n1)
     while [ -d ${newdir} ] ; do
         newdir=$(tr -cd '[:alnum:]' < /dev/urandom | fold -w10 | head -n1)
     done
     echo ${newdir}
 }
 
-script_home=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+script_home=$( dirname $(readlink -f "$0") )
 target=$(get_dir)
 home="${script_home}/migrations/versions"
 flask db init --directory ${target}
