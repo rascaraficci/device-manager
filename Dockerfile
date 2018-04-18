@@ -4,8 +4,7 @@ RUN mkdir -p /usr/src/app/requirements
 WORKDIR /usr/src/app
 
 ADD requirements/requirements.txt requirements/
-RUN apk update && \
-    apk add postgresql-dev gcc musl-dev && \
+RUN apk --no-cache add postgresql-dev gcc musl-dev && \
     pip install -r requirements/requirements.txt && \
     apk del gcc
 
