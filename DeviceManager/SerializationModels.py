@@ -44,7 +44,7 @@ attr_schema = AttrSchema()
 attr_list_schema = AttrSchema(many=True)
 
 class TemplateSchema(Schema):
-    id = fields.Int()
+    id = fields.Int(dump_only=True)
     label = fields.Str(required=True)
     created = fields.DateTime(dump_only=True)
     updated = fields.DateTime(dump_only=True)
