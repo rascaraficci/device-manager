@@ -1,14 +1,14 @@
-#!/bin/bash
+#!/bin/sh
 
 command=${1:-start}
 
-function migrate () {
+migrate () {
     export FLASK_APP=DeviceManager/main.py
     flask db upgrade
     unset FLASK_APP
 }
 
-function 020_stamp () {
+stamp () {
     export FLASK_APP=DeviceManager/main.py
     flask db stamp 6beff7876a3a
     unset FLASK_APP
@@ -46,11 +46,11 @@ if [ ${command} = 'start' ]; then
         else
             echo "Cannot start application, retying in ${sleep_time} seconds..."
             sleep ${sleep_time}
-            let retries++
+            retries=$((retries + 1))
         fi
     done
 elif [ ${command} = 'migrate' ] ; then
     migrate
 elif [ ${command} = '020_stamp' ] ; then
-    020_stamp
+    stamp
 fi
