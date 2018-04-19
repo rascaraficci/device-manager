@@ -24,7 +24,6 @@ services:
       timeout: 5s
       retries: 5
 
-
   data-broker-redis:
     image: redis
     restart: always
