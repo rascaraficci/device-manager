@@ -117,7 +117,7 @@ def list_tenants(session):
     tenants = session.execute(query)
     result = []
     for i in tenants:
-        if i.schema_name.startswith('pg_'):
+        if i.schema_name.startswith('pg'):
             continue
         if i.schema_name in ['public', 'information_schema']:
             continue
