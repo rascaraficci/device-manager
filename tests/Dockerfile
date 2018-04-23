@@ -10,5 +10,6 @@ RUN pip install -r /usr/src/app/tests/requirements.txt
 
 ADD . .
 ENV PYTHONPATH=${PYTHONPATH}:/usr/src/app
+ENV SINGLE_TENANT=true
 
 CMD ["./tests/start-test.sh"]

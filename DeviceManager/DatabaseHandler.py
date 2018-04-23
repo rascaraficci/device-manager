@@ -1,3 +1,4 @@
+import os
 from flask import g, request
 from flask_sqlalchemy import SQLAlchemy
 
@@ -23,13 +24,17 @@ class MultiTenantSQLAlchemy(SQLAlchemy):
             bind = g.tenant
         return super().get_engine(app=app, bind=bind)
 
-db = MultiTenantSQLAlchemy(app)
+SINGLE_TENANT = os.environ.get('SINGLE_TENANT', False)
+if SINGLE_TENANT:
+    db = SQLAlchemy(app)
+else:
+    db = MultiTenantSQLAlchemy(app)
 
-@app.before_request
-def before_request():
-    tenant = get_allowed_service(request.headers['authorization'])
-    binds = app.config.get('SQLALCHEMY_BINDS')
-    if binds.get(tenant, None) is None:
-        binds[tenant] = CONFIG.get_db_url()
-        app.config['SQLALCHEMY_BINDS'] = binds
-    db.choose_tenant(tenant)
+    @app.before_request
+    def before_request():
+        tenant = get_allowed_service(request.headers['authorization'])
+        binds = app.config.get('SQLALCHEMY_BINDS')
+        if binds.get(tenant, None) is None:
+            binds[tenant] = CONFIG.get_db_url()
+            app.config['SQLALCHEMY_BINDS'] = binds
+        db.choose_tenant(tenant)

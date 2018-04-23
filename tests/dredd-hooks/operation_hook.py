@@ -16,14 +16,11 @@ class Request:
         self.args = data['args']
         self.data = data['body']
 
-
 template_id = 0
 device_id = ""
 
-
 def sort_attributes(device, attribute):
     device[attribute] = sorted(device[attribute], key=lambda k: k['label'])
-
 
 def create_sample_template():
     global template_id
@@ -110,7 +107,7 @@ def create_single_device(transaction):
     }
     result = DeviceHandler.create_device(Request(req))
     device_id = result['devices'][0]['id']
-    
+
 @hooks.before('Internal > Device > Get the current list of devices > Example 1')
 def create_single_device_and_gen_psk(transaction):
     global device_id
@@ -126,14 +123,14 @@ def create_device_and_update_device_id(transaction):
     global device_id
     create_single_device(transaction)
     transaction['fullPath'] = transaction['fullPath'].replace('efac', device_id)
-    
+
 @hooks.before('Internal > Device > Get device info')
 def prepare_env_psk(transaction):
-    global device_id    
+    global device_id
     create_device_and_update_device_id(transaction)
     DeviceHandler.gen_psk(generate_token(), device_id, 16, None)
-    
-    
+
+
 @hooks.before_validation('Devices > Device info > Get device info')
 @hooks.before_validation('Internal > Device > Get device info')
 def update_expected_ids_single_device(transaction):
