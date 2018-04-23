@@ -17,7 +17,6 @@ class MetaSchema(Schema):
 
 def validate_attr_label(input):
     if re.match(r'^[a-zA-Z0-9_-]+$', input) is None:
-        print('validation for {} failed'.format(input))
         raise ValidationError("Labels must contain letters, numbers or dashes(-_)")
     return '-- invalid --'
 

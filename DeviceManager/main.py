@@ -1,3 +1,4 @@
+from flask import g
 from flask_migrate import Migrate
 
 from DeviceManager.app import app
@@ -7,12 +8,14 @@ import DeviceManager.DeviceHandler
 import DeviceManager.TemplateHandler
 import DeviceManager.ErrorManager
 
-from .DatabaseModels import db
+from .DatabaseHandler import db
 from .StatusMonitor import StatusMonitor
 from .TenancyManager import list_tenants
 
-for tenant in list_tenants(db.session):
-    StatusMonitor(tenant)
+with app.app_context():
+    g.tenant = '__status_monitor__'
+    for tenant in list_tenants(db.session):
+        StatusMonitor(tenant)
 
 migrate = Migrate(app, db)
 

@@ -2,7 +2,7 @@ import logging
 from flask import Blueprint, request, jsonify, make_response
 from sqlalchemy.exc import IntegrityError
 
-from DeviceManager.DatabaseModels import db
+from DeviceManager.DatabaseHandler import db
 from DeviceManager.DatabaseModels import handle_consistency_exception, assert_template_exists
 from DeviceManager.DatabaseModels import DeviceTemplate, DeviceAttr, DeviceTemplateMap
 from DeviceManager.SerializationModels import template_list_schema, template_schema
