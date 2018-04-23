@@ -71,7 +71,7 @@ def get_allowed_service(token):
         :returns: Fiware-service to be used on API calls
         :raises ValueError: for invalid token received
     """
-    if not token or len(token) == 0:
+    if not token:
         raise ValueError("Invalid authentication token")
 
     payload = token.split('.')[1]
