@@ -91,6 +91,15 @@ class StatusMonitor:
     def get_key_for(tenant, device, partition):
         return 'st:{}:{}:{}:exp'.format(tenant, device, partition)
 
+    @staticmethod
+    def parse_key_from(key):
+        parsed = key.split(':')
+        return {
+            'tenant': parsed[1],
+            'device': parsed[2],
+            'partiion': parsed[3]
+        }
+
     def notify(self, tenant, device, status):
         message = {
             'metadata': {
@@ -177,20 +186,31 @@ class StatusMonitor:
                 self.notify(parsed[1],parsed[2],'offline')
 
     @staticmethod
-    def get_status(tenant, device):
+    def get_status(tenant, device=None):
         """
         Returns boolean indicating whether device is online or not.
         """
         client = redis.StrictRedis(host=CONFIG.redis_host, port=CONFIG.redis_port)
-        match = StatusMonitor.get_key_for(tenant, device, '*')
-        cursor, data = client.scan(0, match, count=1000)
-        if len(data):
-            exp = float(client.get(data[0]).decode('utf-8'))
-            if (exp is not None) and (time.time() < exp):
-                return 'online'
-            else:
-                return 'offline'
+        match = StatusMonitor.get_key_for(tenant, device if device is not None else '*', '*')
+        status = {}
+        timeref = time.time()
 
-        return 'offline'
+        def iterate(data):
+            for key in data:
+                if key is not None:
+                    device = StatusMonitor.parse_key_from(key.decode('utf-8'))['device']
+                    exp = float(client.get(key).decode('utf-8'))
+                    if (exp is not None) and (timeref < exp):
+                        status[device] = 'online'
+                    else:
+                        status[device] = 'offline'
+
+        cursor, data = client.scan(0, match, count=1000)
+        iterate(data)
+        while cursor != 0:
+            cursor, data = client.scan(cursor, match, count=1000)
+            iterate(data)
+
+        return status
 
 
