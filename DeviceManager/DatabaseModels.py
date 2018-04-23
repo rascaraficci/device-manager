@@ -1,16 +1,12 @@
 from datetime import datetime
 import re
 import sqlalchemy
-from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import event
 
-from DeviceManager.app import app
-from DeviceManager.utils import HTTPRequestError
-from DeviceManager.conf import CONFIG
-
-app.config['SQLALCHEMY_DATABASE_URI'] = CONFIG.get_db_url()
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
+from .app import app
+from .utils import HTTPRequestError
+from .conf import CONFIG
+from .DatabaseHandler import db
 
 class DeviceOverride(db.Model):
     __tablename__ = 'overrides'

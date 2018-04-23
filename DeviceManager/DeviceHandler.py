@@ -17,7 +17,8 @@ from DeviceManager.utils import HTTPRequestError
 from DeviceManager.conf import CONFIG
 from DeviceManager.BackendHandler import OrionHandler, KafkaHandler, PersistenceHandler
 
-from DeviceManager.DatabaseModels import db, assert_device_exists, assert_template_exists
+from DeviceManager.DatabaseHandler import db
+from DeviceManager.DatabaseModels import assert_device_exists, assert_template_exists
 from DeviceManager.DatabaseModels import handle_consistency_exception, assert_device_relation_exists
 from DeviceManager.DatabaseModels import DeviceTemplate, DeviceAttr, Device, DeviceTemplateMap, DeviceAttrsPsk
 from DeviceManager.DatabaseModels import DeviceOverride

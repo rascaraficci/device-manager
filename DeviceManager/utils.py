@@ -62,6 +62,25 @@ def decode_base64(data):
         data += '=' * (4 - missing_padding)
     return base64.decodebytes(data.encode()).decode()
 
+def get_allowed_service(token):
+    """
+        Parses the authorization token, returning the service to be used when
+        configuring the FIWARE backend
+
+        :param token: JWT token to be parsed
+        :returns: Fiware-service to be used on API calls
+        :raises ValueError: for invalid token received
+    """
+    if not token:
+        raise ValueError("Invalid authentication token")
+
+    payload = token.split('.')[1]
+    try:
+        data = json.loads(decode_base64(payload))
+        return data['service']
+    except Exception as ex:
+        raise ValueError("Invalid authentication token payload - not json object", ex)
+
 def encrypt(plain_text):
     # plain_text is padded so its length is multiple of cipher block size
     plain_text_pad = pad(plain_text)

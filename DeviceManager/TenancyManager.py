@@ -1,15 +1,15 @@
 import json
-from sqlalchemy.sql import exists, select, text, column
+from flask import g
 from flask_alembic import Alembic
+from sqlalchemy.sql import exists, select, text, column
 
-from DeviceManager.utils import HTTPRequestError, decode_base64
-from .DatabaseModels import db
+from DeviceManager.utils import HTTPRequestError, decode_base64, get_allowed_service
 from .app import app
 from .StatusMonitor import StatusMonitor
 
-
-def install_triggers(db):
+def install_triggers(db, tenant, session=None):
     query = """
+        SET search_path to {tenant};
         -- template update/creation checks
 
         CREATE FUNCTION validate_device_attrs() returns trigger as $$
@@ -58,39 +58,22 @@ def install_triggers(db):
 
         CREATE TRIGGER validate_device_trigger BEFORE INSERT OR UPDATE ON device_template
         FOR EACH ROW EXECUTE PROCEDURE validate_device();
-    """
-    db.session.execute(query)
-    db.session.commit()
-
-
-def get_allowed_service(token):
-    """
-        Parses the authorization token, returning the service to be used when
-        configuring the FIWARE backend
-
-        :param token: JWT token to be parsed
-        :returns: Fiware-service to be used on API calls
-        :raises ValueError: for invalid token received
-    """
-    if not token or len(token) == 0:
-        raise ValueError("Invalid authentication token")
-
-    payload = token.split('.')[1]
-    try:
-        data = json.loads(decode_base64(payload))
-        return data['service']
-    except Exception as ex:
-        raise ValueError("Invalid authentication token payload - not json object", ex)
-
+    """.format(tenant=tenant)
+    if session is None:
+        session = db.session
+    session.execute(query)
+    session.commit()
 
 def create_tenant(tenant, db):
     db.session.execute("create schema \"%s\";" % tenant)
     db.session.commit()
     StatusMonitor(tenant)
 
-def switch_tenant(tenant, db):
-    db.session.execute("SET search_path TO %s" % tenant)
-    db.session.commit()
+def switch_tenant(tenant, db, session=None):
+    if session is None:
+        session = db.session
+    session.execute("SET search_path TO %s" % tenant)
+    session.commit()
 
 def init_tenant(tenant, db):
     query = exists(select([text("schema_name")])
@@ -103,12 +86,13 @@ def init_tenant(tenant, db):
         switch_tenant(tenant, db)
 
         # Makes sure alembic install its meta information tables into the db (schema/namespace)
-        alembic = Alembic()
-        alembic.init_app(app, run_mkdir=False)
         with app.app_context():
+            g.tenant = tenant
+            alembic = Alembic()
+            alembic.init_app(app, run_mkdir=False)
             alembic.upgrade()
 
-        install_triggers(db)
+        install_triggers(db, tenant)
     else:
         switch_tenant(tenant, db)
 

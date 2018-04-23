@@ -8,7 +8,8 @@ import redis
 
 from .conf import CONFIG
 from .KafkaNotifier import get_topic
-from .DatabaseModels import db, Device
+from .DatabaseModels import Device
+from .DatabaseHandler import db
 
 import threading
 
