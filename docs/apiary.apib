@@ -111,17 +111,20 @@ Register a new template
             }
 
 
-### Get the current list of templates [GET /template{?page_size,page_num,attr_format}]
+### Get the current list of templates [GET /template{?page_size,page_num,attr_format,attr,label}]
 Get the full list of templates with all their associated attributes.
 
 + Parameters
     + page_size: 20 (integer, optional)
     + page_num: 1 (integer, optional)
-    + attr_format: "both" (string, optional)
+    + attr_format: both (string, optional)
 
         Must be one of "both", "single" (if 'data_attrs' and 'config_attrs' are to be omited)
         or "split" (if 'attrs' list is to be omited). 'attrs' field will always contain all
         template attributes that are listed by both 'data_attrs' and 'config_attrs'.
+
+    + attr: foo=bar (string, optional) - Return only templates that posess a given attribute's value
+    + label: dummy (string, optional) - Return only templates that are named accordingly (prefix or suffix match)
 
 + Request
     + Headers
@@ -566,7 +569,7 @@ Retrieves all information from a specific device
             }
 
 
-### Get the current list of devices [GET /device{?page_size,page_num,idsOnly}]
+### Get the current list of devices [GET /device{?page_size,page_num,idsOnly,label,attr}]
 Get the full list of devices with all their associated attributes.
 Each attribute from *attrs* is the template ID from where the attributes came from.
 In this example, there is only one template (ID 1).
@@ -574,6 +577,8 @@ In this example, there is only one template (ID 1).
     + page_size: 20 (integer, optional)
     + page_num: 1 (integer, optional)
     + idsOnly: false (booelan, optional) - Return only the ids of all existing devices. Ignores any `page_size` and `page_num` configurations
+    + attr: foo=bar (string, optional) - Return only devices that posess a given attribute's value
+    + label: dummy (string, optional) - Return only devices that are named accordingly (prefix or suffix match)
 
 + Request
       + Headers
@@ -865,11 +870,11 @@ Removes a device
                 "message": "No such device: aaaa",
                 "status": 404
             }
-            
+
 ### Generate PSK [POST /device/gen_psk/{device_id}{?key_length,attrs}]
 Generates pre shared keys for a specific device.
 
-This endpoint generates a random key to attributes with the 'type_value' equal 
+This endpoint generates a random key to attributes with the 'type_value' equal
 to 'psk'. The generated key is returned just once, i.e, the user can not retrive
 it via /device.
 
@@ -878,25 +883,25 @@ Calling this endpoint twice with the same target attributes will override the pr
 + Parameters
     + device_id: efac (string, required) - Device id
     + key_length: 8 (integer, required) - Key's length in bytes
-    + attrs: shared_key (string, optional) - Comma separated list with the 
-    target attributes. If this parameter is not present the all aplicable 
+    + attrs: shared_key (string, optional) - Comma separated list with the
+    target attributes. If this parameter is not present the all aplicable
     attributes will be the target.
 
 + Request
 
     + Headers
-    
+
             Authorization: Bearer JWT
 
 + Response 200 (application/json)
 
     + Body
-    
+
             [
                 {
                     "attribute": "shared_key",
                     "psk": "9ee5c4eeca90b431"
-                }                  
+                }
             ]
 
 + Response 204 (application/json)
@@ -930,7 +935,7 @@ Calling this endpoint twice with the same target attributes will override the pr
         {
             "message": "Some attribute is not a 'psk' type_value"
         }
-        
+
 # Group Internal
 Internal endpoins must not be expose outside the platform. They are used to
 internal communcation with other services.
@@ -944,7 +949,7 @@ Retrieves all information from a specific device.
 
 + Parameters
     + device_id: efac (string, required) - Device id
-    
+
 + Request
     + Headers
 

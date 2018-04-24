@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 import dredd_hooks as hooks
 import json
+import re
 
 # This shouldn't be needed
 from werkzeug.datastructures import MultiDict
@@ -56,6 +57,19 @@ def create_sample_template():
 
     result = TemplateHandler.create_template(Request(req))
     template_id = result['template']['id']
+
+
+@hooks.before('Templates > Templates > Get the current list of templates')
+@hooks.before('Devices > Device info > Get the current list of devices > Example 1')
+@hooks.before('Devices > Device info > Get the current list of devices > Example 2')
+def remove_filters(transaction):
+    print('will run hook {}'.format(transaction['name']))
+    original = transaction['fullPath']
+    if '?' in original:
+        base = original[:original.index('?')]
+        params = re.findall(r'(?<=[\?&])([\w-]+)=([\w-]+)', original)
+        filtered = list(filter(lambda x: x[0] not in  ['attr', 'label'], params))
+        transaction['fullPath'] = base + '?' + '&'.join(map(lambda x: "{}={}".format(x[0], x[1]), filtered))
 
 
 @hooks.before('Templates > Templates > Get the current list of templates')
