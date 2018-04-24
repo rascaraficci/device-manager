@@ -195,13 +195,13 @@ class DeviceHandler(object):
 
         target_label = req.args.get('label', None)
         if target_label:
-            parsed_query.append("devices.label = '{}'".format(target_label))
+            parsed_query.append("devices.label like '%{}%'".format(target_label))
 
         if len(parsed_query):
             page = db.session.query(Device) \
-                             .join(DeviceTemplateMap) \
+                             .join(DeviceTemplateMap, isouter=True) \
                              .join(DeviceTemplate) \
-                             .join(DeviceAttr) \
+                             .join(DeviceAttr, isouter=True) \
                              .filter(*parsed_query) \
                              .paginate(**pagination)
         else:

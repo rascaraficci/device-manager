@@ -1,6 +1,8 @@
 import logging
+import re
 from flask import Blueprint, request, jsonify, make_response
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.sql import text
 
 from DeviceManager.DatabaseHandler import db
 from DeviceManager.DatabaseModels import handle_consistency_exception, assert_template_exists
@@ -62,9 +64,27 @@ class TemplateHandler:
         init_tenant_context(req, db)
 
         page_number, per_page = get_pagination(req)
-        page = DeviceTemplate.query.paginate(page=int(page_number),
-                                             per_page=int(per_page),
-                                             error_out=False)
+        pagination = {'page': page_number, 'per_page': per_page, 'error_out': False}
+
+        parsed_query = []
+        query = req.args.getlist('attr')
+        for attr in query:
+            parsed = re.search('^(.+){1}=(.+){1}$', attr)
+            parsed_query.append(text("attrs.label = '{}'".format(parsed.group(1))))
+            parsed_query.append(text("attrs.static_value = '{}'".format(parsed.group(2))))
+
+        target_label = req.args.get('label', None)
+        if target_label:
+            parsed_query.append(text("templates.label like '%{}%'".format(target_label)))
+
+        if len(parsed_query):
+            page = db.session.query(DeviceTemplate) \
+                             .join(DeviceAttr, isouter=True) \
+                             .filter(*parsed_query) \
+                             .paginate(**pagination)
+        else:
+            page = db.session.query(DeviceTemplate).paginate(**pagination)
+
         templates = []
         for template in page.items:
             templates.append(attr_format(req, template_schema.dump(template)))
