@@ -84,7 +84,7 @@ def auto_create_template(json_payload, new_device):
             try:
                 target = int(attr['id'])
             except ValueError:
-                raise HTTPRequestError(400, "Unkown attribute \"{}\" in override list".format(target))
+                raise HTTPRequestError(400, "Unkown attribute \"{}\" in override list".format(attr['id']))
 
             found = False
             for orm_attr in orm_template.attrs:
