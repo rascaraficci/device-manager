@@ -63,7 +63,6 @@ def create_sample_template():
 @hooks.before('Devices > Device info > Get the current list of devices > Example 1')
 @hooks.before('Devices > Device info > Get the current list of devices > Example 2')
 def remove_filters(transaction):
-    print('will run hook {}'.format(transaction['name']))
     original = transaction['fullPath']
     if '?' in original:
         base = original[:original.index('?')]
