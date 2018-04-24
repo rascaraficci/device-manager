@@ -77,7 +77,7 @@ class TemplateHandler:
         if target_label:
             parsed_query.append(text("templates.label like '%{}%'".format(target_label)))
 
-        if len(parsed_query):
+        if parsed_query:
             page = db.session.query(DeviceTemplate) \
                              .join(DeviceAttr, isouter=True) \
                              .filter(*parsed_query) \

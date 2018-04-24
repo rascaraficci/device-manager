@@ -197,7 +197,7 @@ class DeviceHandler(object):
         if target_label:
             parsed_query.append("devices.label like '%{}%'".format(target_label))
 
-        if len(parsed_query):
+        if parsed_query:
             page = db.session.query(Device) \
                              .join(DeviceTemplateMap, isouter=True) \
                              .join(DeviceTemplate) \
