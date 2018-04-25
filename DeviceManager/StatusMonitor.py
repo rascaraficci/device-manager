@@ -1,17 +1,18 @@
 import time
 import json
+import threading
 from kafka import KafkaConsumer, KafkaProducer
 from kafka import ConsumerRebalanceListener
 from kafka.errors import KafkaTimeoutError
-
+from flask import g
 import redis
 
 from .conf import CONFIG
 from .KafkaNotifier import get_topic
 from .DatabaseModels import Device
 from .DatabaseHandler import db
+from .app import app
 
-import threading
 
 class Listener(ConsumerRebalanceListener):
     def __init__(self, monitor):
@@ -114,13 +115,15 @@ class StatusMonitor:
 
     @staticmethod
     def default_exp(tenant, device):
-        db.session.execute("SET search_path TO %s" % tenant)
-        device = db.session.query(Device).filter(Device.id == device).one()
-        for template in device.templates:
-            for attr in template.config_attrs:
-                if (attr.type == "meta") and (attr.label == "device_timeout"):
-                    return int(attr.static_value)/1000.0
-        return CONFIG.status_timeout
+        with app.app_context():
+            g.tenant = tenant
+            db.session.execute("SET search_path TO %s" % tenant)
+            device = db.session.query(Device).filter(Device.id == device).one()
+            for template in device.templates:
+                for attr in template.config_attrs:
+                    if (attr.type == "meta") and (attr.label == "device_timeout"):
+                        return int(attr.static_value)/1000.0
+            return CONFIG.status_timeout
 
 
     def set_online(self, tenant, device, partition, exp):
