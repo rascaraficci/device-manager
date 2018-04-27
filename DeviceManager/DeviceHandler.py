@@ -10,6 +10,7 @@ from datetime import datetime
 import secrets
 from flask import request, jsonify, Blueprint, make_response
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import or_, and_, func
 
 from DeviceManager.utils import *
 from DeviceManager.utils import create_id, get_pagination, format_response
@@ -190,23 +191,38 @@ class DeviceHandler(object):
         page_number, per_page = get_pagination(req)
         pagination = {'page': page_number, 'per_page': per_page, 'error_out': False}
 
-        parsed_query = []
+        attr_filter = []
         query = req.args.getlist('attr')
         for attr in query:
             parsed = re.search('^(.+){1}=(.+){1}$', attr)
-            parsed_query.append("attrs.label = '{}'".format(parsed.group(1)))
-            parsed_query.append("attrs.static_value = '{}'".format(parsed.group(2)))
+            attr = []
+            attr.append("attrs.label = '{}'".format(parsed.group(1)))
+            # static value must be the override, if any
+            attr.append("coalesce(overrides.static_value, attrs.static_value) = '{}'".format(parsed.group(2)))
+            attr_filter.append(and_(*attr))
 
+        label_filter = []
         target_label = req.args.get('label', None)
         if target_label:
-            parsed_query.append("devices.label like '%{}%'".format(target_label))
+            label_filter.append("devices.label like '%{}%'".format(target_label))
 
-        if parsed_query:
+        if label_filter or attr_filter:
+            # find all devices that contain matching attributes (may contain devices that
+            # do not match all required attributes)
+            subquery = db.session.query(func.count(Device.id).label('count'), Device.id) \
+                                 .join(DeviceTemplateMap, isouter=True) \
+                                 .join(DeviceTemplate) \
+                                 .join(DeviceAttr, isouter=True) \
+                                 .join(DeviceOverride, (Device.id == DeviceOverride.did) & (DeviceAttr.id == DeviceOverride.aid), isouter=True) \
+                                 .filter(or_(*attr_filter)) \
+                                 .group_by(Device.id) \
+                                 .subquery()
+
+            # devices must match all supplied filters
             page = db.session.query(Device) \
-                             .join(DeviceTemplateMap, isouter=True) \
-                             .join(DeviceTemplate) \
-                             .join(DeviceAttr, isouter=True) \
-                             .filter(*parsed_query) \
+                             .join(subquery, subquery.c.id == Device.id) \
+                             .filter(subquery.c.count == len(attr_filter)) \
+                             .filter(*label_filter) \
                              .paginate(**pagination)
         else:
             page = db.session.query(Device).paginate(**pagination)
