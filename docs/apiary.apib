@@ -1009,7 +1009,7 @@ Retrieves all information from a specific device.
             }
 
 
-### Get the current list of devices [GET /internal/device{?page_size,page_num,idsOnly}]
+### Get the current list of devices [GET /internal/device{?page_size,page_num,idsOnly,attr,label,sortBy}]
 Get the full list of devices with all their associated attributes.
 Each attribute from *attrs* is the template ID from where the attributes came from.
 In this example, there is only one template (ID 1).
@@ -1017,6 +1017,9 @@ In this example, there is only one template (ID 1).
     + page_size: 20 (integer, optional)
     + page_num: 1 (integer, optional)
     + idsOnly: false (booelan, optional) - Return only the ids of all existing devices. Ignores any `page_size` and `page_num` configurations
+    + attr: foo=bar (string, optional) - Return only devices that posess a given attribute's value
+    + label: dummy (string, optional) - Return only devices that are named accordingly (prefix or suffix match)
+    + sortBy: label (string, optional) - Return entries sorted by given field. Currently only `label` is supported.
 
 + Request
       + Headers
