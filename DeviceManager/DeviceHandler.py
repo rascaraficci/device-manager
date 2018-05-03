@@ -191,6 +191,12 @@ class DeviceHandler(object):
         page_number, per_page = get_pagination(req)
         pagination = {'page': page_number, 'per_page': per_page, 'error_out': False}
 
+        SORT_CRITERION = {
+            'label': func.lower(Device.label),
+            None: Device.id
+        }
+        sortBy = SORT_CRITERION.get(req.args.get('sortBy', None), Device.id)
+
         attr_filter = []
         query = req.args.getlist('attr')
         for attr in query:
@@ -223,9 +229,10 @@ class DeviceHandler(object):
                              .join(subquery, subquery.c.id == Device.id) \
                              .filter(subquery.c.count == len(attr_filter)) \
                              .filter(*label_filter) \
+                             .order_by(sortBy) \
                              .paginate(**pagination)
         else:
-            page = db.session.query(Device).paginate(**pagination)
+            page = db.session.query(Device).order_by(sortBy).paginate(**pagination)
 
         status_info = StatusMonitor.get_status(tenant)
 

@@ -2,7 +2,7 @@ import logging
 import re
 from flask import Blueprint, request, jsonify, make_response
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.sql import text
+from sqlalchemy.sql import text, collate, func
 
 from DeviceManager.DatabaseHandler import db
 from DeviceManager.DatabaseModels import handle_consistency_exception, assert_template_exists
@@ -77,13 +77,20 @@ class TemplateHandler:
         if target_label:
             parsed_query.append(text("templates.label like '%{}%'".format(target_label)))
 
+        SORT_CRITERION = {
+            'label': func.lower(DeviceTemplate.label),
+            None: DeviceTemplate.id
+        }
+        sortBy = SORT_CRITERION.get(req.args.get('sortBy', None), DeviceTemplate.id)
+
         if parsed_query:
             page = db.session.query(DeviceTemplate) \
                              .join(DeviceAttr, isouter=True) \
                              .filter(*parsed_query) \
+                             .order_by(sortBy) \
                              .paginate(**pagination)
         else:
-            page = db.session.query(DeviceTemplate).paginate(**pagination)
+            page = db.session.query(DeviceTemplate).order_by(sortBy).paginate(**pagination)
 
         templates = []
         for template in page.items:
