@@ -203,7 +203,10 @@ class StatusMonitor:
             for key in data:
                 if key is not None:
                     device = StatusMonitor.parse_key_from(key.decode('utf-8'))['device']
-                    exp = float(client.get(key).decode('utf-8'))
+                    try:
+                        exp = float(client.get(key).decode('utf-8'))
+                    except AttributeError:
+                        exp = None
                     if (exp is not None) and (timeref < exp):
                         status[device] = 'online'
                     else:
