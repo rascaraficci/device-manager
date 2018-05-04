@@ -78,7 +78,7 @@ class TemplateHandler:
             parsed_query.append(text("templates.label like '%{}%'".format(target_label)))
 
         SORT_CRITERION = {
-            'label': func.lower(DeviceTemplate.label),
+            'label': DeviceTemplate.label,
             None: DeviceTemplate.id
         }
         sortBy = SORT_CRITERION.get(req.args.get('sortBy', None), DeviceTemplate.id)
