@@ -192,7 +192,7 @@ class DeviceHandler(object):
         pagination = {'page': page_number, 'per_page': per_page, 'error_out': False}
 
         SORT_CRITERION = {
-            'label': func.lower(Device.label),
+            'label': Device.label,
             None: Device.id
         }
         sortBy = SORT_CRITERION.get(req.args.get('sortBy', None), Device.id)

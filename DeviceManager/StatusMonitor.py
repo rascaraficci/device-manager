@@ -181,13 +181,16 @@ class StatusMonitor:
         # print('gc devices {}'.format(devices))
         now = time.time()
         for device in devices:
-            exp = float(self.redis.get(device).decode('utf-8'))
-            # print('will check {} {}'.format(device, exp))
-            if now > exp:
-                self.redis.delete(device)
-                print('device {} offline'.format(device))
-                parsed = device.split(':')
-                self.notify(parsed[1],parsed[2],'offline')
+            try:
+                exp = float(self.redis.get(device).decode('utf-8'))
+                # print('will check {} {}'.format(device, exp))
+                if now > exp:
+                    self.redis.delete(device)
+                    print('device {} offline'.format(device))
+                    parsed = device.split(':')
+                    self.notify(parsed[1],parsed[2],'offline')
+            except Exception as error:
+                print('Failed to process device "{}": {}'.format(device, error))
 
     @staticmethod
     def get_status(tenant, device=None):
@@ -203,7 +206,10 @@ class StatusMonitor:
             for key in data:
                 if key is not None:
                     device = StatusMonitor.parse_key_from(key.decode('utf-8'))['device']
-                    exp = float(client.get(key).decode('utf-8'))
+                    try:
+                        exp = float(client.get(key).decode('utf-8'))
+                    except AttributeError:
+                        exp = None
                     if (exp is not None) and (timeref < exp):
                         status[device] = 'online'
                     else:
