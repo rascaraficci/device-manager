@@ -212,28 +212,41 @@ class TemplateHandler:
         old = assert_template_exists(template_id)
         # parse updated version from payload
         updated, json_payload = parse_payload(req, template_schema)
+
+        LOGGER.debug(f"Current json payload: {json_payload}")
+
         old.label = updated['label']
 
         new = json_payload['attrs']
+        LOGGER.debug("Checking old template attributes")
         for a in old.attrs:
+            LOGGER.debug(f"Checking attribute {a}...")
             found = False
             for idx, b in enumerate(new):
+                LOGGER.debug(f"Comparing against new attribute {b}")
                 if (a.label == b['label']) and (a.type == b['type']):
                     found = True
                     a.value_type = b.get('value_type', None)
                     a.static_value = b.get('static_value', None)
                     new.pop(idx)
+                    LOGGER.debug("They match. Attribute data will be updated.")
                     break
             if not found:
+                LOGGER.debug("No match for this attribute. It will be removed.")
                 db.session.delete(a)
 
         for a in new:
+            LOGGER.debug(f"Adding new attribute {a}")
+            if "id" in a:
+                del a["id"]
             db.session.add(DeviceAttr(template=old, **a))
 
-
         try:
+            LOGGER.debug("Commiting new data...")
             db.session.commit()
+            LOGGER.debug("... data committed.")
         except IntegrityError as error:
+            LOGGER.debug("ConsistencyException was thrown.")
             handle_consistency_exception(error)
 
         # notify interested parties that a set of devices might have been implicitly updated
