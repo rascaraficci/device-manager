@@ -6,6 +6,7 @@ from kafka import ConsumerRebalanceListener
 from kafka.errors import KafkaTimeoutError
 from flask import g
 import redis
+import uuid
 
 from .conf import CONFIG
 from .KafkaNotifier import get_topic
@@ -55,7 +56,7 @@ class StatusMonitor:
                 time.sleep(1)
 
     def run(self):
-        group_id="device-manager.monitor"
+        group_id="device-manager.monitor#" + str(uuid.uuid4())         
         start = time.time()
         # print('will create consumer {} {} {}'.format(CONFIG.get_kafka_url(), group_id, self.topic))
         consumer = KafkaConsumer(bootstrap_servers=CONFIG.get_kafka_url(), group_id=group_id)
