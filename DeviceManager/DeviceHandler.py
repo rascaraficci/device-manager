@@ -36,6 +36,21 @@ LOGGER = logging.getLogger('device-manager.' + __name__)
 LOGGER.addHandler(logging.StreamHandler())
 LOGGER.setLevel(logging.INFO)
 
+def serialize_override_attrs(orm_overrides, attrs):
+    for override in orm_overrides:
+        if override.attr.template_id is not None:
+            for attr in attrs[override.attr.template_id]:
+                if attr['id'] == override.aid:
+                    attr['static_value'] = override.static_value
+        else:
+            # If override attr does not have template_id it means we have a metadata override
+            # TODO: Here we do not handle multiple hierarchical levels of metadata
+            for attr in attrs[override.attr.parent.template_id]:
+                if attr['id'] == override.attr.parent_id:
+                    for metadata in attr['metadata']:
+                        if metadata['id'] == override.aid:
+                            metadata['static_value'] = override.static_value
+
 def serialize_full_device(orm_device, tenant, sensitive_data=False, status_cache=None):
     data = device_schema.dump(orm_device)
     data['attrs'] = {}
@@ -47,10 +62,8 @@ def serialize_full_device(orm_device, tenant, sensitive_data=False, status_cache
 
     data['status'] = status_cache.get(orm_device.id, 'offline')
 
-    for override in orm_device.overrides:
-        for attr in data['attrs'][override.attr.template_id]:
-            if attr['id'] == override.aid:
-                attr['static_value'] = override.static_value
+    # Override device regular and metadata attributes
+    serialize_override_attrs(orm_device.overrides, data['attrs'])
 
     if sensitive_data:
         for psk_data in orm_device.pre_shared_keys:
@@ -67,6 +80,50 @@ def find_template(template_list, id):
         if template.id == int(id):
             return template
 
+def create_orm_override(attr, orm_device, orm_template):
+    try:
+        target = int(attr['id'])
+    except ValueError:
+        raise HTTPRequestError(400, "Unknown attribute \"{}\" in override list".format(attr['id']))
+
+    found = False
+    for orm_attr in orm_template.attrs:
+        if target == orm_attr.id:
+            found = True
+            if 'static_value' in attr:
+                orm_override = DeviceOverride(
+                    device=orm_device,
+                    attr=orm_attr,
+                    static_value=attr['static_value']
+                )
+                db.session.add(orm_override)
+
+            # Update possible metadata field
+            if 'metadata' in attr:
+                for metadata in attr['metadata']:
+                    try:
+                        metadata_target = int(metadata['id'])
+                    except ValueError:
+                        raise HTTPRequestError(400, "Unknown metadata attribute \"{}\" in override list".format(
+                            metadata['id']))
+
+                    found = False
+                    # WARNING: Adds no-autoflush here, without it metadata override fail during device update
+                    with db.session.no_autoflush:
+                        for orm_attr_child in orm_attr.children:
+                            if metadata_target == orm_attr_child.id:
+                                found = True
+                                if 'static_value' in metadata:
+                                    orm_override = DeviceOverride(
+                                        device=orm_device,
+                                        attr=orm_attr_child,
+                                        static_value=metadata['static_value']
+                                    )
+                                    db.session.add(orm_override)
+
+    if not found:
+        raise HTTPRequestError(400, "Unknown attribute \"{}\" in override list".format(target))
+
 def auto_create_template(json_payload, new_device):
     if ('attrs' in json_payload) and (new_device.templates is None):
         device_template = DeviceTemplate(
@@ -81,24 +138,7 @@ def auto_create_template(json_payload, new_device):
             orm_template = find_template(new_device.templates, attr['template_id'])
             if orm_template is None:
                 raise HTTPRequestError(400, 'Unknown template "{}" in attr list'.format(orm_template))
-
-            try:
-                target = int(attr['id'])
-            except ValueError:
-                raise HTTPRequestError(400, "Unkown attribute \"{}\" in override list".format(attr['id']))
-
-            found = False
-            for orm_attr in orm_template.attrs:
-                if target == orm_attr.id:
-                    found = True
-                    orm_override = DeviceOverride(
-                        device=new_device,
-                        attr=orm_attr,
-                        static_value=attr['static_value']
-                    )
-                    db.session.add(orm_override)
-            if not found:
-                raise HTTPRequestError(400, "Unkown attribute \"{}\" in override list".format(target))
+            create_orm_override(attr, new_device, orm_template)
 
 def parse_template_list(template_list, new_device):
     new_device.templates = []
