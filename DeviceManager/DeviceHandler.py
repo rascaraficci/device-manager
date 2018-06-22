@@ -470,6 +470,11 @@ class DeviceHandler(object):
         updated_orm_device.created = old_orm_device.created
 
         db.session.add(updated_orm_device)
+        try:
+            db.session.commit()
+        except IntegrityError as error:
+            # This will throw an exception.
+            handle_consistency_exception(error)
 
         full_device = serialize_full_device(updated_orm_device, tenant)
 
@@ -490,11 +495,6 @@ class DeviceHandler(object):
 
         kafka_handler = KafkaHandler()
         kafka_handler.update(full_device, meta={"service": tenant})
-
-        try:
-            db.session.commit()
-        except IntegrityError as error:
-            handle_consistency_exception(error)
 
         result = {
             'message': 'device updated',
