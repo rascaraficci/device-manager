@@ -251,8 +251,13 @@ class DeviceHandler(object):
         target_label = req.args.get('label', None)
         if target_label:
             label_filter.append("devices.label like '%{}%'".format(target_label))
-
-        if label_filter or attr_filter:
+        
+        template_filter = []
+        target_template = req.args.get('template', None)
+        if target_template:
+            template_filter.append("device_template.template_id = {}".format(target_template))
+        
+        if template_filter or label_filter or attr_filter:
             # find all devices that contain matching attributes (may contain devices that
             # do not match all required attributes)
             subquery = db.session.query(func.count(Device.id).label('count'), Device.id) \
@@ -261,16 +266,28 @@ class DeviceHandler(object):
                                  .join(DeviceAttr, isouter=True) \
                                  .join(DeviceOverride, (Device.id == DeviceOverride.did) & (DeviceAttr.id == DeviceOverride.aid), isouter=True) \
                                  .filter(or_(*attr_filter)) \
+                                 .filter(*label_filter) \
+                                 .filter(*template_filter) \
                                  .group_by(Device.id) \
                                  .subquery()
-
             # devices must match all supplied filters
-            page = db.session.query(Device) \
+            if (len(attr_filter)):
+                page = db.session.query(Device) \
+                             .join(DeviceTemplateMap) \
                              .join(subquery, subquery.c.id == Device.id) \
                              .filter(subquery.c.count == len(attr_filter)) \
                              .filter(*label_filter) \
+                             .filter(*template_filter) \
                              .order_by(sortBy) \
                              .paginate(**pagination)
+            else: # only filter by label
+                page = db.session.query(Device) \
+                        .join(DeviceTemplateMap) \
+                        .join(subquery, subquery.c.id == Device.id) \
+                        .filter(*label_filter) \
+                        .filter(*template_filter) \
+                        .order_by(sortBy) \
+                        .paginate(**pagination)
         else:
             page = db.session.query(Device).order_by(sortBy).paginate(**pagination)
 
@@ -636,7 +653,6 @@ class DeviceHandler(object):
         :rtype JSON
         """
         tenant = init_tenant_context(req, db)
-
         page_number, per_page = get_pagination(req)
         page = (
             db.session.query(Device)
