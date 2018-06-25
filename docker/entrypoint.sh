@@ -2,6 +2,8 @@
 
 command=${1:-start}
 
+TIMEOUT=${GUNICORN_TIMEOUT:-30}
+
 migrate () {
     export FLASK_APP=DeviceManager/main.py
     flask db upgrade
@@ -33,10 +35,11 @@ if [ ${command} = 'start' ]; then
             echo Executed ${retries} retries, aborting
             exit 1
         fi
-
+        echo gunicorn timeout is ${TIMEOUT}
         exec gunicorn DeviceManager.main:app \
                   --bind 0.0.0.0:5000 \
                   --reload -R \
+                  --timeout ${TIMEOUT} \
                   --access-logfile - \
                   --log-file - \
                   --env PYTHONUNBUFFERED=1 -k gevent 2>&1
