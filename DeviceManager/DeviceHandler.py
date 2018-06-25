@@ -358,6 +358,7 @@ class DeviceHandler(object):
             subs_handler = None
 
         full_device = None
+        orm_devices = []
 
         for i in range(0, count):
             device_data, json_payload = parse_payload(req, device_schema)
@@ -369,11 +370,18 @@ class DeviceHandler(object):
             parse_template_list(json_payload.get('templates', []), orm_device)
             auto_create_template(json_payload, orm_device)
             db.session.add(orm_device)
+            orm_devices.append(orm_device)
 
+        try:
+            db.session.commit()
+        except IntegrityError as error:
+            handle_consistency_exception(error)
+
+        for orm_device in orm_devices:
             devices.append(
                 {
-                    'id': device_data['id'],
-                    'label': device_data['label']
+                    'id': orm_device.id,
+                    'label': orm_device.label
                 }
             )
 
@@ -391,10 +399,6 @@ class DeviceHandler(object):
                 sub_id = subs_handler.create(full_device['id'], type_descr)
                 orm_device.persistence = sub_id
 
-        try:
-            db.session.commit()
-        except IntegrityError as error:
-            handle_consistency_exception(error)
 
         if verbose:
             result = {
@@ -470,6 +474,11 @@ class DeviceHandler(object):
         updated_orm_device.created = old_orm_device.created
 
         db.session.add(updated_orm_device)
+        try:
+            db.session.commit()
+        except IntegrityError as error:
+            # This will throw an exception.
+            handle_consistency_exception(error)
 
         full_device = serialize_full_device(updated_orm_device, tenant)
 
@@ -490,11 +499,6 @@ class DeviceHandler(object):
 
         kafka_handler = KafkaHandler()
         kafka_handler.update(full_device, meta={"service": tenant})
-
-        try:
-            db.session.commit()
-        except IntegrityError as error:
-            handle_consistency_exception(error)
 
         result = {
             'message': 'device updated',
