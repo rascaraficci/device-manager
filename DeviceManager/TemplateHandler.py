@@ -308,8 +308,7 @@ def flask_create_template():
     try:
         result = TemplateHandler.create_template(request)
         
-        for templates in result.get('templates'):
-            LOGGER.info(f"{timeStamp}] |{__name__}| Getting template with id {templates.get('id')}")        
+        LOGGER.info(f"{timeStamp}] |{__name__}| Creating a new template")        
         
         return make_response(jsonify(result), 200)
 

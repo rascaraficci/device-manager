@@ -798,8 +798,7 @@ def flask_get_devices():
     """
     try:
         result = DeviceHandler.get_devices(request)
-        for devices in result.get('devices'):
-            LOGGER.info(f'[{timeStamp}] |{__name__}| Getting device with id {devices.get("id")}.')
+        LOGGER.info(f'[{timeStamp}] |{__name__}| Getting latest added device(s).')
 
         return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
@@ -980,8 +979,7 @@ def flask_internal_get_devices():
     """
     try:
         result = DeviceHandler.get_devices(request, True)
-        for devices in result.get('devices'):
-            LOGGER.info(f'[{timeStamp}] |{__name__}| Getting known device with id {devices.get("id")}.')
+        LOGGER.info(f'[{timeStamp}] |{__name__}| Getting known internal devices.')
         return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
         LOGGER.error(f'[{timeStamp}] |{__name__}| {e.message} - {e.error_code}.')
