@@ -1,4 +1,5 @@
 import logging
+from logging import config as config_log
 from colorlog import ColoredFormatter
 
 
@@ -13,7 +14,7 @@ class Log:
             'disable_existing_loggers': True,
         }
         
-        logging.config.dictConfig(LOGGING)
+        config_log.dictConfig(LOGGING)
 
         self.formatter = ColoredFormatter(LOG_FORMAT)
         self.log = logging.getLogger('device-manager.' + __name__)
