@@ -77,7 +77,7 @@ def serialize_full_device(orm_device, tenant, sensitive_data=False, status_cache
     return data
 
 def find_template(template_list, id):
-    LOGGER.debug(f"[{timeStamp}] |{__name__}| Finding template from template list {template_list}")
+    LOGGER.debug(f"[{timeStamp}] |{__name__}| Finding template from template list")
     for template in template_list:
         if template.id == int(id):
             return template
