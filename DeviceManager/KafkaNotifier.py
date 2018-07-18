@@ -75,21 +75,22 @@ def send_notification(event, device, meta):
     full_msg = NotificationMessage(event, device, meta)
     try:
         topic = get_topic(meta['service'], CONFIG.subject)
-        LOGGER.debug("[{}] topic for '{}' is '{}'".format(timeStamp, CONFIG.subject, topic))
+        LOGGER.debug(f"[{timeStamp}] |{__name__}| topic for {CONFIG.subject} is {topic}")
         if topic is None:
-            LOGGER.error("[{}] Failed to retrieve named topic to publish to".format(timeStamp))
+            LOGGER.error(f"[{timeStamp}] |{__name__}| Failed to retrieve named topic to publish to")
 
         kf_prod.send(topic, full_msg.to_json())
         kf_prod.flush()
     except KafkaTimeoutError:
-        LOGGER.error("[{}] Kafka timed out.".format(timeStamp))
+        LOGGER.error(f"[{timeStamp}] |{__name__}| Kafka timed out.")
 
 def send_raw(raw_data, tenant):
     try:
         topic = get_topic(tenant, CONFIG.subject)
         if topic is None:
-            LOGGER.error("[{}] Failed to retrieve named topic to publish to".format(timeStamp))
+            LOGGER.error(f"[{timeStamp}] |{__name__}| Failed to retrieve named topic to publish to")
         kf_prod.send(topic, raw_data)
         kf_prod.flush()
     except KafkaTimeoutError:
-        LOGGER.error("[{}] Kafka timed out.".format(timeStamp))
+        LOGGER.error(f"[{timeStamp}] |{__name__}| Kafka timed out.")
+        

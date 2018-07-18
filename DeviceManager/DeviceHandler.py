@@ -565,10 +565,10 @@ class DeviceHandler(object):
 
         orm_device = assert_device_exists(device_id)
         full_device = serialize_full_device(orm_device, meta['service'])
-        LOGGER.debug('Full device: %s', json.dumps(full_device))
+        LOGGER.debug(f"[{timeStamp}] |{__name__}| Full device: {json.dumps(full_device)}")
 
         payload = json.loads(req.data)
-        LOGGER.debug('Parsed request payload: %s', json.dumps(payload))
+        LOGGER.debug(f'[{timeStamp}] |{__name__}| Parsed request payload: {json.dumps(payload)}')
 
         payload['id'] = orm_device.id
 
@@ -577,12 +577,12 @@ class DeviceHandler(object):
                 invalid_attrs.append(attr)
 
         if not invalid_attrs:
-            LOGGER.debug('Sending configuration message through Kafka.')
+            LOGGER.debug(f'[{timeStamp}] |{__name__}| Sending configuration message through Kafka.')
             kafka_handler.configure(payload, meta)
-            LOGGER.debug('Configuration sent.')
-            result = {'status': 'configuration sent to device'}
+            LOGGER.debug(f'[{timeStamp}] |{__name__}| Configuration sent.')
+            result = {f'[{timeStamp}] |{__name__}| status': 'configuration sent to device'}
         else:
-            LOGGER.debug('invalid attributes detected in command: {}'.format(invalid_attrs))
+            LOGGER.warning(f'[{timeStamp}] |{__name__}| invalid attributes detected in command: {invalid_attrs}')
             result = {
                 'status': 'some of the attributes are not configurable',
                 'attrs': invalid_attrs
@@ -799,10 +799,11 @@ def flask_get_devices():
     try:
         result = DeviceHandler.get_devices(request)
         for devices in result.get('devices'):
-            LOGGER.info('[{}] |{}| Getting device with id {}.'.format(timeStamp, __name__, devices.get('id')))
+            LOGGER.info(f'[{timeStamp}] |{__name__}| Getting device with id {devices.get("id")}.')
 
         return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
+        LOGGER.error(f'[{timeStamp}] |{__name__}| {e.message} - {e.error_code}.')
         if isinstance(e.message, dict):
             return make_response(jsonify(e.message), e.error_code)
         else:
@@ -821,59 +822,55 @@ def flask_create_device():
         result = DeviceHandler.create_device(request)
         devices = result.get('devices')
         deviceId = devices[0].get('id')
-        LOGGER.info('[{}] |{}| Creating a new device with id {}.'.format(timeStamp, __name__, deviceId))
+        LOGGER.info(f'[{timeStamp}] |{__name__}| Creating a new device with id {deviceId}.')
         return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
+        LOGGER.error(f'[{timeStamp}] |{__name__}| {e.message} - {e.error_code}.')
         if isinstance(e.message, dict):
-            LOGGER.error('[{}]{} - {}.'.format(timeStamp, e.message, e.error_code))
             return make_response(jsonify(e.message), e.error_code)
         else:
-            LOGGER.error('[{}]{} - {}.'.format(timeStamp, e.message, e.error_code))
             return format_response(e.error_code, e.message)
+
 
 
 @device.route('/device/<device_id>', methods=['GET'])
 def flask_get_device(device_id):
     try:
         result = DeviceHandler.get_device(request, device_id)
-        LOGGER.info('[{}] |{}| Getting the device id: {}'.format(timeStamp, __name__, device_id))
+        LOGGER.info(f'[{timeStamp}] |{__name__}| Getting the device with id {device_id}.')
         return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
+        LOGGER.error(f'[{timeStamp}] |{__name__}| {e.message} - {e.error_code}.')
         if isinstance(e.message, dict):
-            LOGGER.error('[{}] |{}| {} - {}.'.format(timeStamp, __name__, e.message, e.error_code))
             return make_response(jsonify(e.message), e.error_code)
         else:
-            LOGGER.error('[{}] |{}| {} - {}.'.format(timeStamp, __name__, e.message, e.error_code))
             return format_response(e.error_code, e.message)
-
 
 @device.route('/device/<device_id>', methods=['DELETE'])
 def flask_remove_device(device_id):
     try:
-        LOGGER.info('[{}] |{}| Removing the device id: {}'.format(timeStamp, __name__, device_id))
+        LOGGER.info(f'[{timeStamp}] |{__name__}| Removing the device with id {device_id}.')
         results = DeviceHandler.delete_device(request, device_id)
         return make_response(jsonify(results), 200)
     except HTTPRequestError as e:
+        LOGGER.error(f'[{timeStamp}] |{__name__}| {e.message} - {e.error_code}.')
         if isinstance(e.message, dict):
-            LOGGER.error('[{}] |{}| {} - {}.'.format(timeStamp, __name__, e.message, e.error_code))
             return make_response(jsonify(e.message), e.error_code)
         else:
-            LOGGER.error('[{}] |{}| {} - {}.'.format(timeStamp, __name__, e.message, e.error_code))
             return format_response(e.error_code, e.message)
 
 
 @device.route('/device/<device_id>', methods=['PUT'])
 def flask_update_device(device_id):
     try:
-        LOGGER.info('[{}] |{}| Updating the device id: {}'.format(timeStamp, __name__, device_id))
+        LOGGER.info(f'[{timeStamp}] |{__name__}| Updating the device with id {device_id}.')
         results = DeviceHandler.update_device(request, device_id)
         return make_response(jsonify(results), 200)
     except HTTPRequestError as e:
+        LOGGER.error(f'[{timeStamp}] |{__name__}| {e.message} - {e.error_code}.')
         if isinstance(e.message, dict):
-            LOGGER.error('[{}] |{}| {} - {}.'.format(timeStamp, __name__, e.message, e.error_code))
             return make_response(jsonify(e.message), e.error_code)
         else:
-            LOGGER.error('[{}] |{}| {} - {}.'.format(timeStamp, __name__, e.message, e.error_code))
             return format_response(e.error_code, e.message)
 
 
@@ -883,16 +880,15 @@ def flask_configure_device(device_id):
     Send actuation commands to the device
     """
     try:
-        LOGGER.info('[{}] |{}| Actuating with the device id: {}'.format(timeStamp, __name__, device_id))
+        LOGGER.info(f'[{timeStamp}] |{__name__}| Actuating in the device with id {device_id}.')
         result = DeviceHandler.configure_device(request, device_id)
         return make_response(jsonify(result), 200)
 
     except HTTPRequestError as error:
+        LOGGER.error(f'[{timeStamp}] |{__name__}| {e.message} - {e.error_code}.')
         if isinstance(error.message, dict):
-            LOGGER.error('[{}] |{}| {} - {}.'.format(timeStamp, __name__, e.message, e.error_code))
             return make_response(jsonify(error.message), error.error_code)
         else:
-            LOGGER.error('[{}] |{}| {} - {}.'.format(timeStamp, __name__, e.message, e.error_code))
             return format_response(error.error_code, error.message)
 
 
@@ -900,47 +896,44 @@ def flask_configure_device(device_id):
 @device.route('/device/<device_id>/template/<template_id>', methods=['POST'])
 def flask_add_template_to_device(device_id, template_id):
     try:
-        LOGGER.info('[{}] |{}| Adding the template id {} into the device id: {}'.format(timeStamp, __name__, template_id, device_id))
+        LOGGER.info(f'[{timeStamp}] |{__name__}| Adding template with id {template_id} in the device {device_id}.')
         result = DeviceHandler.add_template_to_device(
             request, device_id, template_id)
         return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
+        LOGGER.error(f'[{timeStamp}] |{__name__}| {e.message} - {e.error_code}.')
         if isinstance(e.message, dict):
-            LOGGER.error('[{}] |{}| {} - {}.'.format(timeStamp, __name__, e.message, e.error_code))
             return make_response(jsonify(e.message), e.error_code)
         else:
-            LOGGER.error('[{}] |{}| {} - {}.'.format(timeStamp, __name__, e.message, e.error_code))
             return format_response(e.error_code, e.message)
 
 
 @device.route('/device/<device_id>/template/<template_id>', methods=['DELETE'])
 def flask_remove_template_from_device(device_id, template_id):
     try:
-        LOGGER.info('[{}] |{}| Removing the template id {} from the device id: {}'.format(timeStamp, __name__, template_id, device_id))
+        LOGGER.info(f'[{timeStamp}] |{__name__}| Removing template with id {template_id} in the device {device_id}.')
         result = DeviceHandler.remove_template_from_device(
             request, device_id, template_id)
         return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
+        LOGGER.error(f'[{timeStamp}] |{__name__}| {e.message} - {e.error_code}.')
         if isinstance(e.message, dict):
-            LOGGER.error('[{}] |{}| {} - {}.'.format(timeStamp, __name__, e.message, e.error_code))
             return make_response(jsonify(e.message), e.error_code)
         else:
-            LOGGER.error('[{}] |{}| {} - {}.'.format(timeStamp, __name__, e.message, e.error_code))
             return format_response(e.error_code, e.message)
 
 
 @device.route('/device/template/<template_id>', methods=['GET'])
 def flask_get_by_template(template_id):
     try:
-        LOGGER.info('[{}] |{}| Getting devices with template id: {}'.format(timeStamp, __name__, template_id))
+        LOGGER.info(f'[{timeStamp}] |{__name__}| Getting devices with template id {template_id}.')
         result = DeviceHandler.get_by_template(request, template_id)
         return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
+        LOGGER.error(f'[{timeStamp}] |{__name__}| {e.message} - {e.error_code}.')
         if isinstance(e.message, dict):
-            LOGGER.error('[{}] |{}| {} - {}.'.format(timeStamp, __name__, e.message, e.error_code))
             return make_response(jsonify(e.message), e.error_code)
         else:
-            LOGGER.error('[{}] |{}| {} - {}.'.format(timeStamp, __name__, e.message, e.error_code))
             return format_response(e.error_code, e.message)
 
 
@@ -965,14 +958,13 @@ def flask_gen_psk(device_id):
                                        key_length,
                                        target_attributes)
 
-        LOGGER.info('[{}] |{}| Successfully generated psk for the device: {}'.format(timeStamp, __name__, device_id))
+        LOGGER.info(f'[{timeStamp}] |{__name__}| Successfully generated psk for the device: {device_id}.')
         return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
+        LOGGER.error(f'[{timeStamp}] |{__name__}| {e.message} - {e.error_code}.')
         if isinstance(e.message, dict):
-            LOGGER.error('[{}] |{}| {} - {}.'.format(timeStamp, __name__, e.message, e.error_code))
             return make_response(jsonify(e.message), e.error_code)
         else:
-            LOGGER.error('[{}] |{}| {} - {}.'.format(timeStamp, __name__, e.message, e.error_code))
             return format_response(e.error_code, e.message)
 
 
@@ -988,8 +980,11 @@ def flask_internal_get_devices():
     """
     try:
         result = DeviceHandler.get_devices(request, True)
+        for devices in result.get('devices'):
+            LOGGER.info(f'[{timeStamp}] |{__name__}| Getting known device with id {devices.get("id")}.')
         return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
+        LOGGER.error(f'[{timeStamp}] |{__name__}| {e.message} - {e.error_code}.')
         if isinstance(e.message, dict):
             return make_response(jsonify(e.message), e.error_code)
         else:
@@ -1000,14 +995,13 @@ def flask_internal_get_devices():
 def flask_internal_get_device(device_id):
     try:
         result = DeviceHandler.get_device(request, device_id, True)
-        LOGGER.info('[{}] |{}| Getting known device with id: {}'.format(timeStamp, __name__, device_id))
+        LOGGER.info(f'[{timeStamp}] |{__name__}| Get known device with id: {device_id}.')
         return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
+        LOGGER.error(f'[{timeStamp}] |{__name__}| {e.message} - {e.error_code}.')
         if isinstance(e.message, dict):
-            LOGGER.error('[{}] |{}| {} - {}.'.format(timeStamp, __name__, e.message, e.error_code))
             return make_response(jsonify(e.message), e.error_code)
         else:
-            LOGGER.error('[{}] |{}| {} - {}.'.format(timeStamp, __name__, e.message, e.error_code))
             return format_response(e.error_code, e.message)
 
 

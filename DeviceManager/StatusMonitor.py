@@ -27,7 +27,7 @@ class Listener(ConsumerRebalanceListener):
         self.__collectors = {}
 
     def on_partitions_assigned(self, assigned):
-        LOGGER.debug('[{}] |{}| got listener event {} {}'.format(timeStamp, __name__, len(assigned), assigned))
+        LOGGER.debug(f'[{timeStamp}] |{__name__}| got listener event {len(assigned)} {assigned}')
         for partition in assigned:
             self.__monitor.collect(partition.partition)
             if partition not in self.__collectors.keys():
@@ -64,24 +64,24 @@ class StatusMonitor:
     def run(self):
         group_id="device-manager.monitor#" + str(uuid.uuid4())         
         start = time.time()
-        LOGGER.debug('[{}] |{}| will create consumer {} {} {}'.format(timeStamp, __name__, CONFIG.get_kafka_url(), group_id, self.topic))
+        LOGGER.debug(F'[{timeStamp}] |{__name__}| will create consumer {CONFIG.get_kafka_url()} {group_id} {self.topic}')
         consumer = KafkaConsumer(bootstrap_servers=CONFIG.get_kafka_url(), group_id=group_id)
         consumer.subscribe(topics=[self.topic], listener=Listener(self))
         StatusMonitor.wait_init(consumer)
-        LOGGER.debug('[{}] |{}| kafka consumer created {} - {}'.format(timeStamp, __name__, self.topic, time.time() - start))
+        LOGGER.debug(f'[{timeStamp}] |{__name__}| kafka consumer created {self.topic} - {time.time() - start}')
         LOGGER.debug(consumer.assignment())
         for message in consumer:
-            LOGGER.debug("[{}] |{}| Got kafka event [{}] {}".format(self.topic, message))
+            LOGGER.debug(f"[{timeStamp}] |{__name__}| Got kafka event [{self.topic}] {message}")
             data = None
             try:
                 data = json.loads(message.value)
             except Exception as error:
-                LOGGER.error("[{}] |{}| Received message is not valid json {}".format(timeStamp, __name__, error))
+                LOGGER.error(f"[{timeStamp}] |{__name__}| Received message is not valid json {error}")
                 continue
 
             metadata = data.get('metadata', None)
             if metadata is None:
-                LOGGER.error('[{}] |{}| Invalid kafka event detected - no metadata included'.format(timeStamp, __name__))
+                LOGGER.error(f'[{timeStamp}] |{__name__}| Invalid kafka event detected - no metadata included')
                 continue
 
             reason = metadata.get('reason', None)
@@ -91,7 +91,7 @@ class StatusMonitor:
             deviceid = metadata.get('deviceid', None)
             tenant = metadata.get('tenant', None)
             if (deviceid is None) or (tenant is None):
-                LOGGER.warn(f"[{timeStamp}] |{__name__}| Missing device identification from event")
+                LOGGER.warning(f"[{timeStamp}] |{__name__}| Missing device identification from event")
                 continue
 
             self.set_online(tenant, deviceid, message.partition, metadata.get('exp', None))
@@ -140,7 +140,7 @@ class StatusMonitor:
         if exp is None:
             exp = StatusMonitor.default_exp(tenant, device)
 
-        LOGGER.format('[{}] |{}| will set {}:{} online for {}s'.format(timeStamp, __name__, tenant, device, exp))
+        LOGGER.info(f'[{timeStamp}] |{__name__}| will set {tenant}:{device} online for {exp}s')
 
         key = StatusMonitor.get_key_for(tenant, device, partition)
         old_ts = self.redis.get(key)
@@ -178,27 +178,27 @@ class StatusMonitor:
         for i in data:
             if i is not None:
                 devices.append(i.decode('utf-8'))
-                LOGGER.debug('[{}] |{}| scan {} {} {}'.format(timeStamp, __name__ ,match, cursor, data))
+                LOGGER.debug(f'[{timeStamp}] |{__name__}| scan {match} {cursor} {data}')
         while cursor != 0:
             cursor, data = self.redis.scan(cursor, match, count=1000)
             for i in data:
                 if i is not None:
                     devices.append(i.decode('utf-8'))
-                    LOGGER.debug('[{}] |{}| scan {} {}'.format(timeStamp, __name__ ,cursor, data))
+                    LOGGER.debug(f'[{timeStamp}] |{__name__}| scan {cursor} {data}')
 
         now = time.time()
         for device in devices:
             try:
-                LOGGER.debug('[{}] |{}| gc devices {}'.format(timeStamp, __name__ , devices))
+                LOGGER.debug(f'[{timeStamp}] |{__name__}| gc devices {devices}')
                 exp = float(self.redis.get(device).decode('utf-8'))
-                LOGGER.debug('[{}] |{}| will check {} {}'.format(timeStamp, __name__, device, exp))
+                LOGGER.debug(f'[{timeStamp}] |{__name__}| will check {device} {exp}')
                 if now > exp:
                     self.redis.delete(device)
-                    LOGGER.debug('[{}] |{}| device {} offline'.format(timeStamp, __name__, device))
+                    LOGGER.debug(f'[{timeStamp}] |{__name__}| device {device} offline')
                     parsed = device.split(':')
                     self.notify(parsed[1],parsed[2],'offline')
             except Exception as error:
-                LOGGER.error('[{}] |{}| Failed to process device "{}": {}'.format(timeStamp, __name__ , device, error))
+                LOGGER.error(f'[{timeStamp}] |{__name__}| Failed to process device "{device}": {error}')
 
     @staticmethod
     def get_status(tenant, device=None):

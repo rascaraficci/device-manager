@@ -130,7 +130,7 @@ class KafkaHandler:
             Publishes event to kafka broker, notifying device creation
         """
 
-        LOGGER.info("[{}] |{}| Publishing create event to Kafka".format(timeStamp, __name__))
+        LOGGER.info(f"[{timeStamp}] |{__name__}| Publishing create event to Kafka")
         send_notification(DeviceEvent.CREATE, device, meta)
 
     def remove(self, device, meta):
@@ -138,7 +138,7 @@ class KafkaHandler:
             Publishes event to kafka broker, notifying device removal
         """
         
-        LOGGER.info("[{}] |{}| Publishing remove event to Kafka".format(timeStamp, __name__))
+        LOGGER.info(f"[{timeStamp}] |{__name__}| Publishing remove event to Kafka")
         send_notification(DeviceEvent.REMOVE, device, meta)
 
     def update(self, device, meta):
@@ -146,14 +146,14 @@ class KafkaHandler:
             Publishes event to kafka broker, notifying device update
         """
 
-        LOGGER.info("[{}] |{}| Publishing update event to Kafka".format(timeStamp, __name__))
+        LOGGER.info(f"[{timeStamp}] |{__name__}| Publishing create update to Kafka")
         send_notification(DeviceEvent.UPDATE, device, meta)
 
     def configure(self, device, meta):
         """
             Publishes event to kafka broker, notifying device configuration
         """
-        LOGGER.info("[{}] |{}| Publishing configure event to Kafka".format(timeStamp, __name__))
+        LOGGER.info(f"[{timeStamp}] |{__name__}| Publishing configure event to Kafka")
         send_notification(DeviceEvent.CONFIGURE, device, meta)
 
 
@@ -228,7 +228,7 @@ class IotaHandler(BackendHandler):
                     {"topic": "tcp:mqtt:%s" % attr.static_value},
                 })
         
-        LOGGER.info("[{}] |{}| The config of the device {} is {}".format(timeStamp, __name__, device, base_config))
+        LOGGER.info(f"[{timeStamp}] |{__name__}| The config of the device {device} is {base_config}")
         return base_config
 
     def create(self, device):
@@ -246,7 +246,7 @@ class IotaHandler(BackendHandler):
             if not (response.status_code == 409 or
                     (200 <= response.status_code < 300)):
                 error = "Failed to configure ingestion subsystem: service creation failed"
-                LOGGER.error("[{}] |{}| {}".format(timeStamp, __name__, error))
+                LOGGER.error(f"[{timeStamp}] |{__name__}| {error}")
                 raise HTTPRequestError(500, error)
         except requests.ConnectionError:
             raise HTTPRequestError(500, "Cannot reach ingestion subsystem (service)")
@@ -257,10 +257,10 @@ class IotaHandler(BackendHandler):
             
             if not (200 <= response.status_code < 300):
                 error = "Failed to configure ingestion subsystem: device creation failed"
-                LOGGER.error("[{}] |{}| {}".format(timeStamp, __name__, error))
+                LOGGER.error(f"[{timeStamp}] |{__name__}| {error}")
                 raise HTTPRequestError(500, error)
             
-            LOGGER.info("[{}] |{}| Device {} created with success".format(timeStamp, __name__, device))
+            LOGGER.info("[{timeStamp}] |{__name__}| Device {device} created with success")
 
         except requests.ConnectionError:
             raise HTTPRequestError(500, "Cannot reach ingestion subsystem (device)")
@@ -276,10 +276,10 @@ class IotaHandler(BackendHandler):
                                            headers=self._noBodyHeaders)
                 if not (200 <= response.status_code < 300):
                     error = "Failed to configure ingestion subsystem: device removal failed"
-                    LOGGER.error("[{}] |{}| {}".format(timeStamp, __name__, error))
+                    LOGGER.error(f"[{timeStamp}] |{__name__}| {error}")
                     raise HTTPRequestError(500, error)
                 
-                LOGGER.info("[{}] |{}| Device {} removed with success".format(timeStamp, __name__, deviceid))
+                LOGGER.info(f"[{timeStamp}] |{__name__}| Device {deviceid} removed with success")
 
         except requests.ConnectionError:
             raise HTTPRequestError(500, "Cannot reach ingestion subsystem")

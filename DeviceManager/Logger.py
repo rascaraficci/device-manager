@@ -31,18 +31,3 @@ class Log:
 
     def color_log(self):
         return self.log
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

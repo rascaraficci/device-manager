@@ -32,7 +32,7 @@ def attr_format(req, result):
 
     def remove(d,k):
         try:
-            LOGGER.info('[{}] |{}| will remove {}'.format( timeStamp, __name__, k))
+            LOGGER.info(f'[{timeStamp}] |{__name__}| will remove {k}')
             d.pop(k)
         except KeyError:
             pass
@@ -135,7 +135,7 @@ class TemplateHandler:
             db.session.commit()
             LOGGER.debug(f"[{timeStamp}] |{__name__}| Created template in database")
         except IntegrityError as e:
-            LOGGER.error('[{}] |{}| {}'.format(timeStamp, __name__, e))
+            LOGGER.error(f'[{timeStamp}] |{__name__}| {e}')
             raise HTTPRequestError(400, 'Template attribute constraints are violated by the request')
 
         results = {
@@ -296,11 +296,10 @@ def flask_get_templates():
         return make_response(jsonify(results), 500)
 
     except HTTPRequestError as e:
+        LOGGER.error(f"[{timeStamp}] |{__name__}| {e}")
         if isinstance(e.message, dict):
-            LOGGER.error(f"[{timeStamp}] |{__name__}| {e}")
             return make_response(jsonify(e.message), e.error_code)
         else:
-            LOGGER.error(f"[{timeStamp}] |{__name__}| {e}")
             return format_response(e.error_code, e.message)
 
 
@@ -319,11 +318,10 @@ def flask_create_template():
         LOGGER.error(f"[{timeStamp}] |{__name__}| {e}")
         return make_response(jsonify(results), 400)
     except HTTPRequestError as error:
+        LOGGER.error(f"[{timeStamp}] |{__name__}| {e}")
         if isinstance(error.message, dict):
-            LOGGER.error(f"[{timeStamp}] |{__name__}| {e}")
             return make_response(jsonify(error.message), error.error_code)
         else:
-            LOGGER.error(f"[{timeStamp}] |{__name__}| {e}")
             return format_response(error.error_code, error.message)
 
 
@@ -338,11 +336,10 @@ def flask_get_template(template_id):
         LOGGER.error(f"[{timeStamp}] |{__name__}| {e}")
         return make_response(jsonify(results), 500)
     except HTTPRequestError as e:
+        LOGGER.error(f"[{timeStamp}] |{__name__}| {e}")
         if isinstance(e.message, dict):
-            LOGGER.error(f"[{timeStamp}] |{__name__}| {e}")
             return make_response(jsonify(e.message), e.error_code)
         else:
-            LOGGER.error(f"[{timeStamp}] |{__name__}| {e}")
             return format_response(e.error_code, e.message)
 
 
@@ -354,14 +351,13 @@ def flask_remove_template(template_id):
         return make_response(jsonify(result), 200)
     except ValidationError as e:
         results = {'message': 'failed to parse attr', 'errors': e}
-        LOGGER.error(f"[{timeStamp}] |{__name__}| {e}")
+        LOGGER.error(f"[{timeStamp}] |{__name__}| {e.message}")
         return make_response(jsonify(results), 500)
     except HTTPRequestError as e:
+        LOGGER.error(f"[{timeStamp}] |{__name__}| {e.message}")
         if isinstance(e.message, dict):
-            LOGGER.error(f"[{timeStamp}] |{__name__}| {e}")
             return make_response(jsonify(e.message), e.error_code)
         else:
-            LOGGER.error(f"[{timeStamp}] |{__name__}| {e}")
             return format_response(e.error_code, e.message)
 
 
@@ -373,14 +369,13 @@ def flask_update_template(template_id):
         return make_response(jsonify(result), 200)
     except ValidationError as e:
         results = {'message': 'failed to parse attr', 'errors': e}
-        LOGGER.error(f"[{timeStamp}] |{__name__}| {e}")
+        LOGGER.error(f"[{timeStamp}] |{__name__}| {error.message}")
         return make_response(jsonify(results), 500)
     except HTTPRequestError as error:
+        LOGGER.error(f"[{timeStamp}] |{__name__}| {error.message}")
         if isinstance(error.message, dict):
-            LOGGER.error(f"[{timeStamp}] |{__name__}| {e}")
             return make_response(jsonify(error.message), error.error_code)
         else:
-            LOGGER.error(f"[{timeStamp}] |{__name__}| {e}")
             return format_response(error.error_code, error.message)
 
 
