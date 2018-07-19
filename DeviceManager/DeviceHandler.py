@@ -223,9 +223,6 @@ class DeviceHandler(object):
         tenant was informed)
         """
 
-        if req.args.get('idsOnly', 'false').lower() in ['true', '1', '']:
-            return DeviceHandler.list_ids(req)
-
         tenant = init_tenant_context(req, db)
 
         page_number, per_page = get_pagination(req)
@@ -251,7 +248,7 @@ class DeviceHandler(object):
         target_label = req.args.get('label', None)
         if target_label:
             label_filter.append("devices.label like '%{}%'".format(target_label))
-        
+            
         template_filter = []
         target_template = req.args.get('template', None)
         if target_template:
@@ -270,6 +267,8 @@ class DeviceHandler(object):
                                  .filter(*template_filter) \
                                  .group_by(Device.id) \
                                  .subquery()
+            
+            LOGGER.warning(subquery)
             # devices must match all supplied filters
             if (len(attr_filter)):
                 page = db.session.query(Device) \
@@ -294,6 +293,10 @@ class DeviceHandler(object):
         status_info = StatusMonitor.get_status(tenant)
 
         devices = []
+
+        if req.args.get('idsOnly', 'false').lower() in ['true', '1', '']:                
+            return DeviceHandler.get_only_ids(page)
+
         for d in page.items:
             devices.append(serialize_full_device(d, tenant, sensitive_data, status_info))
 
@@ -307,6 +310,18 @@ class DeviceHandler(object):
             'devices': devices
         }
         return result
+    
+    @staticmethod
+    def get_only_ids(page):
+
+        device_id = []
+        
+        for device in page.items:
+            data_device = device_schema.dump(device)
+            id = data_device.get('id')
+            device_id.append(id)
+        
+        return device_id
 
     @staticmethod
     def get_device(req, device_id, sensitive_data=False):
