@@ -699,7 +699,7 @@ class DeviceHandler(object):
         if not device_orm:
             raise HTTPRequestError(404, "No such device: {}".format(device_id))
 
-        device = serialize_full_device(device_orm, True)
+        device = serialize_full_device(device_orm, tenant, True)
 
         # checks if the key length has been specified
         # todo remove this magic number
@@ -766,6 +766,92 @@ class DeviceHandler(object):
         kafka_handler.update(device, meta={"service": tenant})
 
         return result
+
+    @staticmethod
+    def copy_psk(token, src_device_id, src_attr, dest_device_id, dest_attr):
+        """
+        Copies a pre shared key from a device attribute to another
+
+        :param token: The authorization token (JWT).
+        :param src_device_id: The source device (from).
+        :param src_attr: The source attribute (from).
+        :param dest_device_id: The destination device (to).
+        :param dest_attr: The destination attribute (to).
+        :return None.
+        :raises HTTPRequestError: If no authorization token was provided (no
+        tenant was informed)
+        todo list the others exceptions
+        """
+
+        tenant = init_tenant_context2(token, db)
+
+        src_device_orm = assert_device_exists(src_device_id, db.session)
+        if not src_device_orm:
+            raise HTTPRequestError(404, "No such device: {}".format(src_device_id))
+
+        src_device = serialize_full_device(src_device_orm, tenant, True)
+
+        found_attr = False
+        src_attr_ref = None
+        for template_id in src_device["templates"]:
+            for attr in src_device["attrs"][template_id]:
+                if attr["label"] == src_attr:
+                    if attr["value_type"] == "psk":
+                        found_attr = True
+                        src_attr_ref = attr
+                        break
+                    else:
+                        raise HTTPRequestError(400,
+                                "Attribute {} is not a 'psk' type_value".format(src_attr))
+
+        if not found_attr:
+            raise HTTPRequestError(404, "Not found attributes {}".format(src_attr))
+
+        dest_device_orm = assert_device_exists(dest_device_id, db.session)
+        if not dest_device_orm:
+            raise HTTPRequestError(404, "No such device: {}".format(dest_device_id))
+
+        dest_device = serialize_full_device(dest_device_orm, tenant, True)
+
+        found_attr = False
+        dest_attr_ref = None
+        for template_id in dest_device["templates"]:
+            for attr in dest_device["attrs"][template_id]:
+                if attr["label"] == dest_attr:
+                    if attr["value_type"] == "psk":
+                        found_attr = True
+                        dest_attr_ref = attr
+                        break
+                    else:
+                        raise HTTPRequestError(400,
+                                "Attribute {} is not a 'psk' type_value".format(dest_attr))
+
+        if not found_attr:
+            raise HTTPRequestError(404, "Not found attributes {}".format(dest_attr))
+
+        # copy the pre shared key
+        src_psk_entry = DeviceAttrsPsk.query.filter_by(device_id=src_device["id"],
+                                                    attr_id=src_attr_ref["id"]).first()
+        if not src_psk_entry:
+            raise HTTPRequestError(400, "There is not a psk generated to {}".format(src_attr))
+
+        dest_psk_entry = DeviceAttrsPsk.query.filter_by(device_id=dest_device["id"],
+            attr_id=dest_attr_ref["id"]).first()
+        if not dest_psk_entry:
+            db.session.add(DeviceAttrsPsk(device_id=dest_device["id"],
+                                            attr_id=dest_attr_ref["id"],
+                                            psk=src_psk_entry.psk))
+        else:
+            dest_psk_entry.psk = src_psk_entry.psk
+
+        dest_device_orm.updated = datetime.now()
+        db.session.commit()
+
+        # send an update message on kafka
+        kafka_handler = KafkaHandler()
+        kafka_handler.update(dest_device, meta={"service": tenant})
+
+        return None
 
 
 @device.route('/device', methods=['GET'])
@@ -918,6 +1004,35 @@ def flask_gen_psk(device_id):
                                        target_attributes)
 
         return make_response(jsonify(result), 200)
+    except HTTPRequestError as e:
+        if isinstance(e.message, dict):
+            return make_response(jsonify(e.message), e.error_code)
+        else:
+            return format_response(e.error_code, e.message)
+
+
+@device.route('/device/<device_id>/attrs/<attr_label>/psk', methods=['PUT'])
+def flask_copy_psk(device_id, attr_label):
+    try:
+        # retrieve the authorization token
+        token = retrieve_auth_token(request)
+
+        # retrieve the parameters
+        if ((not 'from_dev_id' in request.args.keys()) or
+            (not 'from_attr_label' in request.args.keys())):
+            raise HTTPRequestError(400, "Missing mandatory parameter: from_dev_id "
+                "or/and from_attr_label")
+
+        from_dev_id = request.args['from_dev_id']
+        from_attr_label = request.args['from_attr_label']
+
+        DeviceHandler.copy_psk(token,
+                                from_dev_id,
+                                from_attr_label,
+                                device_id,
+                                attr_label)
+
+        return make_response("", 204)
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
             return make_response(jsonify(e.message), e.error_code)

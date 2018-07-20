@@ -937,6 +937,69 @@ Calling this endpoint twice with the same target attributes will override the pr
         {
             "message": "Some attribute is not a 'psk' type_value"
         }
+        
+### Copy PSK [PUT /device/{device_id}/attrs/{attr_label}/psk{?from_dev_id,from_attr_label}]
+Copies a generated pre-shared key from a device's attribute to other device's attribute.
+
+This endpoint copies a previously generated pre-shared key from a device's attribute to other.
+
+The copied key does not is returned.
+
+This endpoint does not create any link between the attributes, so if in a future
+the source attribute changes the key it will not reflect in others attributes
+previously copied from it.
+
++ Parameters
+    + `device_id`: `acaf` (string, required) - The device the where the destination attribute lives
+    + `attr_label`: `shared_key` (string, required) - The destination attribute where the key is copied to
+    + `from_dev_id`: `efac` (string, required) - The source device where the base attribute lives
+    + `from_attr_label`: `shared_key` (string, required) - The source attribute where the key is copied from
+    
++ Request
+
+    + Headers
+
+            Authorization: Bearer JWT
+
++ Response 204
+
++ Response 401 (application/json)
+
+        {
+            "message": "No authorization token has been supplied"
+        }
+
++ Response 404 (application/json)
+
+        {
+            "message": "No such device: 26e24a"
+        }
+
++ Response 404 (application/json)
+
+        {
+            "message": "Not found attributes key"
+        }
+
++ Response 400 (application/json)
+
+        {
+            "message": "Missing mandatory parameter: from_dev_id or/and from_attr_label"
+        }                
+
++ Response 400 (application/json)
+
+        {
+            "message": "Attribute key is not a 'psk' type_value"
+        }
+
+
++ Response 400 (application/json)
+
+        {
+            "message": "There is not a psk generated to key"
+        }
+        
 
 # Group Internal
 Internal endpoins must not be expose outside the platform. They are used to

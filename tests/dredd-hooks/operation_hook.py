@@ -143,6 +143,14 @@ def prepare_env_psk(transaction):
     create_device_and_update_device_id(transaction)
     DeviceHandler.gen_psk(generate_token(), device_id, 16, None)
 
+@hooks.before('Devices > Device info > Copy PSK')
+def prepare_copy_psk_env(transaction):
+    global device_id
+    create_single_device(transaction)
+    transaction['fullPath'] = transaction['fullPath'].replace('efac', device_id)
+    DeviceHandler.gen_psk(generate_token(), device_id, 16, None)
+    create_single_device(transaction)
+    transaction['fullPath'] = transaction['fullPath'].replace('acaf', device_id)
 
 @hooks.before_validation('Devices > Device info > Get device info')
 @hooks.before_validation('Internal > Device > Get device info')
