@@ -869,8 +869,8 @@ def flask_get_devices():
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
             return make_response(jsonify(e.message), e.error_code)
-        else:
-            return format_response(e.error_code, e.message)
+
+        return format_response(e.error_code, e.message)
 
 
 @device.route('/device', methods=['POST'])
@@ -887,8 +887,8 @@ def flask_create_device():
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
             return make_response(jsonify(e.message), e.error_code)
-        else:
-            return format_response(e.error_code, e.message)
+        
+        return format_response(e.error_code, e.message)
 
 
 @device.route('/device/<device_id>', methods=['GET'])
@@ -899,8 +899,8 @@ def flask_get_device(device_id):
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
             return make_response(jsonify(e.message), e.error_code)
-        else:
-            return format_response(e.error_code, e.message)
+        
+        return format_response(e.error_code, e.message)
 
 
 @device.route('/device/<device_id>', methods=['DELETE'])
@@ -911,8 +911,8 @@ def flask_remove_device(device_id):
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
             return make_response(jsonify(e.message), e.error_code)
-        else:
-            return format_response(e.error_code, e.message)
+        
+        return format_response(e.error_code, e.message)
 
 
 @device.route('/device/<device_id>', methods=['PUT'])
@@ -923,8 +923,8 @@ def flask_update_device(device_id):
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
             return make_response(jsonify(e.message), e.error_code)
-        else:
-            return format_response(e.error_code, e.message)
+
+        return format_response(e.error_code, e.message)
 
 
 @device.route('/device/<device_id>/actuate', methods=['PUT'])
@@ -939,8 +939,8 @@ def flask_configure_device(device_id):
     except HTTPRequestError as error:
         if isinstance(error.message, dict):
             return make_response(jsonify(error.message), error.error_code)
-        else:
-            return format_response(error.error_code, error.message)
+        
+        return format_response(error.error_code, error.message)
 
 
 # Convenience template ops
@@ -953,8 +953,8 @@ def flask_add_template_to_device(device_id, template_id):
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
             return make_response(jsonify(e.message), e.error_code)
-        else:
-            return format_response(e.error_code, e.message)
+
+        return format_response(e.error_code, e.message)
 
 
 @device.route('/device/<device_id>/template/<template_id>', methods=['DELETE'])
@@ -966,8 +966,8 @@ def flask_remove_template_from_device(device_id, template_id):
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
             return make_response(jsonify(e.message), e.error_code)
-        else:
-            return format_response(e.error_code, e.message)
+
+        return format_response(e.error_code, e.message)
 
 
 @device.route('/device/template/<template_id>', methods=['GET'])
@@ -978,8 +978,8 @@ def flask_get_by_template(template_id):
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
             return make_response(jsonify(e.message), e.error_code)
-        else:
-            return format_response(e.error_code, e.message)
+
+        return format_response(e.error_code, e.message)
 
 
 @device.route('/device/gen_psk/<device_id>', methods=['POST'])
@@ -1007,8 +1007,8 @@ def flask_gen_psk(device_id):
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
             return make_response(jsonify(e.message), e.error_code)
-        else:
-            return format_response(e.error_code, e.message)
+
+        return format_response(e.error_code, e.message)
 
 
 @device.route('/device/<device_id>/attrs/<attr_label>/psk', methods=['PUT'])
@@ -1036,8 +1036,8 @@ def flask_copy_psk(device_id, attr_label):
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
             return make_response(jsonify(e.message), e.error_code)
-        else:
-            return format_response(e.error_code, e.message)
+
+        return format_response(e.error_code, e.message)
 
 
 # Internal endpoints
@@ -1056,8 +1056,8 @@ def flask_internal_get_devices():
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
             return make_response(jsonify(e.message), e.error_code)
-        else:
-            return format_response(e.error_code, e.message)
+
+        return format_response(e.error_code, e.message)
 
 
 @device.route('/internal/device/<device_id>', methods=['GET'])
@@ -1068,8 +1068,8 @@ def flask_internal_get_device(device_id):
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
             return make_response(jsonify(e.message), e.error_code)
-        else:
-            return format_response(e.error_code, e.message)
+
+        return format_response(e.error_code, e.message)
 
 
 app.register_blueprint(device)
