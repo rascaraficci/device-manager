@@ -233,6 +233,7 @@ class DeviceHandler(object):
             None: Device.id
         }
         sortBy = SORT_CRITERION.get(req.args.get('sortBy', None), Device.id)
+        last_id = req.args.get("last_id", "0")
 
         attr_filter = []
         query = req.args.getlist('attr')
@@ -254,6 +255,9 @@ class DeviceHandler(object):
         if target_template:
             template_filter.append("device_template.template_id = {}".format(target_template))
         
+
+        t1 = time.time()
+
         if template_filter or label_filter or attr_filter:
             # find all devices that contain matching attributes (may contain devices that
             # do not match all required attributes)
@@ -285,10 +289,16 @@ class DeviceHandler(object):
                         .join(subquery, subquery.c.id == Device.id) \
                         .filter(*label_filter) \
                         .filter(*template_filter) \
-                        .order_by(sortBy) \
-                        .paginate(**pagination)
+                        .filter(Device.id > last_id) \
+                        .order_by(sortBy, Device.id) \
+                        .limit(per_page).all()
+                        # .paginate(**pagination)
         else:
             page = db.session.query(Device).order_by(sortBy).paginate(**pagination)
+
+        t2 = time.time()
+
+        LOGGER.error("Time it took to run the function: " + str((t2 - t1)) + " seconds" + "\n")
 
         status_info = StatusMonitor.get_status(tenant)
 
@@ -297,16 +307,16 @@ class DeviceHandler(object):
         if req.args.get('idsOnly', 'false').lower() in ['true', '1', '']:                
             return DeviceHandler.get_only_ids(page)
 
-        for d in page.items:
+        for d in page:
             devices.append(serialize_full_device(d, tenant, sensitive_data, status_info))
 
         result = {
-            'pagination': {
-                'page': page.page,
-                'total': page.pages,
-                'has_next': page.has_next,
-                'next_page': page.next_num
-            },
+            # 'pagination': {
+            #     'page': page.page,
+            #     'total': page.pages,
+            #     'has_next': page.has_next,
+            #     'next_page': page.next_num
+            # },
             'devices': devices
         }
         return result
