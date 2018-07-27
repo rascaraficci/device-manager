@@ -232,8 +232,8 @@ class DeviceHandler(object):
             'label': Device.label,
             None: Device.id
         }
-        sortBy = SORT_CRITERION.get(req.args.get('sortBy', None), Device.id)
-        last_id = req.args.get("last_id", "0")
+        sortBy = SORT_CRITERION.get(req.args.get('sortBy', None))
+        LOGGER.error('{}'.format(sortBy))
 
         attr_filter = []
         query = req.args.getlist('attr')
@@ -258,42 +258,46 @@ class DeviceHandler(object):
 
         t1 = time.time()
 
-        if template_filter or label_filter or attr_filter:
-            # find all devices that contain matching attributes (may contain devices that
-            # do not match all required attributes)
-            subquery = db.session.query(func.count(Device.id).label('count'), Device.id) \
-                                 .join(DeviceTemplateMap, isouter=True) \
-                                 .join(DeviceTemplate) \
-                                 .join(DeviceAttr, isouter=True) \
-                                 .join(DeviceOverride, (Device.id == DeviceOverride.did) & (DeviceAttr.id == DeviceOverride.aid), isouter=True) \
-                                 .filter(or_(*attr_filter)) \
-                                 .filter(*label_filter) \
-                                 .filter(*template_filter) \
-                                 .group_by(Device.id) \
-                                 .subquery()
+        
+        ##Not needed to use (this filter slow down search performance). Maybe can be excluded..
+        # if template_filter or label_filter or attr_filter:
+        #     # find all devices that contain matching attributes (may contain devices that
+        #     # do not match all required attributes)
+        #     subquery = db.session.query(func.count(Device.id).label('count'), Device.id) \
+        #                          .join(DeviceTemplateMap, isouter=True) \
+        #                          .join(DeviceTemplate) \
+        #                          .join(DeviceAttr, isouter=True) \
+        #                          .join(DeviceOverride, (Device.id == DeviceOverride.did) & (DeviceAttr.id == DeviceOverride.aid), isouter=True) \
+        #                          .filter(or_(*attr_filter)) \
+        #                          .filter(*label_filter) \
+        #                          .filter(*template_filter) \
+        #                          .group_by(Device.id) \
+        #                          .subquery()
             
-            LOGGER.warning(subquery)
+            # LOGGER.warning(subquery)
             # devices must match all supplied filters
-            if (len(attr_filter)):
-                page = db.session.query(Device) \
-                             .join(DeviceTemplateMap) \
-                             .join(subquery, subquery.c.id == Device.id) \
-                             .filter(subquery.c.count == len(attr_filter)) \
-                             .filter(*label_filter) \
-                             .filter(*template_filter) \
-                             .order_by(sortBy) \
-                             .paginate(**pagination)
-            else: # only filter by label
-                page = db.session.query(Device) \
-                        .join(DeviceTemplateMap) \
-                        .join(subquery, subquery.c.id == Device.id) \
-                        .filter(*label_filter) \
-                        .filter(*template_filter) \
-                        .filter(Device.id > last_id) \
-                        .order_by(sortBy, Device.id) \
-                        .limit(per_page).all()
-                        # .paginate(**pagination)
+
+        if (len(attr_filter)): #filter by attr
+            LOGGER.debug(f"[{timeStamp}] |{__name__}| Filtering devices by {attr_filter}")
+            page = db.session.query(Device) \
+                            .join(DeviceTemplateMap, isouter=True) \
+                            .filter(*label_filter) \
+                            .filter(*template_filter) \
+                            .filter(or_(*attr_filter)) \
+                            .order_by(sortBy) \
+                            .paginate(**pagination)
+
+        elif label_filter or template_filter: # only filter by label or/and template
+            LOGGER.debug(f"[{timeStamp}] |{__name__}| Filtering devices by label {target_label}")
+            page = db.session.query(Device) \
+                    .join(DeviceTemplateMap, isouter=True) \
+                    .filter(*label_filter) \
+                    .filter(*template_filter) \
+                    .order_by(sortBy) \
+                    .paginate(**pagination)
+
         else:
+            LOGGER.debug(f"[{timeStamp}] |{__name__}| Querying devices sorted by device id")
             page = db.session.query(Device).order_by(sortBy).paginate(**pagination)
 
         t2 = time.time()
@@ -306,17 +310,18 @@ class DeviceHandler(object):
 
         if req.args.get('idsOnly', 'false').lower() in ['true', '1', '']:                
             return DeviceHandler.get_only_ids(page)
-
-        for d in page:
+        
+        for d in page.items:
             devices.append(serialize_full_device(d, tenant, sensitive_data, status_info))
 
+
         result = {
-            # 'pagination': {
-            #     'page': page.page,
-            #     'total': page.pages,
-            #     'has_next': page.has_next,
-            #     'next_page': page.next_num
-            # },
+            'pagination': {
+                'page': page.page,
+                'total': page.pages,
+                'has_next': page.has_next,
+                'next_page': page.next_num
+            },
             'devices': devices
         }
         return result
