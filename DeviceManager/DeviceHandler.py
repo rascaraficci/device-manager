@@ -281,6 +281,9 @@ class DeviceHandler(object):
             LOGGER.debug(f"[{timeStamp}] |{__name__}| Filtering devices by {attr_filter}")
             page = db.session.query(Device) \
                             .join(DeviceTemplateMap, isouter=True) \
+                            .join(DeviceTemplate) \
+                            .join(DeviceAttr, isouter=True) \
+                            .join(DeviceOverride, (Device.id == DeviceOverride.did) & (DeviceAttr.id == DeviceOverride.aid), isouter=True) \
                             .filter(*label_filter) \
                             .filter(*template_filter) \
                             .filter(or_(*attr_filter)) \
@@ -291,6 +294,9 @@ class DeviceHandler(object):
             LOGGER.debug(f"[{timeStamp}] |{__name__}| Filtering devices by label {target_label}")
             page = db.session.query(Device) \
                     .join(DeviceTemplateMap, isouter=True) \
+                    .join(DeviceTemplate) \
+                    .join(DeviceAttr, isouter=True) \
+                    .join(DeviceOverride, (Device.id == DeviceOverride.did) & (DeviceAttr.id == DeviceOverride.aid), isouter=True) \
                     .filter(*label_filter) \
                     .filter(*template_filter) \
                     .order_by(sortBy) \
@@ -1082,6 +1088,7 @@ def flask_internal_get_devices():
     """
     try:
         result = DeviceHandler.get_devices(request, True)
+        LOGGER.info(f'[{timeStamp}] |{__name__}| Getting known internal devices.')
         return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
@@ -1094,6 +1101,7 @@ def flask_internal_get_devices():
 def flask_internal_get_device(device_id):
     try:
         result = DeviceHandler.get_device(request, device_id, True)
+        LOGGER.info(f'[{timeStamp}] |{__name__}| Get known device with id: {device_id}.')
         return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
