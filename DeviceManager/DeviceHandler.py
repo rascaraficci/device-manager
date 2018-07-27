@@ -2,7 +2,7 @@
     Handles CRUD operations for devices, and their configuration on the
     FIWARE backend
 """
-
+import time
 import logging
 import re
 import json
@@ -277,33 +277,40 @@ class DeviceHandler(object):
             # LOGGER.warning(subquery)
             # devices must match all supplied filters
 
-        if (len(attr_filter)): #filter by attr
-            LOGGER.debug(f"[{timeStamp}] |{__name__}| Filtering devices by {attr_filter}")
+        if (attr_filter): #filter by attr
+            LOGGER.debug(f" Filtering devices by {attr_filter}")
+            
             page = db.session.query(Device) \
-                            .join(DeviceTemplateMap, isouter=True) \
-                            .join(DeviceTemplate) \
-                            .join(DeviceAttr, isouter=True) \
-                            .join(DeviceOverride, (Device.id == DeviceOverride.did) & (DeviceAttr.id == DeviceOverride.aid), isouter=True) \
-                            .filter(*label_filter) \
-                            .filter(*template_filter) \
-                            .filter(or_(*attr_filter)) \
-                            .order_by(sortBy) \
-                            .paginate(**pagination)
+                            .join(DeviceTemplateMap, isouter=True) 
+            
+            if sensitive_data: #aditional joins for sensitive data
+                page = page.join(DeviceTemplate) \
+                        .join(DeviceAttr, isouter=True) \
+                        .join(DeviceOverride, (Device.id == DeviceOverride.did) & (DeviceAttr.id == DeviceOverride.aid), isouter=True) 
+                
+            page = page.filter(*label_filter) \
+                    .filter(*template_filter) \
+                    .filter(or_(*attr_filter)) \
+                    .order_by(sortBy) \
+                    .paginate(**pagination)
 
         elif label_filter or template_filter: # only filter by label or/and template
-            LOGGER.debug(f"[{timeStamp}] |{__name__}| Filtering devices by label {target_label}")
+            LOGGER.debug(f"Filtering devices by label {target_label}")
             page = db.session.query(Device) \
-                    .join(DeviceTemplateMap, isouter=True) \
-                    .join(DeviceTemplate) \
-                    .join(DeviceAttr, isouter=True) \
-                    .join(DeviceOverride, (Device.id == DeviceOverride.did) & (DeviceAttr.id == DeviceOverride.aid), isouter=True) \
-                    .filter(*label_filter) \
+                            .join(DeviceTemplateMap, isouter=True) 
+            
+            if sensitive_data: #aditional joins for sensitive data
+                page = page.join(DeviceTemplate) \
+                        .join(DeviceAttr, isouter=True) \
+                        .join(DeviceOverride, (Device.id == DeviceOverride.did) & (DeviceAttr.id == DeviceOverride.aid), isouter=True) 
+                
+            page = page.filter(*label_filter) \
                     .filter(*template_filter) \
                     .order_by(sortBy) \
                     .paginate(**pagination)
 
         else:
-            LOGGER.debug(f"[{timeStamp}] |{__name__}| Querying devices sorted by device id")
+            LOGGER.debug(f" Querying devices sorted by device id")
             page = db.session.query(Device).order_by(sortBy).paginate(**pagination)
 
         t2 = time.time()
@@ -339,8 +346,8 @@ class DeviceHandler(object):
         
         for device in page.items:
             data_device = device_schema.dump(device)
-            id = data_device.get('id')
-            device_id.append(id)
+            id_device = data_device.get('id')
+            device_id.append(id_device)
         
         return device_id
 
@@ -1088,7 +1095,7 @@ def flask_internal_get_devices():
     """
     try:
         result = DeviceHandler.get_devices(request, True)
-        LOGGER.info(f'[{timeStamp}] |{__name__}| Getting known internal devices.')
+        LOGGER.info(f' Getting known internal devices.')
         return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
@@ -1101,7 +1108,7 @@ def flask_internal_get_devices():
 def flask_internal_get_device(device_id):
     try:
         result = DeviceHandler.get_device(request, device_id, True)
-        LOGGER.info(f'[{timeStamp}] |{__name__}| Get known device with id: {device_id}.')
+        LOGGER.info(f'Get known device with id: {device_id}.')
         return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
         if isinstance(e.message, dict):
