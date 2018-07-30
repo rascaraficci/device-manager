@@ -18,7 +18,7 @@ from datetime import datetime
 import time
 
 
-timeStamp = datetime.fromtimestamp(time.time()).strftime('%d/%m/%Y:%H:%M:%S')
+ 
 LOGGER = Log().color_log()
 
 class Listener(ConsumerRebalanceListener):
@@ -27,11 +27,11 @@ class Listener(ConsumerRebalanceListener):
         self.__collectors = {}
 
     def on_partitions_assigned(self, assigned):
-        LOGGER.debug(f'[{timeStamp}] |{__name__}| got listener event {len(assigned)} {assigned}')
+        LOGGER.debug(f' got listener event {len(assigned)} {assigned}')
         for partition in assigned:
             self.__monitor.collect(partition.partition)
             if partition not in self.__collectors.keys():
-                LOGGER.debug(f"[{timeStamp}] |{__name__}| will start iterator")
+                LOGGER.debug(f" will start iterator")
                 self.__monitor.begin(partition.partition)
 
 class StatusMonitor:
@@ -64,24 +64,24 @@ class StatusMonitor:
     def run(self):
         group_id="device-manager.monitor#" + str(uuid.uuid4())         
         start = time.time()
-        LOGGER.debug(F'[{timeStamp}] |{__name__}| will create consumer {CONFIG.get_kafka_url()} {group_id} {self.topic}')
+        LOGGER.debug(f' will create consumer {CONFIG.get_kafka_url()} {group_id} {self.topic}')
         consumer = KafkaConsumer(bootstrap_servers=CONFIG.get_kafka_url(), group_id=group_id)
         consumer.subscribe(topics=[self.topic], listener=Listener(self))
         StatusMonitor.wait_init(consumer)
-        LOGGER.debug(f'[{timeStamp}] |{__name__}| kafka consumer created {self.topic} - {time.time() - start}')
+        LOGGER.debug(f' kafka consumer created {self.topic} - {time.time() - start}')
         LOGGER.debug(consumer.assignment())
         for message in consumer:
-            LOGGER.debug(f"[{timeStamp}] |{__name__}| Got kafka event [{self.topic}] {message}")
+            LOGGER.debug(f" Got kafka event [{self.topic}] {message}")
             data = None
             try:
                 data = json.loads(message.value)
             except Exception as error:
-                LOGGER.error(f"[{timeStamp}] |{__name__}| Received message is not valid json {error}")
+                LOGGER.error(f" Received message is not valid json {error}")
                 continue
 
             metadata = data.get('metadata', None)
             if metadata is None:
-                LOGGER.error(f'[{timeStamp}] |{__name__}| Invalid kafka event detected - no metadata included')
+                LOGGER.error(f' Invalid kafka event detected - no metadata included')
                 continue
 
             reason = metadata.get('reason', None)
@@ -91,7 +91,7 @@ class StatusMonitor:
             deviceid = metadata.get('deviceid', None)
             tenant = metadata.get('tenant', None)
             if (deviceid is None) or (tenant is None):
-                LOGGER.warning(f"[{timeStamp}] |{__name__}| Missing device identification from event")
+                LOGGER.warning(f" Missing device identification from event")
                 continue
 
             self.set_online(tenant, deviceid, message.partition, metadata.get('exp', None))
@@ -140,7 +140,7 @@ class StatusMonitor:
         if exp is None:
             exp = StatusMonitor.default_exp(tenant, device)
 
-        LOGGER.info(f'[{timeStamp}] |{__name__}| will set {tenant}:{device} online for {exp}s')
+        LOGGER.info(f' will set {tenant}:{device} online for {exp}s')
 
         key = StatusMonitor.get_key_for(tenant, device, partition)
         old_ts = self.redis.get(key)
@@ -159,14 +159,14 @@ class StatusMonitor:
         """
         Periodically invoke iterator
         """
-        LOGGER.debug(f"[{timeStamp}] |{__name__}| starting iterator")
+        LOGGER.debug(f" starting iterator")
         while times != 0:
             # now = time.time()
             # print('[times] gc is about to run {}'.format(now - self.lastgc))
             # self.lastgc = now
             self.collect(partition)
             time.sleep(2)
-            # LOGGER.debug('[{}] |{}| [times] gc is about to run {}'.format(timeStamp, __name__, now - self.lastgc))
+            # LOGGER.debug(' [times] gc is about to run {}'.format(  now - self.lastgc))
             if times > 0:
                 times -= 1
 
@@ -178,27 +178,27 @@ class StatusMonitor:
         for i in data:
             if i is not None:
                 devices.append(i.decode('utf-8'))
-                LOGGER.debug(f'[{timeStamp}] |{__name__}| scan {match} {cursor} {data}')
+                LOGGER.debug(f' scan {match} {cursor} {data}')
         while cursor != 0:
             cursor, data = self.redis.scan(cursor, match, count=1000)
             for i in data:
                 if i is not None:
                     devices.append(i.decode('utf-8'))
-                    LOGGER.debug(f'[{timeStamp}] |{__name__}| scan {cursor} {data}')
+                    LOGGER.debug(f' scan {cursor} {data}')
 
         now = time.time()
         for device in devices:
             try:
-                LOGGER.debug(f'[{timeStamp}] |{__name__}| gc devices {devices}')
+                LOGGER.debug(f' gc devices {devices}')
                 exp = float(self.redis.get(device).decode('utf-8'))
-                LOGGER.debug(f'[{timeStamp}] |{__name__}| will check {device} {exp}')
+                LOGGER.debug(f' will check {device} {exp}')
                 if now > exp:
                     self.redis.delete(device)
-                    LOGGER.debug(f'[{timeStamp}] |{__name__}| device {device} offline')
+                    LOGGER.debug(f' device {device} offline')
                     parsed = device.split(':')
                     self.notify(parsed[1],parsed[2],'offline')
             except Exception as error:
-                LOGGER.error(f'[{timeStamp}] |{__name__}| Failed to process device "{device}": {error}')
+                LOGGER.error(f' Failed to process device "{device}": {error}')
 
     @staticmethod
     def get_status(tenant, device=None):

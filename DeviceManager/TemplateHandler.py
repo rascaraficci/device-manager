@@ -23,7 +23,7 @@ import time
 
 
 template = Blueprint('template', __name__)
-timeStamp = datetime.fromtimestamp(time.time()).strftime('%d/%m/%Y:%H:%M:%S')
+ 
 LOGGER = Log().color_log()
 
 def attr_format(req, result):
@@ -32,7 +32,7 @@ def attr_format(req, result):
 
     def remove(d,k):
         try:
-            LOGGER.info(f'[{timeStamp}] |{__name__}| will remove {k}')
+            LOGGER.info(f' will remove {k}')
             d.pop(k)
         except KeyError:
             pass
@@ -86,14 +86,14 @@ class TemplateHandler:
         sortBy = SORT_CRITERION.get(req.args.get('sortBy', None), DeviceTemplate.id)
 
         if parsed_query:
-            LOGGER.debug(f"[{timeStamp}] |{__name__}| Filtering template by {parsed_query}")
+            LOGGER.debug(f" Filtering template by {parsed_query}")
             page = db.session.query(DeviceTemplate) \
                              .join(DeviceAttr, isouter=True) \
                              .filter(*parsed_query) \
                              .order_by(sortBy) \
                              .paginate(**pagination)
         else:
-            LOGGER.debug(f"[{timeStamp}] |{__name__}| Querying templates sorted by {sortBy}")
+            LOGGER.debug(f" Querying templates sorted by {sortBy}")
             page = db.session.query(DeviceTemplate).order_by(sortBy).paginate(**pagination)
 
         templates = []
@@ -133,9 +133,9 @@ class TemplateHandler:
 
         try:
             db.session.commit()
-            LOGGER.debug(f"[{timeStamp}] |{__name__}| Created template in database")
+            LOGGER.debug(f" Created template in database")
         except IntegrityError as e:
-            LOGGER.error(f'[{timeStamp}] |{__name__}| {e}')
+            LOGGER.error(f' {e}')
             raise HTTPRequestError(400, 'Template attribute constraints are violated by the request')
 
         results = {
@@ -218,40 +218,40 @@ class TemplateHandler:
         # parse updated version from payload
         updated, json_payload = parse_payload(req, template_schema)
 
-        LOGGER.debug(f"[{timeStamp}] |{__name__}| Current json payload: {json_payload}")
+        LOGGER.debug(f" Current json payload: {json_payload}")
 
         old.label = updated['label']
 
         new = json_payload['attrs']
-        LOGGER.debug(f"[{timeStamp}] |{__name__}| Checking old template attributes")
+        LOGGER.debug(f" Checking old template attributes")
         for a in old.attrs:
-            LOGGER.debug(f"[{timeStamp}] |{__name__}| Checking attribute {a}...")
+            LOGGER.debug(f" Checking attribute {a}...")
             found = False
             for idx, b in enumerate(new):
-                LOGGER.debug(f"[{timeStamp}] |{__name__}| Comparing against new attribute {b}")
+                LOGGER.debug(f" Comparing against new attribute {b}")
                 if (a.label == b['label']) and (a.type == b['type']):
                     found = True
                     a.value_type = b.get('value_type', None)
                     a.static_value = b.get('static_value', None)
                     new.pop(idx)
-                    LOGGER.debug(f"[{timeStamp}] |{__name__}| They match. Attribute data will be updated.")
+                    LOGGER.debug(f" They match. Attribute data will be updated.")
                     break
             if not found:
-                LOGGER.debug(f"[{timeStamp}] |{__name__}| No match for this attribute. It will be removed.")
+                LOGGER.debug(f" No match for this attribute. It will be removed.")
                 db.session.delete(a)
 
         for a in new:
-            LOGGER.debug(f"[{timeStamp}] |{__name__}| Adding new attribute {a}")
+            LOGGER.debug(f" Adding new attribute {a}")
             if "id" in a:
                 del a["id"]
             db.session.add(DeviceAttr(template=old, **a))
 
         try:
-            LOGGER.debug(f"[{timeStamp}] |{__name__}| Commiting new data...")
+            LOGGER.debug(f" Commiting new data...")
             db.session.commit()
             LOGGER.debug("... data committed.")
         except IntegrityError as error:
-            LOGGER.debug(f"[{timeStamp}] |{__name__}|  ConsistencyException was thrown.")
+            LOGGER.debug(f"  ConsistencyException was thrown.")
             handle_consistency_exception(error)
 
         # notify interested parties that a set of devices might have been implicitly updated
@@ -286,17 +286,17 @@ def flask_get_templates():
         result = TemplateHandler.get_templates(request)
 
         for templates in result.get('templates'):
-            LOGGER.info(f"[{timeStamp}] |{__name__}| Getting template with id {templates.get('id')}")
+            LOGGER.info(f" Getting template with id {templates.get('id')}")
         
         return make_response(jsonify(result), 200)
 
     except ValidationError as e:
         results = {'message': 'failed to parse attr', 'errors': e}
-        LOGGER.error(f"[{timeStamp}] |{__name__}| {e}")
+        LOGGER.error(f" {e}")
         return make_response(jsonify(results), 500)
 
     except HTTPRequestError as e:
-        LOGGER.error(f"[{timeStamp}] |{__name__}| {e}")
+        LOGGER.error(f" {e}")
         if isinstance(e.message, dict):
             return make_response(jsonify(e.message), e.error_code)
         else:
@@ -308,16 +308,16 @@ def flask_create_template():
     try:
         result = TemplateHandler.create_template(request)
         
-        LOGGER.info(f"{timeStamp}] |{__name__}| Creating a new template")        
+        LOGGER.info(f"Creating a new template")        
         
         return make_response(jsonify(result), 200)
 
     except ValidationError as e:
         results = {'message': 'failed to parse attr', 'errors': e}
-        LOGGER.error(f"[{timeStamp}] |{__name__}| {e}")
+        LOGGER.error(f" {e}")
         return make_response(jsonify(results), 400)
     except HTTPRequestError as error:
-        LOGGER.error(f"[{timeStamp}] |{__name__}| {e}")
+        LOGGER.error(f" {e}")
         if isinstance(error.message, dict):
             return make_response(jsonify(error.message), error.error_code)
         else:
@@ -332,10 +332,10 @@ def flask_get_template(template_id):
         return make_response(jsonify(result), 200)
     except ValidationError as e:
         results = {'message': 'failed to parse attr', 'errors': e}
-        LOGGER.error(f"[{timeStamp}] |{__name__}| {e}")
+        LOGGER.error(f" {e}")
         return make_response(jsonify(results), 500)
     except HTTPRequestError as e:
-        LOGGER.error(f"[{timeStamp}] |{__name__}| {e}")
+        LOGGER.error(f" {e}")
         if isinstance(e.message, dict):
             return make_response(jsonify(e.message), e.error_code)
         else:
@@ -350,10 +350,10 @@ def flask_remove_template(template_id):
         return make_response(jsonify(result), 200)
     except ValidationError as e:
         results = {'message': 'failed to parse attr', 'errors': e}
-        LOGGER.error(f"[{timeStamp}] |{__name__}| {e.message}")
+        LOGGER.error(f" {e.message}")
         return make_response(jsonify(results), 500)
     except HTTPRequestError as e:
-        LOGGER.error(f"[{timeStamp}] |{__name__}| {e.message}")
+        LOGGER.error(f" {e.message}")
         if isinstance(e.message, dict):
             return make_response(jsonify(e.message), e.error_code)
         else:
@@ -368,10 +368,10 @@ def flask_update_template(template_id):
         return make_response(jsonify(result), 200)
     except ValidationError as e:
         results = {'message': 'failed to parse attr', 'errors': e}
-        LOGGER.error(f"[{timeStamp}] |{__name__}| {error.message}")
+        LOGGER.error(f" {error.message}")
         return make_response(jsonify(results), 500)
     except HTTPRequestError as error:
-        LOGGER.error(f"[{timeStamp}] |{__name__}| {error.message}")
+        LOGGER.error(f" {error.message}")
         if isinstance(error.message, dict):
             return make_response(jsonify(error.message), error.error_code)
         else:
