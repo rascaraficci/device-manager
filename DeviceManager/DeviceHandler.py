@@ -866,6 +866,8 @@ class DeviceHandler(object):
         dest_device_orm.updated = datetime.now()
         db.session.commit()
 
+        dest_attr_ref['static_value'] = src_attr_ref['static_value']
+
         # send an update message on kafka
         kafka_handler = KafkaHandler()
         kafka_handler.update(dest_device, meta={"service": tenant})
