@@ -248,7 +248,6 @@ class DeviceHandler(object):
             None: Device.id
         }
         sortBy = SORT_CRITERION.get(req.args.get('sortBy', None))
-        LOGGER.error('{}'.format(sortBy))
 
         attr_filter = []
         query = req.args.getlist('attr')
@@ -269,10 +268,6 @@ class DeviceHandler(object):
         target_template = req.args.get('template', None)
         if target_template:
             template_filter.append("device_template.template_id = {}".format(target_template))
-
-
-        t1 = time.time()
-
 
         ##Not needed to use (this filter slow down search performance). Maybe can be excluded..
         # if template_filter or label_filter or attr_filter:
@@ -326,10 +321,6 @@ class DeviceHandler(object):
         else:
             LOGGER.debug(f" Querying devices sorted by device id")
             page = db.session.query(Device).order_by(sortBy).paginate(**pagination)
-
-        t2 = time.time()
-
-        LOGGER.error("Time it took to run the function: " + str((t2 - t1)) + " seconds" + "\n")
 
         status_info = StatusMonitor.get_status(tenant)
 
