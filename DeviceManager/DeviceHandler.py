@@ -2,7 +2,6 @@
     Handles CRUD operations for devices, and their configuration on the
     FIWARE backend
 """
-
 import re
 import logging
 import json
@@ -34,7 +33,7 @@ from DeviceManager.Logger import Log
 
 device = Blueprint('device', __name__)
 
- 
+
 LOGGER = Log().color_log()
 
 def serialize_override_attrs(orm_overrides, attrs):
@@ -203,7 +202,7 @@ class DeviceHandler(object):
             if Device.query.filter_by(id=new_id).first() is None:
                 LOGGER.debug(f" Generated a new device id {new_id}")
                 return new_id
-        
+
         LOGGER.error(f" Failed to generate unique device_id")
         raise HTTPRequestError(500, "Failed to generate unique device_id")
 
@@ -239,9 +238,6 @@ class DeviceHandler(object):
         tenant was informed)
         """
 
-        if req.args.get('idsOnly', 'false').lower() in ['true', '1', '']:
-            return DeviceHandler.list_ids(req)
-
         tenant = init_tenant_context(req, db)
 
         page_number, per_page = get_pagination(req)
@@ -251,7 +247,7 @@ class DeviceHandler(object):
             'label': Device.label,
             None: Device.id
         }
-        sortBy = SORT_CRITERION.get(req.args.get('sortBy', None), Device.id)
+        sortBy = SORT_CRITERION.get(req.args.get('sortBy', None))
 
         attr_filter = []
         query = req.args.getlist('attr')
@@ -267,54 +263,75 @@ class DeviceHandler(object):
         target_label = req.args.get('label', None)
         if target_label:
             label_filter.append("devices.label like '%{}%'".format(target_label))
-        
+
         template_filter = []
         target_template = req.args.get('template', None)
         if target_template:
             template_filter.append("device_template.template_id = {}".format(target_template))
-        
-        if template_filter or label_filter or attr_filter:
-            # find all devices that contain matching attributes (may contain devices that
-            # do not match all required attributes)
-            subquery = db.session.query(func.count(Device.id).label('count'), Device.id) \
-                                 .join(DeviceTemplateMap, isouter=True) \
-                                 .join(DeviceTemplate) \
-                                 .join(DeviceAttr, isouter=True) \
-                                 .join(DeviceOverride, (Device.id == DeviceOverride.did) & (DeviceAttr.id == DeviceOverride.aid), isouter=True) \
-                                 .filter(or_(*attr_filter)) \
-                                 .filter(*label_filter) \
-                                 .filter(*template_filter) \
-                                 .group_by(Device.id) \
-                                 .subquery()
+
+        ##Not needed to use (this filter slow down search performance). Maybe can be excluded..
+        # if template_filter or label_filter or attr_filter:
+        #     # find all devices that contain matching attributes (may contain devices that
+        #     # do not match all required attributes)
+        #     subquery = db.session.query(func.count(Device.id).label('count'), Device.id) \
+        #                          .join(DeviceTemplateMap, isouter=True) \
+        #                          .join(DeviceTemplate) \
+        #                          .join(DeviceAttr, isouter=True) \
+        #                          .join(DeviceOverride, (Device.id == DeviceOverride.did) & (DeviceAttr.id == DeviceOverride.aid), isouter=True) \
+        #                          .filter(or_(*attr_filter)) \
+        #                          .filter(*label_filter) \
+        #                          .filter(*template_filter) \
+        #                          .group_by(Device.id) \
+        #                          .subquery()
+
+            # LOGGER.warning(subquery)
             # devices must match all supplied filters
-            if (len(attr_filter)):
-                LOGGER.debug(f" Filtering devices by {attr_filter}")
-                page = db.session.query(Device) \
-                             .join(DeviceTemplateMap) \
-                             .join(subquery, subquery.c.id == Device.id) \
-                             .filter(subquery.c.count == len(attr_filter)) \
-                             .filter(*label_filter) \
-                             .filter(*template_filter) \
-                             .order_by(sortBy) \
-                             .paginate(**pagination)
-            else: # only filter by label
-                LOGGER.debug(f" Filtering devices by label")
-                page = db.session.query(Device) \
-                        .join(DeviceTemplateMap) \
-                        .join(subquery, subquery.c.id == Device.id) \
-                        .filter(*label_filter) \
-                        .filter(*template_filter) \
-                        .order_by(sortBy) \
-                        .paginate(**pagination)
+
+        if (attr_filter): #filter by attr
+            LOGGER.debug(f" Filtering devices by {attr_filter}")
+
+            page = db.session.query(Device) \
+                            .join(DeviceTemplateMap, isouter=True)
+
+            page = page.join(DeviceTemplate) \
+                    .join(DeviceAttr, isouter=True) \
+                    .join(DeviceOverride, (Device.id == DeviceOverride.did) & (DeviceAttr.id == DeviceOverride.aid), isouter=True)
+
+            page = page.filter(*label_filter) \
+                    .filter(*template_filter) \
+                    .filter(or_(*attr_filter)) \
+                    .order_by(sortBy) \
+                    .paginate(**pagination)
+
+        elif label_filter or template_filter: # only filter by label or/and template
+            LOGGER.debug(f"Filtering devices by label {target_label}")
+            page = db.session.query(Device) \
+                            .join(DeviceTemplateMap, isouter=True)
+
+            if sensitive_data: #aditional joins for sensitive data
+                page = page.join(DeviceTemplate) \
+                        .join(DeviceAttr, isouter=True) \
+                        .join(DeviceOverride, (Device.id == DeviceOverride.did) & (DeviceAttr.id == DeviceOverride.aid), isouter=True)
+
+            page = page.filter(*label_filter) \
+                    .filter(*template_filter) \
+                    .order_by(sortBy) \
+                    .paginate(**pagination)
+
         else:
-            LOGGER.debug(f" Querying devices sorted by {sortBy}")
+            LOGGER.debug(f" Querying devices sorted by device id")
             page = db.session.query(Device).order_by(sortBy).paginate(**pagination)
 
         status_info = StatusMonitor.get_status(tenant)
 
         devices = []
+
+        if req.args.get('idsOnly', 'false').lower() in ['true', '1', '']:
+            return DeviceHandler.get_only_ids(page)
+
         for d in page.items:
             devices.append(serialize_full_device(d, tenant, sensitive_data, status_info))
+
 
         result = {
             'pagination': {
@@ -326,6 +343,18 @@ class DeviceHandler(object):
             'devices': devices
         }
         return result
+
+    @staticmethod
+    def get_only_ids(page):
+
+        device_id = []
+
+        for device in page.items:
+            data_device = device_schema.dump(device)
+            id_device = data_device.get('id')
+            device_id.append(id_device)
+
+        return device_id
 
     @staticmethod
     def get_device(req, device_id, sensitive_data=False):
@@ -915,7 +944,7 @@ def flask_create_device():
         LOGGER.error(f' {e.message} - {e.error_code}.')
         if isinstance(e.message, dict):
             return make_response(jsonify(e.message), e.error_code)
-        
+
         return format_response(e.error_code, e.message)
 
 
@@ -930,7 +959,7 @@ def flask_get_device(device_id):
         LOGGER.error(f' {e.message} - {e.error_code}.')
         if isinstance(e.message, dict):
             return make_response(jsonify(e.message), e.error_code)
-        
+
         return format_response(e.error_code, e.message)
 
 @device.route('/device/<device_id>', methods=['DELETE'])
@@ -943,7 +972,7 @@ def flask_remove_device(device_id):
         LOGGER.error(f' {e.message} - {e.error_code}.')
         if isinstance(e.message, dict):
             return make_response(jsonify(e.message), e.error_code)
-        
+
         return format_response(e.error_code, e.message)
 
 
@@ -975,7 +1004,7 @@ def flask_configure_device(device_id):
         LOGGER.error(f' {e.message} - {e.error_code}.')
         if isinstance(error.message, dict):
             return make_response(jsonify(error.message), error.error_code)
-        
+
         return format_response(error.error_code, error.message)
 
 
@@ -1110,7 +1139,7 @@ def flask_internal_get_devices():
 def flask_internal_get_device(device_id):
     try:
         result = DeviceHandler.get_device(request, device_id, True)
-        LOGGER.info(f' Get known device with id: {device_id}.')
+        LOGGER.info(f'Get known device with id: {device_id}.')
         return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
         LOGGER.error(f' {e.message} - {e.error_code}.')
