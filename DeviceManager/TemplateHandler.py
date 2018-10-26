@@ -75,6 +75,10 @@ class TemplateHandler:
             parsed_query.append(text("attrs.label = '{}'".format(parsed.group(1))))
             parsed_query.append(text("attrs.static_value = '{}'".format(parsed.group(2))))
 
+        query = req.args.getlist('attr_type')
+        for attr_type_item in query:
+            parsed_query.append(text("attrs.value_type = '{}'".format(attr_type_item)))
+
         target_label = req.args.get('label', None)
         if target_label:
             parsed_query.append(text("templates.label like '%{}%'".format(target_label)))
