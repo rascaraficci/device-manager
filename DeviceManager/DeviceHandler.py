@@ -261,7 +261,6 @@ class DeviceHandler(object):
 
         query = req.args.getlist('attr_type')
         for attr_type_item in query:
-            LOGGER.debug("attr_type: " + attr_type_item)
             attr_type = []
             attr_type.append("attrs.value_type = '{}'".format(attr_type_item))
             attr_filter.append(and_(*attr_type))
