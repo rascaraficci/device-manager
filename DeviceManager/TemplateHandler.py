@@ -164,6 +164,20 @@ class TemplateHandler:
         return json_template
 
     @staticmethod
+    def delete_all_templates(req):
+        """
+        Fetches a single template.
+        :param req: The received HTTP request, as created by Flask.
+        :raises HTTPRequestError: If this template could not be found in
+        database.
+        """
+        init_tenant_context(req, db)
+        templates = db.session.query(DeviceTemplate)
+        for template in templates:
+            db.session.delete(template)
+            db.session.commit()
+        
+    @staticmethod
     def remove_template(req, template_id):
         """
         Deletes a single template.
@@ -316,6 +330,24 @@ def flask_create_template():
         results = {'message': 'failed to parse attr', 'errors': e}
         LOGGER.error(f" {e}")
         return make_response(jsonify(results), 400)
+    except HTTPRequestError as error:
+        LOGGER.error(f" {e}")
+        if isinstance(error.message, dict):
+            return make_response(jsonify(error.message), error.error_code)
+        else:
+            return format_response(error.error_code, error.message)
+
+
+@template.route('/deletealltemplates', methods=['DELETE'])
+def flask_delete_all_templates():
+    
+    try:
+        result = TemplateHandler.delete_all_templates(request)
+        
+        LOGGER.info(f"deleting all templates")        
+        
+        return make_response(jsonify(result), 200)
+
     except HTTPRequestError as error:
         LOGGER.error(f" {e}")
         if isinstance(error.message, dict):
