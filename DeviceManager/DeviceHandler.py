@@ -962,7 +962,7 @@ def flask_create_device():
 
         return format_response(e.error_code, e.message)
 
-@device.route('/deletealldevice', methods=['DELETE'])
+@device.route('/device', methods=['DELETE'])
 def flask_delete_all_device():
     """
     Creates and configures the given device (in json).

@@ -313,8 +313,7 @@ def flask_get_templates():
         LOGGER.error(f" {e}")
         if isinstance(e.message, dict):
             return make_response(jsonify(e.message), e.error_code)
-        else:
-            return format_response(e.error_code, e.message)
+        return format_response(e.error_code, e.message)
 
 
 @template.route('/template', methods=['POST'])
@@ -334,11 +333,10 @@ def flask_create_template():
         LOGGER.error(f" {e}")
         if isinstance(error.message, dict):
             return make_response(jsonify(error.message), error.error_code)
-        else:
-            return format_response(error.error_code, error.message)
+        return format_response(error.error_code, error.message)
 
 
-@template.route('/deletealltemplates', methods=['DELETE'])
+@template.route('/template', methods=['DELETE'])
 def flask_delete_all_templates():
     
     try:
@@ -352,8 +350,7 @@ def flask_delete_all_templates():
         LOGGER.error(f" {e}")
         if isinstance(error.message, dict):
             return make_response(jsonify(error.message), error.error_code)
-        else:
-            return format_response(error.error_code, error.message)
+        return format_response(error.error_code, error.message)
 
 
 @template.route('/template/<template_id>', methods=['GET'])
@@ -370,8 +367,7 @@ def flask_get_template(template_id):
         LOGGER.error(f" {e}")
         if isinstance(e.message, dict):
             return make_response(jsonify(e.message), e.error_code)
-        else:
-            return format_response(e.error_code, e.message)
+        return format_response(e.error_code, e.message)
 
 
 @template.route('/template/<template_id>', methods=['DELETE'])
@@ -388,8 +384,7 @@ def flask_remove_template(template_id):
         LOGGER.error(f" {e.message}")
         if isinstance(e.message, dict):
             return make_response(jsonify(e.message), e.error_code)
-        else:
-            return format_response(e.error_code, e.message)
+        return format_response(e.error_code, e.message)
 
 
 @template.route('/template/<template_id>', methods=['PUT'])
@@ -406,8 +401,7 @@ def flask_update_template(template_id):
         LOGGER.error(f" {error.message}")
         if isinstance(error.message, dict):
             return make_response(jsonify(error.message), error.error_code)
-        else:
-            return format_response(error.error_code, error.message)
+        return format_response(error.error_code, error.message)
 
 
 app.register_blueprint(template)
