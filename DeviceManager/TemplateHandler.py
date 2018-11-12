@@ -166,7 +166,8 @@ class TemplateHandler:
     @staticmethod
     def delete_all_templates(req):
         """
-        Fetches a single template.
+        Deletes all templates.
+        
         :param req: The received HTTP request, as created by Flask.
         :raises HTTPRequestError: If this template could not be found in
         database.
@@ -175,7 +176,7 @@ class TemplateHandler:
         templates = db.session.query(DeviceTemplate)
         for template in templates:
             db.session.delete(template)
-            db.session.commit()
+        db.session.commit()
         
     @staticmethod
     def remove_template(req, template_id):

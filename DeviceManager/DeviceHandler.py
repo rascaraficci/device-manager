@@ -511,7 +511,7 @@ class DeviceHandler(object):
     @staticmethod
     def delete_all_devices(req):
         """
-        Deletes a single device.
+        Deletes all devices.
 
         :param req: The received HTTP request, as created by Flask.
         :raises HTTPRequestError: If this device could not be found in
@@ -521,7 +521,7 @@ class DeviceHandler(object):
         devices = db.session.query(Device)
         for device in devices:
             db.session.delete(device)
-            db.session.commit()
+        db.session.commit()
 
     @staticmethod
     def update_device(req, device_id):
