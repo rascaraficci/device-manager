@@ -20,7 +20,7 @@ from DeviceManager.utils import format_response, HTTPRequestError, get_paginatio
 from DeviceManager.Logger import Log
 from datetime import datetime
 import time
-
+import json
 
 template = Blueprint('template', __name__)
  
@@ -215,6 +215,7 @@ class TemplateHandler:
 
         # find old version of the template, if any
         old = assert_template_exists(template_id)
+        LOGGER.debug(f"old {old}")
         # parse updated version from payload
         updated, json_payload = parse_payload(req, template_schema)
 
@@ -224,28 +225,43 @@ class TemplateHandler:
 
         new = json_payload['attrs']
         LOGGER.debug(f" Checking old template attributes")
-        for a in old.attrs:
-            LOGGER.debug(f" Checking attribute {a}...")
-            found = False
-            for idx, b in enumerate(new):
-                LOGGER.debug(f" Comparing against new attribute {b}")
-                if (a.label == b['label']) and (a.type == b['type']):
-                    found = True
-                    a.value_type = b.get('value_type', None)
-                    a.static_value = b.get('static_value', None)
-                    new.pop(idx)
-                    LOGGER.debug(f" They match. Attribute data will be updated.")
-                    break
-            if not found:
-                LOGGER.debug(f" No match for this attribute. It will be removed.")
-                db.session.delete(a)
+        def attrs_match(attr_from_db, attr_from_request):
+            return ((attr_from_db.label == attr_from_request["label"]) and 
+              (attr_from_db.type == attr_from_request["type"]))
 
-        for a in new:
+        def update_attr(attrs_from_db, attrs_from_request):
+            attrs_from_db.value_type = attrs_from_request.get('value_type', None)
+            attrs_from_db.static_value = attrs_from_request.get('static_value', None)
+
+        def analyze_attrs(attrs_from_db, attrs_from_request):
+            attrs_to_be_removed = []
+            attrs_to_be_added = []
+            for attr_from_db in attrs_from_db:
+                found = False
+                for idx, attr_from_request in enumerate(attrs_from_request):
+                    if attrs_match(attr_from_db, attr_from_request):
+                        found = True
+                        update_attr(attr_from_db, attr_from_request)
+                        LOGGER.debug("From request: " + json.dumps(attr_from_request))
+                        if "metadata" in attr_from_request:
+                            to_be_added, to_be_removed = analyze_attrs(attr_from_db.children, attr_from_request["metadata"])
+                            attrs_to_be_added = [*attrs_to_be_added, *to_be_added]
+                            attrs_to_be_removed = [*attrs_to_be_removed, *to_be_removed]
+                        attrs_from_request.pop(idx)
+                if not found:
+                    attrs_to_be_removed = [*attrs_to_be_removed, attr_from_db]
+            attrs_to_be_added = [*attrs_to_be_added, *attrs_from_request]
+            return attrs_to_be_added, attrs_to_be_removed
+
+        to_be_added, to_be_removed = analyze_attrs(old.attrs, new)
+        for a in to_be_added:
             LOGGER.debug(f" Adding new attribute {a}")
             if "id" in a:
                 del a["id"]
             db.session.add(DeviceAttr(template=old, **a))
-
+        for ba in to_be_removed:
+            LOGGER.debug(f" Removing attribute {ba.label}")
+            db.session.delete(ba)
         try:
             LOGGER.debug(f" Commiting new data...")
             db.session.commit()
@@ -317,7 +333,7 @@ def flask_create_template():
         LOGGER.error(f" {e}")
         return make_response(jsonify(results), 400)
     except HTTPRequestError as error:
-        LOGGER.error(f" {e}")
+        LOGGER.error(f" {error}")
         if isinstance(error.message, dict):
             return make_response(jsonify(error.message), error.error_code)
         else:
