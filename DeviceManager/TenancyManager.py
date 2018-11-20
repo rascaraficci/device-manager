@@ -5,7 +5,6 @@ from sqlalchemy.sql import exists, select, text, column
 
 from DeviceManager.utils import HTTPRequestError, decode_base64, get_allowed_service
 from .app import app
-from .StatusMonitor import StatusMonitor
 
 def install_triggers(db, tenant, session=None):
     query = """
@@ -67,7 +66,6 @@ def install_triggers(db, tenant, session=None):
 def create_tenant(tenant, db):
     db.session.execute("create schema \"%s\";" % tenant)
     db.session.commit()
-    StatusMonitor(tenant)
 
 def switch_tenant(tenant, db, session=None):
     if session is None:

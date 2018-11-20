@@ -28,7 +28,6 @@ from DeviceManager.SerializationModels import attr_list_schema
 from DeviceManager.SerializationModels import parse_payload, load_attrs
 from DeviceManager.TenancyManager import init_tenant_context, init_tenant_context2
 from DeviceManager.app import app
-from .StatusMonitor import StatusMonitor
 from DeviceManager.Logger import Log
 
 device = Blueprint('device', __name__)
@@ -51,16 +50,11 @@ def serialize_override_attrs(orm_overrides, attrs):
                         if metadata['id'] == override.aid:
                             metadata['static_value'] = override.static_value
 
-def serialize_full_device(orm_device, tenant, sensitive_data=False, status_cache=None):
+def serialize_full_device(orm_device, tenant, sensitive_data=False):
     data = device_schema.dump(orm_device)
     data['attrs'] = {}
     for template in orm_device.templates:
         data['attrs'][template.id] = attr_list_schema.dump(template.attrs)
-
-    if status_cache is None:
-        status_cache = StatusMonitor.get_status(tenant, orm_device.id)
-
-    data['status'] = status_cache.get(orm_device.id, 'offline')
 
     # Override device regular and metadata attributes
     serialize_override_attrs(orm_device.overrides, data['attrs'])
@@ -322,15 +316,13 @@ class DeviceHandler(object):
             LOGGER.debug(f" Querying devices sorted by device id")
             page = db.session.query(Device).order_by(sortBy).paginate(**pagination)
 
-        status_info = StatusMonitor.get_status(tenant)
-
         devices = []
 
         if req.args.get('idsOnly', 'false').lower() in ['true', '1', '']:
             return DeviceHandler.get_only_ids(page)
 
         for d in page.items:
-            devices.append(serialize_full_device(d, tenant, sensitive_data, status_info))
+            devices.append(serialize_full_device(d, tenant, sensitive_data))
 
 
         result = {
