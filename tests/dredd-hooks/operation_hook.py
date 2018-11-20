@@ -31,6 +31,11 @@ def create_sample_template():
                 "value_type": "float"
             },
             {
+                "label": "position",
+                "type": "dynamic",
+                "value_type": "geopoint"
+            },
+            {
                 "label": "model-id",
                 "type": "static",
                 "value_type": "string",
