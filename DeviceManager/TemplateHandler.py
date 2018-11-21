@@ -234,8 +234,6 @@ class TemplateHandler:
             attrs_from_db.static_value = attrs_from_request.get('static_value', None)
 
         def analyze_attrs(attrs_from_db, attrs_from_request, parentAttr=None):
-            attrs_to_be_removed = []
-            attrs_to_be_added = []
             for attr_from_db in attrs_from_db:
                 found = False
                 for idx, attr_from_request in enumerate(attrs_from_request):
@@ -243,32 +241,27 @@ class TemplateHandler:
                         update_attr(attr_from_db, attr_from_request)
                         LOGGER.debug("From request: " + json.dumps(attr_from_request))
                         if "metadata" in attr_from_request:
-                            to_be_added, to_be_removed = analyze_attrs(attr_from_db.children, attr_from_request["metadata"], attr_from_db)
-                            attrs_to_be_added = [*attrs_to_be_added, *to_be_added]
-                            attrs_to_be_removed = [*attrs_to_be_removed, *to_be_removed]
+                            analyze_attrs(attr_from_db.children, attr_from_request["metadata"], attr_from_db)
                         attrs_from_request.pop(idx)
                         found = True
                         break
                 if not found:
-                    attrs_to_be_removed = [*attrs_to_be_removed, attr_from_db]
+                    db.session.delete(attr_from_db)
             if parentAttr:
                 for attr_from_request in attrs_from_request:
                     orm_child = DeviceAttr(parent=parentAttr, **attr_from_request)
                     db.session.add(orm_child)
-            else:
-                attrs_to_be_added = [*attrs_to_be_added, *attrs_from_request]
+            return attrs_from_request
 
-            return attrs_to_be_added, attrs_to_be_removed
-
-        to_be_added, to_be_removed = analyze_attrs(old.attrs, new)
+        to_be_added = analyze_attrs(old.attrs, new)
         for a in to_be_added:
             LOGGER.debug(f" Adding new attribute {a}")
             if "id" in a:
                 del a["id"]
             db.session.add(DeviceAttr(template=old, **a))
-        for ba in to_be_removed:
-            LOGGER.debug(f" Removing attribute {ba.label}")
-            db.session.delete(ba)
+        # for ba in to_be_removed:
+        #     LOGGER.debug(f" Removing attribute {ba.label}")
+        #     db.session.delete(ba)
         try:
             LOGGER.debug(f" Commiting new data...")
             db.session.commit()
