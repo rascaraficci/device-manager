@@ -509,6 +509,21 @@ class DeviceHandler(object):
         return results
 
     @staticmethod
+    def delete_all_devices(req):
+        """
+        Deletes all devices.
+
+        :param req: The received HTTP request, as created by Flask.
+        :raises HTTPRequestError: If this device could not be found in
+        database.
+        """
+        init_tenant_context(req, db)
+        devices = db.session.query(Device)
+        for device in devices:
+            db.session.delete(device)
+        db.session.commit()
+
+    @staticmethod
     def update_device(req, device_id):
         """
         Updated the information about a particular device
@@ -947,7 +962,23 @@ def flask_create_device():
 
         return format_response(e.error_code, e.message)
 
+@device.route('/device', methods=['DELETE'])
+def flask_delete_all_device():
+    """
+    Creates and configures the given device (in json).
 
+    Check API description for more information about request parameters and
+    headers.
+    """
+    try:
+        result = DeviceHandler.delete_all_devices(request)
+        
+        LOGGER.info('Deleting all devices.')
+        return make_response(jsonify(result), 200)
+    except HTTPRequestError as e:
+        LOGGER.error(f' {e.message} - {e.error_code}.')
+
+        return format_response(e.error_code, e.message)
 
 @device.route('/device/<device_id>', methods=['GET'])
 def flask_get_device(device_id):
