@@ -224,7 +224,6 @@ class TemplateHandler:
         old.label = updated['label']
 
         new = json_payload['attrs']
-        LOGGER.debug(f"new {new}")
         LOGGER.debug(f" Checking old template attributes")
         def attrs_match(attr_from_db, attr_from_request):
             return ((attr_from_db.label == attr_from_request["label"]) and 
@@ -233,28 +232,32 @@ class TemplateHandler:
         def update_attr(attrs_from_db, attrs_from_request):
             attrs_from_db.value_type = attrs_from_request.get('value_type', None)
             attrs_from_db.static_value = attrs_from_request.get('static_value', None)
-            attrs_from_db.metadata = attrs_from_request.get('metadata', None)
 
-        def analyze_attrs(attrs_from_db, attrs_from_request):
+        def analyze_attrs(attrs_from_db, attrs_from_request, parentAttr=None):
             attrs_to_be_removed = []
             attrs_to_be_added = []
             for attr_from_db in attrs_from_db:
                 found = False
                 for idx, attr_from_request in enumerate(attrs_from_request):
-                    LOGGER.debug(attr_from_request)
                     if attrs_match(attr_from_db, attr_from_request):
-                        found = True
                         update_attr(attr_from_db, attr_from_request)
                         LOGGER.debug("From request: " + json.dumps(attr_from_request))
                         if "metadata" in attr_from_request:
-                            to_be_added, to_be_removed = analyze_attrs(attr_from_db.children, attr_from_request["metadata"])
+                            to_be_added, to_be_removed = analyze_attrs(attr_from_db.children, attr_from_request["metadata"], attr_from_db)
                             attrs_to_be_added = [*attrs_to_be_added, *to_be_added]
                             attrs_to_be_removed = [*attrs_to_be_removed, *to_be_removed]
                         attrs_from_request.pop(idx)
-                LOGGER.debug(found)
+                        found = True
+                        break
                 if not found:
                     attrs_to_be_removed = [*attrs_to_be_removed, attr_from_db]
-            attrs_to_be_added = [*attrs_to_be_added, *attrs_from_request]
+            if parentAttr:
+                for attr_from_request in attrs_from_request:
+                    orm_child = DeviceAttr(parent=parentAttr, **attr_from_request)
+                    db.session.add(orm_child)
+            else:
+                attrs_to_be_added = [*attrs_to_be_added, *attrs_from_request]
+
             return attrs_to_be_added, attrs_to_be_removed
 
         to_be_added, to_be_removed = analyze_attrs(old.attrs, new)
