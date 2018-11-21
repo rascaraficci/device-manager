@@ -215,7 +215,6 @@ class TemplateHandler:
 
         # find old version of the template, if any
         old = assert_template_exists(template_id)
-        LOGGER.debug(f"old {old}")
         # parse updated version from payload
         updated, json_payload = parse_payload(req, template_schema)
 
@@ -246,6 +245,7 @@ class TemplateHandler:
                         found = True
                         break
                 if not found:
+                    LOGGER.debug(f" Removing attribute {attr_from_db.label}")
                     db.session.delete(attr_from_db)
             if parentAttr:
                 for attr_from_request in attrs_from_request:
