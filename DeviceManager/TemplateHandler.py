@@ -238,7 +238,6 @@ class TemplateHandler:
                 for idx, attr_from_request in enumerate(attrs_from_request):
                     if attrs_match(attr_from_db, attr_from_request):
                         update_attr(attr_from_db, attr_from_request)
-                        LOGGER.debug("From request: " + json.dumps(attr_from_request))
                         if "metadata" in attr_from_request:
                             analyze_attrs(attr_from_db.children, attr_from_request["metadata"], attr_from_db)
                         attrs_from_request.pop(idx)
@@ -259,9 +258,6 @@ class TemplateHandler:
             if "id" in a:
                 del a["id"]
             db.session.add(DeviceAttr(template=old, **a))
-        # for ba in to_be_removed:
-        #     LOGGER.debug(f" Removing attribute {ba.label}")
-        #     db.session.delete(ba)
         try:
             LOGGER.debug(f" Commiting new data...")
             db.session.commit()
