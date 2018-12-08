@@ -56,8 +56,12 @@ class DeviceAttr(db.Model):
     )
 
     def __repr__(self):
+        children_str=""
+        for child in self.children:
+            children_str += "«{}:{}»".format(child.label, child.static_value)
+
         return "<Attr(label='{}', type='{}', value_type='{}', children='{}', parent={})>".format(
-            self.label, self.type, self.value_type, self.children, self.parent)
+            self.label, self.type, self.value_type, children_str, self.parent)
 
 
 class DeviceTemplate(db.Model):
