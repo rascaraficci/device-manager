@@ -244,7 +244,7 @@ configured with the following message:
 .. code-block:: json
 
   {
-    "event": "actuate",
+    "event": "configure",
     "meta": {
       "service": "admin"
     },
