@@ -1,6 +1,7 @@
 import logging
 import re
 from flask import Blueprint, request, jsonify, make_response
+from flask_sqlalchemy import BaseQuery
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql import text, collate, func
 
@@ -23,7 +24,7 @@ import time
 import json
 
 template = Blueprint('template', __name__)
- 
+
 LOGGER = Log().color_log()
 
 def attr_format(req, result):
@@ -63,42 +64,57 @@ class TemplateHandler:
         :raises HTTPRequestError: If no authorization token was provided (no
         tenant was informed)
         """
+        LOGGER.debug(f"Retrieving templates.")
+        LOGGER.debug(f"Initializing tenant context...")
         init_tenant_context(req, db)
+        LOGGER.debug(f"... tenant context initialized.")
 
         page_number, per_page = get_pagination(req)
         pagination = {'page': page_number, 'per_page': per_page, 'error_out': False}
 
+        LOGGER.debug(f"Pagination configuration is {pagination}")
+
         parsed_query = []
         query = req.args.getlist('attr')
         for attr in query:
+            LOGGER.debug(f"Analyzing query parameter: {attr}...")
             parsed = re.search('^(.+){1}=(.+){1}$', attr)
             parsed_query.append(text("attrs.label = '{}'".format(parsed.group(1))))
             parsed_query.append(text("attrs.static_value = '{}'".format(parsed.group(2))))
+            LOGGER.debug("... query parameter was added to filter list.")
 
         target_label = req.args.get('label', None)
         if target_label:
+            LOGGER.debug(f"Adding label filter to query...")
             parsed_query.append(text("templates.label like '%{}%'".format(target_label)))
+            LOGGER.debug(f"... filter was added to query.")
 
         SORT_CRITERION = {
             'label': DeviceTemplate.label,
             None: DeviceTemplate.id
         }
         sortBy = SORT_CRITERION.get(req.args.get('sortBy', None), DeviceTemplate.id)
-
+        LOGGER.debug(f"Sortby filter is {sortBy}")
         if parsed_query:
             LOGGER.debug(f" Filtering template by {parsed_query}")
             page = db.session.query(DeviceTemplate) \
                              .join(DeviceAttr, isouter=True) \
                              .filter(*parsed_query) \
                              .order_by(sortBy) \
-                             .paginate(**pagination)
+                             .distinct(DeviceTemplate.id)
+            LOGGER.debug(f"Current query: {type(page)}")
+            page = BaseQuery(page.subquery(), db.session()).paginate(**pagination)
         else:
             LOGGER.debug(f" Querying templates sorted by {sortBy}")
             page = db.session.query(DeviceTemplate).order_by(sortBy).paginate(**pagination)
 
         templates = []
         for template in page.items:
-            templates.append(attr_format(req, template_schema.dump(template)))
+            formatted_template = attr_format(req, template_schema.dump(template))
+            LOGGER.debug(f"Adding resulting template to response...")
+            LOGGER.debug(f"Template is: {formatted_template['label']}")
+            templates.append(formatted_template)
+            LOGGER.debug(f"... template was added to response.")
 
         result = {
             'pagination': {
@@ -167,7 +183,7 @@ class TemplateHandler:
     def delete_all_templates(req):
         """
         Deletes all templates.
-        
+
         :param req: The received HTTP request, as created by Flask.
         :raises HTTPRequestError: If this template could not be found in
         database.
@@ -177,7 +193,7 @@ class TemplateHandler:
         for template in templates:
             db.session.delete(template)
         db.session.commit()
-        
+
     @staticmethod
     def remove_template(req, template_id):
         """
@@ -240,7 +256,7 @@ class TemplateHandler:
         new = json_payload['attrs']
         LOGGER.debug(f" Checking old template attributes")
         def attrs_match(attr_from_db, attr_from_request):
-            return ((attr_from_db.label == attr_from_request["label"]) and 
+            return ((attr_from_db.label == attr_from_request["label"]) and
               (attr_from_db.type == attr_from_request["type"]))
 
         def update_attr(attrs_from_db, attrs_from_request):
@@ -314,7 +330,7 @@ def flask_get_templates():
 
         for templates in result.get('templates'):
             LOGGER.info(f" Getting template with id {templates.get('id')}")
-        
+
         return make_response(jsonify(result), 200)
 
     except ValidationError as e:
@@ -333,9 +349,9 @@ def flask_get_templates():
 def flask_create_template():
     try:
         result = TemplateHandler.create_template(request)
-        
-        LOGGER.info(f"Creating a new template")        
-        
+
+        LOGGER.info(f"Creating a new template")
+
         return make_response(jsonify(result), 200)
 
     except ValidationError as e:
@@ -351,12 +367,12 @@ def flask_create_template():
 
 @template.route('/template', methods=['DELETE'])
 def flask_delete_all_templates():
-    
+
     try:
         result = TemplateHandler.delete_all_templates(request)
-        
-        LOGGER.info(f"deleting all templates")        
-        
+
+        LOGGER.info(f"deleting all templates")
+
         return make_response(jsonify(result), 200)
 
     except HTTPRequestError as error:
