@@ -251,13 +251,14 @@ class DeviceHandler(object):
 
         attr_filter = []
         query = req.args.getlist('attr')
-        for attr_type in query:
-            parsed = re.search('^(.+){1}=(.+){1}$', attr_type)
-            attr_type = []
-            attr_type.append("attrs.label = '{}'".format(parsed.group(1)))
+        for attr_label_item in query:
+            parsed = re.search('^(.+){1}=(.+){1}$', attr_label_item)
+            attr_label = []
+            attr_label.append("attrs.label = '{}'".format(parsed.group(1)))
             # static value must be the override, if any
-            attr_type.append("coalesce(overrides.static_value, attrs.static_value) = '{}'".format(parsed.group(2)))
-            attr_filter.append(and_(*attr_type))
+            attr_label.append("coalesce(overrides.static_value, attrs.static_value) = '{}'".format(parsed.group(2)))
+            LOGGER.debug(f"Adding filter ${attr_label} to query")
+            attr_filter.append(and_(*attr_label))
 
         query = req.args.getlist('attr_type')
         for attr_type_item in query:
