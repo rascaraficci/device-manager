@@ -284,11 +284,17 @@ class TemplateHandler:
             return attrs_from_request
 
         to_be_added = analyze_attrs(old.attrs, new)
-        for a in to_be_added:
-            LOGGER.debug(f" Adding new attribute {a}")
-            if "id" in a:
-                del a["id"]
-            db.session.add(DeviceAttr(template=old, **a))
+        for attr in to_be_added:
+            LOGGER.debug(f" Adding new attribute {attr}")
+            if "id" in attr:
+                del attr["id"]
+            child = DeviceAttr(template=old, **attr)    
+            db.session.add(child)
+            if "metadata" in attr:
+                for metadata in attr["metadata"]:
+                    LOGGER.debug(f" Adding new metadata {metadata}")
+                    orm_child = DeviceAttr(parent=child, **metadata)
+                    db.session.add(orm_child)
         try:
             LOGGER.debug(f" Commiting new data...")
             db.session.commit()
