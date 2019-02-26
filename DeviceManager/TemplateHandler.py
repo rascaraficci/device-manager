@@ -277,7 +277,7 @@ class TemplateHandler:
                 if not found:
                     LOGGER.debug(f" Removing attribute {attr_from_db.label}")
                     db.session.delete(attr_from_db)
-            if parentAttr:
+            if parentAttr and attrs_from_request is not None:
                 for attr_from_request in attrs_from_request:
                     orm_child = DeviceAttr(parent=parentAttr, **attr_from_request)
                     db.session.add(orm_child)
@@ -290,7 +290,7 @@ class TemplateHandler:
                 del attr["id"]
             child = DeviceAttr(template=old, **attr)    
             db.session.add(child)
-            if "metadata" in attr:
+            if "metadata" in attr and attr["metadata"] is not None:
                 for metadata in attr["metadata"]:
                     LOGGER.debug(f" Adding new metadata {metadata}")
                     orm_child = DeviceAttr(parent=child, **metadata)
