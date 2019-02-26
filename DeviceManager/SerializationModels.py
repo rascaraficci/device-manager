@@ -20,6 +20,12 @@ def validate_attr_label(input):
         raise ValidationError("Labels must contain letters, numbers or dashes(-_)")
     return '-- invalid --'
 
+def validate_children_attr_label(input):
+    unique = { each['label'] : each for each in input }.values()     
+    if len(input) > len(unique):
+        raise ValidationError('a template cant not have repeated attributes')
+    return '-- invalid --'    
+
 class AttrSchema(Schema):
     id = fields.Int()
     label = fields.Str(required=True, validate=validate_attr_label, allow_none=False, missing=None)
@@ -30,7 +36,7 @@ class AttrSchema(Schema):
     static_value = fields.Field()
     template_id = fields.Str(dump_only=True)
 
-    metadata = fields.Nested(MetaSchema, many=True, attribute='children')
+    metadata = fields.Nested(MetaSchema, many=True, attribute='children', validate=validate_children_attr_label)
 
     @post_dump
     def remove_null_values(self, data):
