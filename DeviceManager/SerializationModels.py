@@ -20,9 +20,9 @@ def validate_attr_label(input):
         raise ValidationError("Labels must contain letters, numbers or dashes(-_)")
     return '-- invalid --'
 
-def validate_children_attr_label(input):
-    unique = { each['label'] : each for each in input }.values()     
-    if len(input) > len(unique):
+def validate_children_attr_label(attr_label):
+    unique = { each['label'] : each for each in attr_label }.values()     
+    if len(attr_label) > len(unique):
         raise ValidationError('a template cant not have repeated attributes')
     return '-- invalid --'    
 
