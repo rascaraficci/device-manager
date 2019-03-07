@@ -263,10 +263,14 @@ class TemplateHandler:
             attrs_from_db.value_type = attrs_from_request.get('value_type', None)
             attrs_from_db.static_value = attrs_from_request.get('static_value', None)
 
+        def validate_attr(attr_from_request):
+            attr_schema.load(attr_from_request)    
+
         def analyze_attrs(attrs_from_db, attrs_from_request, parentAttr=None):
             for attr_from_db in attrs_from_db:
                 found = False
                 for idx, attr_from_request in enumerate(attrs_from_request):
+                    validate_attr(attr_from_request)
                     if attrs_match(attr_from_db, attr_from_request):
                         update_attr(attr_from_db, attr_from_request)
                         if "metadata" in attr_from_request:
@@ -428,10 +432,10 @@ def flask_update_template(template_id):
         result = TemplateHandler.update_template(request, template_id)
         LOGGER.info(f"Updating template with id: {template_id}")
         return make_response(jsonify(result), 200)
-    except ValidationError as e:
-        results = {'message': 'failed to parse attr', 'errors': e}
-        LOGGER.error(f" {error.message}")
-        return make_response(jsonify(results), 500)
+    except ValidationError as errors:
+        results = {'message': 'failed to parse attr', 'errors': errors.messages}
+        LOGGER.error(f' Error in load attrs {errors.messages}')
+        return make_response(jsonify(results), 400)
     except HTTPRequestError as error:
         LOGGER.error(f" {error.message}")
         if isinstance(error.message, dict):
