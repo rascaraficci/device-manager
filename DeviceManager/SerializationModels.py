@@ -5,6 +5,9 @@ from marshmallow import Schema, fields, post_dump, ValidationError
 
 from DeviceManager.utils import HTTPRequestError
 from DeviceManager.DatabaseModels import DeviceAttr
+from DeviceManager.Logger import Log
+
+LOGGER = Log().color_log()
 
 class MetaSchema(Schema):
     id = fields.Int()
@@ -32,7 +35,7 @@ class AttrSchema(Schema):
     type = fields.Str(required=True)
     value_type = fields.Str(required=True)
     static_value = fields.Field()
-    template_id = fields.Str(dump_only=True)
+    template_id = fields.Str()
 
     metadata = fields.Nested(MetaSchema, many=True, attribute='children', validate=validate_children_attr_label)
 
@@ -47,7 +50,7 @@ attr_schema = AttrSchema()
 attr_list_schema = AttrSchema(many=True)
 
 class TemplateSchema(Schema):
-    id = fields.Int(dump_only=True)
+    id = fields.Int()
     label = fields.Str(required=True)
     created = fields.DateTime(dump_only=True)
     updated = fields.DateTime(dump_only=True)
@@ -63,11 +66,12 @@ template_schema = TemplateSchema()
 template_list_schema = TemplateSchema(many=True)
 
 class DeviceSchema(Schema):
-    id = fields.String(dump_only=True)
+    id = fields.String()
     label = fields.Str(required=True)
     created = fields.DateTime(dump_only=True)
     updated = fields.DateTime(dump_only=True)
     templates = fields.Nested(TemplateSchema, only=('id'), many=True)
+    attrs = fields.Nested(AttrSchema, many=True)
     # protocol = fields.Str(required=True)
     # frequency = fields.Int()
     # topic = fields.Str(load_only=True)
@@ -79,9 +83,22 @@ class DeviceSchema(Schema):
 device_schema = DeviceSchema()
 device_list_schema = DeviceSchema(many=True)
 
+class ImportSchema(Schema):
+    templates = fields.Nested(TemplateSchema, many=True)
+    devices = fields.Nested(DeviceSchema, many=True)
+
+    @post_dump
+    def remove_null_values(self, data):
+        LOGGER.info(data)
+        return {key: value for key, value in data.items() if value is not None}
+
+import_schema = ImportSchema()
+import_list_schema = ImportSchema(many=True)
+
 def parse_payload(request, schema):
     try:
         content_type = request.headers.get('Content-Type')
+        LOGGER.info(f"content-type: {content_type}")
         if (content_type is None) or (content_type != "application/json"):
             raise HTTPRequestError(400, "Payload must be valid JSON, and Content-Type set accordingly")
         json_payload = json.loads(request.data)
