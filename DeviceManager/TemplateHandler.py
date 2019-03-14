@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql import text, collate, func
 
 from DeviceManager.DatabaseHandler import db
-from DeviceManager.DatabaseModels import handle_consistency_exception, assert_template_exists
+from DeviceManager.DatabaseModels import handle_consistency_exception, assert_template_exists, assert_device_exists
 from DeviceManager.DatabaseModels import DeviceTemplate, DeviceAttr, DeviceTemplateMap
 from DeviceManager.SerializationModels import template_list_schema, template_schema
 from DeviceManager.SerializationModels import attr_list_schema, attr_schema
@@ -20,6 +20,10 @@ from DeviceManager.utils import format_response, HTTPRequestError, get_paginatio
 
 from DeviceManager.Logger import Log
 from datetime import datetime
+
+from DeviceManager.BackendHandler import KafkaHandler
+from DeviceManager.DeviceHandler import serialize_full_device
+
 import time
 import json
 
@@ -264,7 +268,7 @@ class TemplateHandler:
             attrs_from_db.static_value = attrs_from_request.get('static_value', None)
 
         def validate_attr(attr_from_request):
-            attr_schema.load(attr_from_request)    
+            attr_schema.load(attr_from_request)
 
         def analyze_attrs(attrs_from_db, attrs_from_request, parentAttr=None):
             for attr_from_db in attrs_from_db:
@@ -292,7 +296,7 @@ class TemplateHandler:
             LOGGER.debug(f" Adding new attribute {attr}")
             if "id" in attr:
                 del attr["id"]
-            child = DeviceAttr(template=old, **attr)    
+            child = DeviceAttr(template=old, **attr)
             db.session.add(child)
             if "metadata" in attr and attr["metadata"] is not None:
                 for metadata in attr["metadata"]:
@@ -313,7 +317,10 @@ class TemplateHandler:
                              .all()
 
         affected_devices = []
+        kafka_handler = KafkaHandler()
         for device in affected:
+            orm_device = assert_device_exists(device.device_id)
+            kafka_handler.update(serialize_full_device(orm_device, service), meta={"service": service})
             affected_devices.append(device.device_id)
 
         event = {
