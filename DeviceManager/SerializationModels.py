@@ -57,7 +57,7 @@ class TemplateSchema(Schema):
     attrs = fields.Nested(AttrSchema, many=True, dump_only=True)
     data_attrs = fields.Nested(AttrSchema, many=True, dump_only=True)
     config_attrs = fields.Nested(AttrSchema, many=True, dump_only=True)
-
+   
     @post_dump
     def remove_null_values(self, data):
         return {key: value for key, value in data.items() if value is not None}
@@ -71,10 +71,7 @@ class DeviceSchema(Schema):
     created = fields.DateTime(dump_only=True)
     updated = fields.DateTime(dump_only=True)
     templates = fields.Nested(TemplateSchema, only=('id'), many=True)
-    attrs = fields.Nested(AttrSchema, many=True)
-    # protocol = fields.Str(required=True)
-    # frequency = fields.Int()
-    # topic = fields.Str(load_only=True)
+    # attrs = fields.Nested(AttrSchema, many=True)
 
     @post_dump
     def remove_null_values(self, data):
@@ -89,7 +86,6 @@ class ImportSchema(Schema):
 
     @post_dump
     def remove_null_values(self, data):
-        LOGGER.info(data)
         return {key: value for key, value in data.items() if value is not None}
 
 import_schema = ImportSchema()
