@@ -108,7 +108,8 @@ And its attributes are:
 Update message
 --------------
 
-This message is published whenever a new device is updated.
+This message is published whenever a new device is directly or indirectly updated.
+The indirectly case happens when a template associated with the device is updated.
 Its payload looks very similar to device creation:
 
 .. code-block:: json
