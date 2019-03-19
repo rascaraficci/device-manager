@@ -99,17 +99,22 @@ class TemplateHandler:
 
         SORT_CRITERION = {
             'label': DeviceTemplate.label,
-            None: DeviceTemplate.id
+            None: None
         }
         sortBy = SORT_CRITERION.get(req.args.get('sortBy', None), DeviceTemplate.id)
         LOGGER.debug(f"Sortby filter is {sortBy}")
         if parsed_query:
             LOGGER.debug(f" Filtering template by {parsed_query}")
+
+            # Always sort by DeviceTemplate.id
             page = db.session.query(DeviceTemplate) \
                              .join(DeviceAttr, isouter=True) \
                              .filter(*parsed_query) \
-                             .order_by(sortBy) \
-                             .distinct(DeviceTemplate.id)
+                             .order_by(DeviceTemplate.id)
+            if sortBy:
+                page = page.order_by(sortBy)
+            page = page.distinct(DeviceTemplate.id)
+
             LOGGER.debug(f"Current query: {type(page)}")
             page = BaseQuery(page.subquery(), db.session()).paginate(**pagination)
         else:
