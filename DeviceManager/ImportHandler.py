@@ -1,5 +1,6 @@
 import logging
 import re
+import copy
 from flask import Blueprint, request, jsonify, make_response
 from flask_sqlalchemy import BaseQuery
 from sqlalchemy.exc import IntegrityError
@@ -65,6 +66,11 @@ class ImportHandler:
         db.session.execute("DROP SEQUENCE template_id")
         db.session.execute("DROP SEQUENCE attr_id")
         LOGGER.info(f" Removed sequences") 
+
+    @staticmethod
+    def replace_ids(my_json):
+        new_json = json.loads(my_json)
+        return json.dumps(new_json).replace('\"id\":', '\"import_id\":')
 
     @staticmethod
     def restore_sequences():
@@ -200,13 +206,18 @@ class ImportHandler:
 
         try:
             tenant = init_tenant_context(req, db)
+            
+            original_data = copy.copy(req.data);
+
+            req.data = ImportHandler.replace_ids(req.data)
 
             ImportHandler.clear_db_config(tenant)
 
             json_data, json_payload = parse_payload(req, import_schema)
-
-            saved_templates = ImportHandler.save_templates(json_data, json_payload)
-            saved_devices = ImportHandler.save_devices(json_data, json_payload, saved_templates)
+            original_payload = json.loads(original_data)
+            
+            saved_templates = ImportHandler.save_templates(json_data, original_payload)
+            saved_devices = ImportHandler.save_devices(json_data, original_payload, saved_templates)
 
             ImportHandler.restore_db_config()
 

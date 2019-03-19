@@ -1,7 +1,7 @@
 # object to json sweetness
 import json
 import re
-from marshmallow import Schema, fields, post_dump, ValidationError
+from marshmallow import Schema, fields, post_dump, post_load, ValidationError
 
 from DeviceManager.utils import HTTPRequestError
 from DeviceManager.DatabaseModels import DeviceAttr
@@ -10,13 +10,21 @@ from DeviceManager.Logger import Log
 LOGGER = Log().color_log()
 
 class MetaSchema(Schema):
-    id = fields.Int()
+    id = fields.Int(dump_only=True)
+    import_id = fields.Int(load_only=True)
     label = fields.Str(required=True)
     created = fields.DateTime(dump_only=True)
     updated = fields.DateTime(dump_only=True)
     type = fields.Str(required=True)
     value_type = fields.Str(required=True)
     static_value = fields.Field()
+
+    @post_load
+    def set_import_id(self, data):
+        if 'import_id' in data and data['import_id'] is not None:
+            data['id'] = data['import_id']
+            del(data['import_id'])
+        return data
 
 def validate_attr_label(input):
     if re.match(r'^[a-zA-Z0-9_-]+$', input) is None:
@@ -28,7 +36,8 @@ def validate_children_attr_label(attr_label):
         raise ValidationError('a template cant not have repeated attributes')
 
 class AttrSchema(Schema):
-    id = fields.Int()
+    id = fields.Int(dump_only=True)
+    import_id = fields.Int(load_only=True)
     label = fields.Str(required=True, validate=validate_attr_label, allow_none=False, missing=None)
     created = fields.DateTime(dump_only=True)
     updated = fields.DateTime(dump_only=True)
@@ -38,6 +47,13 @@ class AttrSchema(Schema):
     template_id = fields.Str()
 
     metadata = fields.Nested(MetaSchema, many=True, attribute='children', validate=validate_children_attr_label)
+
+    @post_load
+    def set_import_id(self, data):
+        if 'import_id' in data and data['import_id'] is not None:
+            data['id'] = data['import_id']
+            del(data['import_id'])
+        return data
 
     @post_dump
     def remove_null_values(self, data):
@@ -50,7 +66,8 @@ attr_schema = AttrSchema()
 attr_list_schema = AttrSchema(many=True)
 
 class TemplateSchema(Schema):
-    id = fields.Int()
+    id = fields.Int(dump_only=True)
+    import_id = fields.Int(load_only=True)
     label = fields.Str(required=True)
     created = fields.DateTime(dump_only=True)
     updated = fields.DateTime(dump_only=True)
@@ -58,20 +75,36 @@ class TemplateSchema(Schema):
     data_attrs = fields.Nested(AttrSchema, many=True, dump_only=True)
     config_attrs = fields.Nested(AttrSchema, many=True, dump_only=True)
    
+    @post_load
+    def set_import_id(self, data):
+        if 'import_id' in data and data['import_id'] is not None:
+            data['id'] = data['import_id']
+            del(data['import_id'])
+        return data
+    
     @post_dump
     def remove_null_values(self, data):
         return {key: value for key, value in data.items() if value is not None}
+
 
 template_schema = TemplateSchema()
 template_list_schema = TemplateSchema(many=True)
 
 class DeviceSchema(Schema):
-    id = fields.String()
+    id = fields.String(dump_only=True)
+    import_id = fields.String(load_only=True)
     label = fields.Str(required=True)
     created = fields.DateTime(dump_only=True)
     updated = fields.DateTime(dump_only=True)
     templates = fields.Nested(TemplateSchema, only=('id'), many=True)
     # attrs = fields.Nested(AttrSchema, many=True)
+
+    @post_load
+    def set_import_id(self, data):
+        if 'import_id' in data and data['import_id'] is not None:
+            data['id'] = data['import_id']
+            del(data['import_id'])
+        return data
 
     @post_dump
     def remove_null_values(self, data):
