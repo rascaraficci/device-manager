@@ -18,7 +18,11 @@ class MetaSchema(Schema):
 def validate_attr_label(input):
     if re.match(r'^[a-zA-Z0-9_-]+$', input) is None:
         raise ValidationError("Labels must contain letters, numbers or dashes(-_)")
-    return '-- invalid --'
+
+def validate_children_attr_label(attr_label):
+    unique = { each['label'] : each for each in attr_label }.values()     
+    if len(attr_label) > len(unique):
+        raise ValidationError('a template cant not have repeated attributes')
 
 class AttrSchema(Schema):
     id = fields.Int()
@@ -30,7 +34,7 @@ class AttrSchema(Schema):
     static_value = fields.Field()
     template_id = fields.Str(dump_only=True)
 
-    metadata = fields.Nested(MetaSchema, many=True, attribute='children')
+    metadata = fields.Nested(MetaSchema, many=True, attribute='children', validate=validate_children_attr_label)
 
     @post_dump
     def remove_null_values(self, data):

@@ -1,11 +1,12 @@
 import logging
 import re
 from flask import Blueprint, request, jsonify, make_response
+from flask_sqlalchemy import BaseQuery
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql import text, collate, func
 
 from DeviceManager.DatabaseHandler import db
-from DeviceManager.DatabaseModels import handle_consistency_exception, assert_template_exists
+from DeviceManager.DatabaseModels import handle_consistency_exception, assert_template_exists, assert_device_exists
 from DeviceManager.DatabaseModels import DeviceTemplate, DeviceAttr, DeviceTemplateMap
 from DeviceManager.SerializationModels import template_list_schema, template_schema
 from DeviceManager.SerializationModels import attr_list_schema, attr_schema
@@ -19,11 +20,15 @@ from DeviceManager.utils import format_response, HTTPRequestError, get_paginatio
 
 from DeviceManager.Logger import Log
 from datetime import datetime
-import time
 
+from DeviceManager.BackendHandler import KafkaHandler
+from DeviceManager.DeviceHandler import serialize_full_device
+
+import time
+import json
 
 template = Blueprint('template', __name__)
- 
+
 LOGGER = Log().color_log()
 
 def attr_format(req, result):
@@ -63,17 +68,24 @@ class TemplateHandler:
         :raises HTTPRequestError: If no authorization token was provided (no
         tenant was informed)
         """
+        LOGGER.debug(f"Retrieving templates.")
+        LOGGER.debug(f"Initializing tenant context...")
         init_tenant_context(req, db)
+        LOGGER.debug(f"... tenant context initialized.")
 
         page_number, per_page = get_pagination(req)
         pagination = {'page': page_number, 'per_page': per_page, 'error_out': False}
 
+        LOGGER.debug(f"Pagination configuration is {pagination}")
+
         parsed_query = []
         query = req.args.getlist('attr')
         for attr in query:
+            LOGGER.debug(f"Analyzing query parameter: {attr}...")
             parsed = re.search('^(.+){1}=(.+){1}$', attr)
             parsed_query.append(text("attrs.label = '{}'".format(parsed.group(1))))
             parsed_query.append(text("attrs.static_value = '{}'".format(parsed.group(2))))
+            LOGGER.debug("... query parameter was added to filter list.")
 
         query = req.args.getlist('attr_type')
         for attr_type_item in query:
@@ -81,28 +93,36 @@ class TemplateHandler:
 
         target_label = req.args.get('label', None)
         if target_label:
+            LOGGER.debug(f"Adding label filter to query...")
             parsed_query.append(text("templates.label like '%{}%'".format(target_label)))
+            LOGGER.debug(f"... filter was added to query.")
 
         SORT_CRITERION = {
             'label': DeviceTemplate.label,
             None: DeviceTemplate.id
         }
         sortBy = SORT_CRITERION.get(req.args.get('sortBy', None), DeviceTemplate.id)
-
+        LOGGER.debug(f"Sortby filter is {sortBy}")
         if parsed_query:
             LOGGER.debug(f" Filtering template by {parsed_query}")
             page = db.session.query(DeviceTemplate) \
                              .join(DeviceAttr, isouter=True) \
                              .filter(*parsed_query) \
                              .order_by(sortBy) \
-                             .paginate(**pagination)
+                             .distinct(DeviceTemplate.id)
+            LOGGER.debug(f"Current query: {type(page)}")
+            page = BaseQuery(page.subquery(), db.session()).paginate(**pagination)
         else:
             LOGGER.debug(f" Querying templates sorted by {sortBy}")
             page = db.session.query(DeviceTemplate).order_by(sortBy).paginate(**pagination)
 
         templates = []
         for template in page.items:
-            templates.append(attr_format(req, template_schema.dump(template)))
+            formatted_template = attr_format(req, template_schema.dump(template))
+            LOGGER.debug(f"Adding resulting template to response...")
+            LOGGER.debug(f"Template is: {formatted_template['label']}")
+            templates.append(formatted_template)
+            LOGGER.debug(f"... template was added to response.")
 
         result = {
             'pagination': {
@@ -168,6 +188,21 @@ class TemplateHandler:
         return json_template
 
     @staticmethod
+    def delete_all_templates(req):
+        """
+        Deletes all templates.
+
+        :param req: The received HTTP request, as created by Flask.
+        :raises HTTPRequestError: If this template could not be found in
+        database.
+        """
+        init_tenant_context(req, db)
+        templates = db.session.query(DeviceTemplate)
+        for template in templates:
+            db.session.delete(template)
+        db.session.commit()
+
+    @staticmethod
     def remove_template(req, template_id):
         """
         Deletes a single template.
@@ -228,28 +263,50 @@ class TemplateHandler:
 
         new = json_payload['attrs']
         LOGGER.debug(f" Checking old template attributes")
-        for a in old.attrs:
-            LOGGER.debug(f" Checking attribute {a}...")
-            found = False
-            for idx, b in enumerate(new):
-                LOGGER.debug(f" Comparing against new attribute {b}")
-                if (a.label == b['label']) and (a.type == b['type']):
-                    found = True
-                    a.value_type = b.get('value_type', None)
-                    a.static_value = b.get('static_value', None)
-                    new.pop(idx)
-                    LOGGER.debug(f" They match. Attribute data will be updated.")
-                    break
-            if not found:
-                LOGGER.debug(f" No match for this attribute. It will be removed.")
-                db.session.delete(a)
+        def attrs_match(attr_from_db, attr_from_request):
+            return ((attr_from_db.label == attr_from_request["label"]) and
+              (attr_from_db.type == attr_from_request["type"]))
 
-        for a in new:
-            LOGGER.debug(f" Adding new attribute {a}")
-            if "id" in a:
-                del a["id"]
-            db.session.add(DeviceAttr(template=old, **a))
+        def update_attr(attrs_from_db, attrs_from_request):
+            attrs_from_db.value_type = attrs_from_request.get('value_type', None)
+            attrs_from_db.static_value = attrs_from_request.get('static_value', None)
 
+        def validate_attr(attr_from_request):
+            attr_schema.load(attr_from_request)
+
+        def analyze_attrs(attrs_from_db, attrs_from_request, parentAttr=None):
+            for attr_from_db in attrs_from_db:
+                found = False
+                for idx, attr_from_request in enumerate(attrs_from_request):
+                    validate_attr(attr_from_request)
+                    if attrs_match(attr_from_db, attr_from_request):
+                        update_attr(attr_from_db, attr_from_request)
+                        if "metadata" in attr_from_request:
+                            analyze_attrs(attr_from_db.children, attr_from_request["metadata"], attr_from_db)
+                        attrs_from_request.pop(idx)
+                        found = True
+                        break
+                if not found:
+                    LOGGER.debug(f" Removing attribute {attr_from_db.label}")
+                    db.session.delete(attr_from_db)
+            if parentAttr and attrs_from_request is not None:
+                for attr_from_request in attrs_from_request:
+                    orm_child = DeviceAttr(parent=parentAttr, **attr_from_request)
+                    db.session.add(orm_child)
+            return attrs_from_request
+
+        to_be_added = analyze_attrs(old.attrs, new)
+        for attr in to_be_added:
+            LOGGER.debug(f" Adding new attribute {attr}")
+            if "id" in attr:
+                del attr["id"]
+            child = DeviceAttr(template=old, **attr)
+            db.session.add(child)
+            if "metadata" in attr and attr["metadata"] is not None:
+                for metadata in attr["metadata"]:
+                    LOGGER.debug(f" Adding new metadata {metadata}")
+                    orm_child = DeviceAttr(parent=child, **metadata)
+                    db.session.add(orm_child)
         try:
             LOGGER.debug(f" Commiting new data...")
             db.session.commit()
@@ -264,7 +321,10 @@ class TemplateHandler:
                              .all()
 
         affected_devices = []
+        kafka_handler = KafkaHandler()
         for device in affected:
+            orm_device = assert_device_exists(device.device_id)
+            kafka_handler.update(serialize_full_device(orm_device, service), meta={"service": service})
             affected_devices.append(device.device_id)
 
         event = {
@@ -291,7 +351,7 @@ def flask_get_templates():
 
         for templates in result.get('templates'):
             LOGGER.info(f" Getting template with id {templates.get('id')}")
-        
+
         return make_response(jsonify(result), 200)
 
     except ValidationError as e:
@@ -303,17 +363,16 @@ def flask_get_templates():
         LOGGER.error(f" {e}")
         if isinstance(e.message, dict):
             return make_response(jsonify(e.message), e.error_code)
-        else:
-            return format_response(e.error_code, e.message)
+        return format_response(e.error_code, e.message)
 
 
 @template.route('/template', methods=['POST'])
 def flask_create_template():
     try:
         result = TemplateHandler.create_template(request)
-        
-        LOGGER.info(f"Creating a new template")        
-        
+
+        LOGGER.info(f"Creating a new template")
+
         return make_response(jsonify(result), 200)
 
     except ValidationError as e:
@@ -321,11 +380,27 @@ def flask_create_template():
         LOGGER.error(f" {e}")
         return make_response(jsonify(results), 400)
     except HTTPRequestError as error:
+        LOGGER.error(f" {error}")
+        if isinstance(error.message, dict):
+            return make_response(jsonify(error.message), error.error_code)
+        return format_response(error.error_code, error.message)
+
+
+@template.route('/template', methods=['DELETE'])
+def flask_delete_all_templates():
+
+    try:
+        result = TemplateHandler.delete_all_templates(request)
+
+        LOGGER.info(f"deleting all templates")
+
+        return make_response(jsonify(result), 200)
+
+    except HTTPRequestError as error:
         LOGGER.error(f" {e}")
         if isinstance(error.message, dict):
             return make_response(jsonify(error.message), error.error_code)
-        else:
-            return format_response(error.error_code, error.message)
+        return format_response(error.error_code, error.message)
 
 
 @template.route('/template/<template_id>', methods=['GET'])
@@ -342,8 +417,7 @@ def flask_get_template(template_id):
         LOGGER.error(f" {e}")
         if isinstance(e.message, dict):
             return make_response(jsonify(e.message), e.error_code)
-        else:
-            return format_response(e.error_code, e.message)
+        return format_response(e.error_code, e.message)
 
 
 @template.route('/template/<template_id>', methods=['DELETE'])
@@ -360,8 +434,7 @@ def flask_remove_template(template_id):
         LOGGER.error(f" {e.message}")
         if isinstance(e.message, dict):
             return make_response(jsonify(e.message), e.error_code)
-        else:
-            return format_response(e.error_code, e.message)
+        return format_response(e.error_code, e.message)
 
 
 @template.route('/template/<template_id>', methods=['PUT'])
@@ -370,16 +443,15 @@ def flask_update_template(template_id):
         result = TemplateHandler.update_template(request, template_id)
         LOGGER.info(f"Updating template with id: {template_id}")
         return make_response(jsonify(result), 200)
-    except ValidationError as e:
-        results = {'message': 'failed to parse attr', 'errors': e}
-        LOGGER.error(f" {error.message}")
-        return make_response(jsonify(results), 500)
+    except ValidationError as errors:
+        results = {'message': 'failed to parse attr', 'errors': errors.messages}
+        LOGGER.error(f' Error in load attrs {errors.messages}')
+        return make_response(jsonify(results), 400)
     except HTTPRequestError as error:
         LOGGER.error(f" {error.message}")
         if isinstance(error.message, dict):
             return make_response(jsonify(error.message), error.error_code)
-        else:
-            return format_response(error.error_code, error.message)
+        return format_response(error.error_code, error.message)
 
 
 app.register_blueprint(template)
