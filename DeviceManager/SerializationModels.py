@@ -9,6 +9,21 @@ from DeviceManager.Logger import Log
 
 LOGGER = Log().color_log()
 
+def validate_attr_label(input):
+    if re.match(r'^[a-zA-Z0-9_-]+$', input) is None:
+        raise ValidationError("Labels must contain letters, numbers or dashes(-_)")
+
+def validate_children_attr_label(attr_label):
+    unique = { each['label'] : each for each in attr_label }.values()     
+    if len(attr_label) > len(unique):
+        raise ValidationError('a template cant not have repeated attributes')
+
+def set_id_with_import_id(data):
+    if 'import_id' in data and data['import_id'] is not None:
+        data['id'] = data['import_id']
+        del(data['import_id'])
+    return data
+
 class MetaSchema(Schema):
     id = fields.Int(dump_only=True)
     import_id = fields.Int(load_only=True)
@@ -21,19 +36,7 @@ class MetaSchema(Schema):
 
     @post_load
     def set_import_id(self, data):
-        if 'import_id' in data and data['import_id'] is not None:
-            data['id'] = data['import_id']
-            del(data['import_id'])
-        return data
-
-def validate_attr_label(input):
-    if re.match(r'^[a-zA-Z0-9_-]+$', input) is None:
-        raise ValidationError("Labels must contain letters, numbers or dashes(-_)")
-
-def validate_children_attr_label(attr_label):
-    unique = { each['label'] : each for each in attr_label }.values()     
-    if len(attr_label) > len(unique):
-        raise ValidationError('a template cant not have repeated attributes')
+        return set_id_with_import_id(data)
 
 class AttrSchema(Schema):
     id = fields.Int(dump_only=True)
@@ -50,10 +53,7 @@ class AttrSchema(Schema):
 
     @post_load
     def set_import_id(self, data):
-        if 'import_id' in data and data['import_id'] is not None:
-            data['id'] = data['import_id']
-            del(data['import_id'])
-        return data
+        return set_id_with_import_id(data)
 
     @post_dump
     def remove_null_values(self, data):
@@ -77,10 +77,7 @@ class TemplateSchema(Schema):
    
     @post_load
     def set_import_id(self, data):
-        if 'import_id' in data and data['import_id'] is not None:
-            data['id'] = data['import_id']
-            del(data['import_id'])
-        return data
+        return set_id_with_import_id(data)
     
     @post_dump
     def remove_null_values(self, data):
@@ -97,14 +94,10 @@ class DeviceSchema(Schema):
     created = fields.DateTime(dump_only=True)
     updated = fields.DateTime(dump_only=True)
     templates = fields.Nested(TemplateSchema, only=('id'), many=True)
-    # attrs = fields.Nested(AttrSchema, many=True)
 
     @post_load
     def set_import_id(self, data):
-        if 'import_id' in data and data['import_id'] is not None:
-            data['id'] = data['import_id']
-            del(data['import_id'])
-        return data
+        return set_id_with_import_id(data)
 
     @post_dump
     def remove_null_values(self, data):
@@ -127,7 +120,6 @@ import_list_schema = ImportSchema(many=True)
 def parse_payload(request, schema):
     try:
         content_type = request.headers.get('Content-Type')
-        LOGGER.info(f"content-type: {content_type}")
         if (content_type is None) or (content_type != "application/json"):
             raise HTTPRequestError(400, "Payload must be valid JSON, and Content-Type set accordingly")
         json_payload = json.loads(request.data)
@@ -160,4 +152,4 @@ def load_attrs(attr_list, parent_template, base_type, db):
                 db.session.add(orm_child)
         except ValidationError as errors:
             results = {'message': 'failed to parse attr', 'errors': errors.messages}
-            raise HTTPRequestError(400, results)
+            raise HTTPRequestError(400, results)          
