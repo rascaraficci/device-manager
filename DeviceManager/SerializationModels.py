@@ -39,7 +39,7 @@ class MetaSchema(Schema):
         return set_id_with_import_id(data)
 
 class AttrSchema(Schema):
-    id = fields.Int(dump_only=True)
+    id = fields.Int()
     import_id = fields.Int(load_only=True)
     label = fields.Str(required=True, validate=validate_attr_label, allow_none=False, missing=None)
     created = fields.DateTime(dump_only=True)
