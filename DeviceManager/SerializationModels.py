@@ -16,13 +16,19 @@ def validate_attr_label(input):
 def validate_children_attr_label(attr_label):
     unique = { each['label'] : each for each in attr_label }.values()     
     if len(attr_label) > len(unique):
-        raise ValidationError('a template cant not have repeated attributes')
+        raise ValidationError('a template can not have repeated attributes')
 
 def set_id_with_import_id(data):
     if 'import_id' in data and data['import_id'] is not None:
         data['id'] = data['import_id']
         del(data['import_id'])
     return data
+
+def validate_repeated_attrs(data):
+    if ('attrs' in data):
+        uniques = { each['label'] : each for each in data['attrs'] }.values()
+        if len(data['attrs']) > len(uniques):
+            raise ValidationError('a device can not have repeated attributes')    
 
 class MetaSchema(Schema):
     id = fields.Int(dump_only=True)
