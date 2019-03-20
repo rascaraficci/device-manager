@@ -149,6 +149,9 @@ class ImportHandler:
         instance.
         """
 
+        saved_templates = []
+        saved_devices = []
+
         try:
             tenant = init_tenant_context(req, db)
 
