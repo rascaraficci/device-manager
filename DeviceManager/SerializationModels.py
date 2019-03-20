@@ -1,19 +1,13 @@
 # object to json sweetness
 import json
 import re
-from marshmallow import Schema, fields, post_dump, ValidationError
+from marshmallow import Schema, fields, post_dump, post_load, ValidationError
 
 from DeviceManager.utils import HTTPRequestError
 from DeviceManager.DatabaseModels import DeviceAttr
+from DeviceManager.Logger import Log
 
-class MetaSchema(Schema):
-    id = fields.Int()
-    label = fields.Str(required=True)
-    created = fields.DateTime(dump_only=True)
-    updated = fields.DateTime(dump_only=True)
-    type = fields.Str(required=True)
-    value_type = fields.Str(required=True)
-    static_value = fields.Field()
+LOGGER = Log().color_log()
 
 def validate_attr_label(input):
     if re.match(r'^[a-zA-Z0-9_-]+$', input) is None:
@@ -24,17 +18,42 @@ def validate_children_attr_label(attr_label):
     if len(attr_label) > len(unique):
         raise ValidationError('a template cant not have repeated attributes')
 
+def set_id_with_import_id(data):
+    if 'import_id' in data and data['import_id'] is not None:
+        data['id'] = data['import_id']
+        del(data['import_id'])
+    return data
+
+class MetaSchema(Schema):
+    id = fields.Int(dump_only=True)
+    import_id = fields.Int(load_only=True)
+    label = fields.Str(required=True)
+    created = fields.DateTime(dump_only=True)
+    updated = fields.DateTime(dump_only=True)
+    type = fields.Str(required=True)
+    value_type = fields.Str(required=True)
+    static_value = fields.Field()
+
+    @post_load
+    def set_import_id(self, data):
+        return set_id_with_import_id(data)
+
 class AttrSchema(Schema):
     id = fields.Int()
+    import_id = fields.Int(load_only=True)
     label = fields.Str(required=True, validate=validate_attr_label, allow_none=False, missing=None)
     created = fields.DateTime(dump_only=True)
     updated = fields.DateTime(dump_only=True)
     type = fields.Str(required=True)
     value_type = fields.Str(required=True)
     static_value = fields.Field()
-    template_id = fields.Str(dump_only=True)
+    template_id = fields.Str()
 
     metadata = fields.Nested(MetaSchema, many=True, attribute='children', validate=validate_children_attr_label)
+
+    @post_load
+    def set_import_id(self, data):
+        return set_id_with_import_id(data)
 
     @post_dump
     def remove_null_values(self, data):
@@ -48,29 +67,37 @@ attr_list_schema = AttrSchema(many=True)
 
 class TemplateSchema(Schema):
     id = fields.Int(dump_only=True)
+    import_id = fields.Int(load_only=True)
     label = fields.Str(required=True)
     created = fields.DateTime(dump_only=True)
     updated = fields.DateTime(dump_only=True)
     attrs = fields.Nested(AttrSchema, many=True, dump_only=True)
     data_attrs = fields.Nested(AttrSchema, many=True, dump_only=True)
     config_attrs = fields.Nested(AttrSchema, many=True, dump_only=True)
-
+   
+    @post_load
+    def set_import_id(self, data):
+        return set_id_with_import_id(data)
+    
     @post_dump
     def remove_null_values(self, data):
         return {key: value for key, value in data.items() if value is not None}
+
 
 template_schema = TemplateSchema()
 template_list_schema = TemplateSchema(many=True)
 
 class DeviceSchema(Schema):
     id = fields.String(dump_only=True)
+    import_id = fields.String(load_only=True)
     label = fields.Str(required=True)
     created = fields.DateTime(dump_only=True)
     updated = fields.DateTime(dump_only=True)
     templates = fields.Nested(TemplateSchema, only=('id'), many=True)
-    # protocol = fields.Str(required=True)
-    # frequency = fields.Int()
-    # topic = fields.Str(load_only=True)
+
+    @post_load
+    def set_import_id(self, data):
+        return set_id_with_import_id(data)
 
     @post_dump
     def remove_null_values(self, data):
@@ -78,6 +105,17 @@ class DeviceSchema(Schema):
 
 device_schema = DeviceSchema()
 device_list_schema = DeviceSchema(many=True)
+
+class ImportSchema(Schema):
+    templates = fields.Nested(TemplateSchema, many=True)
+    devices = fields.Nested(DeviceSchema, many=True)
+
+    @post_dump
+    def remove_null_values(self, data):
+        return {key: value for key, value in data.items() if value is not None}
+
+import_schema = ImportSchema()
+import_list_schema = ImportSchema(many=True)
 
 def parse_payload(request, schema):
     try:
@@ -114,4 +152,4 @@ def load_attrs(attr_list, parent_template, base_type, db):
                 db.session.add(orm_child)
         except ValidationError as errors:
             results = {'message': 'failed to parse attr', 'errors': errors.messages}
-            raise HTTPRequestError(400, results)
+            raise HTTPRequestError(400, results)          

@@ -6,6 +6,7 @@ from DeviceManager.app import app
 # initialize modules
 import DeviceManager.DeviceHandler
 import DeviceManager.TemplateHandler
+import DeviceManager.ImportHandler
 import DeviceManager.ErrorManager
 
 from .DatabaseHandler import db
