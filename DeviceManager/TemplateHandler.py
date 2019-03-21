@@ -1,7 +1,7 @@
 import logging
 import re
 from flask import Blueprint, request, jsonify, make_response
-from flask_sqlalchemy import BaseQuery
+from flask_sqlalchemy import BaseQuery, Pagination
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql import text, collate, func
 
@@ -50,6 +50,19 @@ def attr_format(req, result):
 
     return result
 
+def paginate(query, page, per_page=20, error_out=False):
+    if error_out and page < 1:
+        return None
+    items = query.limit(per_page).offset((page - 1) * per_page).all()
+    if not items and page != 1 and error_out:
+        return None
+
+    if page == 1 and len(items) < per_page:
+        total = len(items)
+    else:
+        total = query.count()
+
+    return Pagination(query, page, per_page, total, items)
 
 class TemplateHandler:
 
@@ -87,6 +100,10 @@ class TemplateHandler:
             parsed_query.append(text("attrs.static_value = '{}'".format(parsed.group(2))))
             LOGGER.debug("... query parameter was added to filter list.")
 
+        query = req.args.getlist('attr_type')
+        for attr_type_item in query:
+            parsed_query.append(text("attrs.value_type = '{}'".format(attr_type_item)))
+
         target_label = req.args.get('label', None)
         if target_label:
             LOGGER.debug(f"Adding label filter to query...")
@@ -95,19 +112,25 @@ class TemplateHandler:
 
         SORT_CRITERION = {
             'label': DeviceTemplate.label,
-            None: DeviceTemplate.id
+            None: None
         }
-        sortBy = SORT_CRITERION.get(req.args.get('sortBy', None), DeviceTemplate.id)
+        sortBy = SORT_CRITERION.get(req.args.get('sortBy', None), None)
         LOGGER.debug(f"Sortby filter is {sortBy}")
         if parsed_query:
             LOGGER.debug(f" Filtering template by {parsed_query}")
+
+            # Always sort by DeviceTemplate.id
             page = db.session.query(DeviceTemplate) \
                              .join(DeviceAttr, isouter=True) \
                              .filter(*parsed_query) \
-                             .order_by(sortBy) \
-                             .distinct(DeviceTemplate.id)
+                             .order_by(DeviceTemplate.id)
+            if sortBy:
+                page = page.order_by(sortBy)
+
+            page = page.distinct(DeviceTemplate.id)
+
             LOGGER.debug(f"Current query: {type(page)}")
-            page = BaseQuery(page.subquery(), db.session()).paginate(**pagination)
+            page = paginate(page, **pagination)
         else:
             LOGGER.debug(f" Querying templates sorted by {sortBy}")
             page = db.session.query(DeviceTemplate).order_by(sortBy).paginate(**pagination)
@@ -129,6 +152,8 @@ class TemplateHandler:
             },
             'templates': templates
         }
+
+        LOGGER.debug(f"Full response is {result}")
 
         return result
 

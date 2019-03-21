@@ -111,7 +111,7 @@ Register a new template
             }
 
 
-### Get the current list of templates [GET /template{?page_size,page_num,attr_format,attr,label,sortBy}]
+### Get the current list of templates [GET /template{?page_size,page_num,attr_format,attr,attr_type,label,sortBy}]
 Get the full list of templates with all their associated attributes.
 
 + Parameters
@@ -124,6 +124,7 @@ Get the full list of templates with all their associated attributes.
         template attributes that are listed by both 'data_attrs' and 'config_attrs'.
 
     + attr: foo=bar (string, optional) - Return only templates that posess a given attribute's value
+    + attr_type: geopoint (string, optional) - Return only templates with attributes of a particular type.
     + label: dummy (string, optional) - Return only templates that are named accordingly (prefix or suffix match)
     + sortBy: label (string, optional) - Return entries sorted by given field. Currently only `label` is supported.
 
@@ -155,6 +156,14 @@ Get the full list of templates with all their associated attributes.
                         "type": "static",
                         "id": 2,
                         "template_id": "1"
+                        },
+                        {
+                        "created": "2018-02-27T16:10:23.178557+00:00",
+                        "label": "position",
+                        "value_type": "geopoint",
+                        "type": "dynamic",
+                        "id": 3,
+                        "template_id": "1"
                         }
                     ],
                     "label": "SensorModel",
@@ -176,6 +185,14 @@ Get the full list of templates with all their associated attributes.
                         "value_type": "float",
                         "type": "dynamic",
                         "id": 1
+                        },
+                        {
+                        "created": "2018-02-27T16:10:23.178557+00:00",
+                        "label": "position",
+                        "value_type": "geopoint",
+                        "type": "dynamic",
+                        "id": 3,
+                        "template_id": "1"
                         }
                     ],
                     "id": 1
@@ -403,6 +420,14 @@ Removes a template. If any device is based on the template being removed, then a
                 "removed": {
                     "attrs": [
                         {
+                            "created": "2018-11-20T20:58:28.462464+00:00",
+                            "id": 182,
+                            "label": "position",
+                            "template_id": "4865",
+                            "type": "dynamic",
+                            "value_type": "geopoint"
+                        },
+                        {
                             "created": "2017-12-27T15:22:13.331950+00:00",
                             "id": 9,
                             "label": "temperature",
@@ -570,7 +595,7 @@ Retrieves all information from a specific device
             }
 
 
-### Get the current list of devices [GET /device{?page_size,page_num,idsOnly,label,attr,sortBy}]
+### Get the current list of devices [GET /device{?page_size,page_num,idsOnly,label,attr,attr_type,sortBy}]
 Get the full list of devices with all their associated attributes.
 Each attribute from *attrs* is the template ID from where the attributes came from.
 In this example, there is only one template (ID 1).
@@ -579,6 +604,7 @@ In this example, there is only one template (ID 1).
     + page_num: 1 (integer, optional)
     + idsOnly: false (booelan, optional) - Return only the ids of all existing devices. Ignores any `page_size` and `page_num` configurations
     + attr: foo=bar (string, optional) - Return only devices that posess a given attribute's value
+    + attr_type: geopoint (string, optional) - Return only devices with attributes of a particular type.
     + label: dummy (string, optional) - Return only devices that are named accordingly (prefix or suffix match)
     + sortBy: label (string, optional) - Return entries sorted by given field. Currently only `label` is supported.
 
@@ -672,6 +698,14 @@ Get the full list of devices that belong to a given template..
                     {
                         "attrs": {
                             "4865": [
+                                {
+                                    "created": "2018-11-20T20:58:29.564672+00:00",
+                                    "id": 198,
+                                    "label": "position",
+                                    "template_id": "668",
+                                    "type": "dynamic",
+                                    "value_type": "geopoint"
+                                },
                                 {
                                     "label": "temperature",
                                     "type": "dynamic",
