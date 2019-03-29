@@ -89,7 +89,6 @@ class TemplateSchema(Schema):
     def remove_null_values(self, data):
         return {key: value for key, value in data.items() if value is not None}
 
-
 template_schema = TemplateSchema()
 template_list_schema = TemplateSchema(many=True)
 
