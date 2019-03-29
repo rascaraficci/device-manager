@@ -52,8 +52,8 @@ class AttrSchema(Schema):
     updated = fields.DateTime(dump_only=True)
     type = fields.Str(required=True)
     value_type = fields.Str(required=True)
-    static_value = fields.Field()
-    template_id = fields.Str()
+    static_value = fields.Field(allow_none=True)
+    template_id = fields.Str(dump_only=True)
 
     metadata = fields.Nested(MetaSchema, many=True, attribute='children', validate=validate_children_attr_label)
 
