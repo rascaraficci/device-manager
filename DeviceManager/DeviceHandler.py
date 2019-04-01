@@ -23,9 +23,9 @@ from DeviceManager.DatabaseModels import assert_device_exists, assert_template_e
 from DeviceManager.DatabaseModels import handle_consistency_exception, assert_device_relation_exists
 from DeviceManager.DatabaseModels import DeviceTemplate, DeviceAttr, Device, DeviceTemplateMap, DeviceAttrsPsk
 from DeviceManager.DatabaseModels import DeviceOverride
-from DeviceManager.SerializationModels import device_list_schema, device_schema
+from DeviceManager.SerializationModels import device_list_schema, device_schema, ValidationError
 from DeviceManager.SerializationModels import attr_list_schema
-from DeviceManager.SerializationModels import parse_payload, load_attrs
+from DeviceManager.SerializationModels import parse_payload, load_attrs, validate_repeated_attrs
 from DeviceManager.TenancyManager import init_tenant_context, init_tenant_context2
 from DeviceManager.app import app
 from DeviceManager.Logger import Log
@@ -125,6 +125,7 @@ def create_orm_override(attr, orm_device, orm_template):
     if not found:
         LOGGER.error(f" Unknown attribute {attr['id']} in override list")
         raise HTTPRequestError(400, "Unknown attribute \"{}\" in override list".format(target))
+
 
 def auto_create_template(json_payload, new_device):
     if ('attrs' in json_payload) and (new_device.templates is None):
@@ -245,13 +246,20 @@ class DeviceHandler(object):
 
         attr_filter = []
         query = req.args.getlist('attr')
-        for attr in query:
-            parsed = re.search('^(.+){1}=(.+){1}$', attr)
-            attr = []
-            attr.append("attrs.label = '{}'".format(parsed.group(1)))
+        for attr_label_item in query:
+            parsed = re.search('^(.+){1}=(.+){1}$', attr_label_item)
+            attr_label = []
+            attr_label.append("attrs.label = '{}'".format(parsed.group(1)))
             # static value must be the override, if any
-            attr.append("coalesce(overrides.static_value, attrs.static_value) = '{}'".format(parsed.group(2)))
-            attr_filter.append(and_(*attr))
+            attr_label.append("coalesce(overrides.static_value, attrs.static_value) = '{}'".format(parsed.group(2)))
+            LOGGER.debug(f"Adding filter ${attr_label} to query")
+            attr_filter.append(and_(*attr_label))
+
+        query = req.args.getlist('attr_type')
+        for attr_type_item in query:
+            attr_type = []
+            attr_type.append("attrs.value_type = '{}'".format(attr_type_item))
+            attr_filter.append(and_(*attr_type))
 
         label_filter = []
         target_label = req.args.get('label', None)
@@ -417,22 +425,24 @@ class DeviceHandler(object):
         full_device = None
         orm_devices = []
 
-        for i in range(0, count):
-            device_data, json_payload = parse_payload(req, device_schema)
-            device_data['id'] = DeviceHandler.generate_device_id()
-            device_data['label'] = DeviceHandler.indexed_label(count, c_length, device_data['label'], i)
-            # handled separately by parse_template_list
-            device_data.pop('templates', None)
-            orm_device = Device(**device_data)
-            parse_template_list(json_payload.get('templates', []), orm_device)
-            auto_create_template(json_payload, orm_device)
-            db.session.add(orm_device)
-            orm_devices.append(orm_device)
-
         try:
+            for i in range(0, count):
+                device_data, json_payload = parse_payload(req, device_schema)
+                validate_repeated_attrs(json_payload)
+                device_data['id'] = DeviceHandler.generate_device_id()
+                device_data['label'] = DeviceHandler.indexed_label(count, c_length, device_data['label'], i)
+                device_data.pop('templates', None)
+                orm_device = Device(**device_data)
+                parse_template_list(json_payload.get('templates', []), orm_device)
+                auto_create_template(json_payload, orm_device)
+                db.session.add(orm_device)
+                orm_devices.append(orm_device)
             db.session.commit()
         except IntegrityError as error:
             handle_consistency_exception(error)
+        except ValidationError as error:
+            raise HTTPRequestError(400, error.messages)
+  
 
         for orm_device in orm_devices:
             devices.append(
@@ -529,28 +539,31 @@ class DeviceHandler(object):
         :raises HTTPRequestError: If this device could not be found in
         database.
         """
-        device_data, json_payload = parse_payload(req, device_schema)
-
-        tenant = init_tenant_context(req, db)
-        old_orm_device = assert_device_exists(device_id)
-        db.session.delete(old_orm_device)
-        db.session.flush()
-
-        # handled separately by parse_template_list
-        device_data.pop('templates')
-        updated_orm_device = Device(**device_data)
-        parse_template_list(json_payload.get('templates', []), updated_orm_device)
-        auto_create_template(json_payload, updated_orm_device)
-        updated_orm_device.id = device_id
-        updated_orm_device.updated = datetime.now()
-        updated_orm_device.created = old_orm_device.created
-
-        db.session.add(updated_orm_device)
         try:
+            device_data, json_payload = parse_payload(req, device_schema)
+            validate_repeated_attrs(json_payload)
+
+            tenant = init_tenant_context(req, db)
+            old_orm_device = assert_device_exists(device_id)
+            db.session.delete(old_orm_device)
+            db.session.flush()
+
+            # handled separately by parse_template_list
+            device_data.pop('templates')
+            updated_orm_device = Device(**device_data)
+            parse_template_list(json_payload.get('templates', []), updated_orm_device)
+            auto_create_template(json_payload, updated_orm_device)
+            updated_orm_device.id = device_id
+            updated_orm_device.updated = datetime.now()
+            updated_orm_device.created = old_orm_device.created
+
+            db.session.add(updated_orm_device)
+       
             db.session.commit()
         except IntegrityError as error:
-            # This will throw an exception.
             handle_consistency_exception(error)
+        except ValidationError as error:
+            raise HTTPRequestError(400, error.messages)    
 
         full_device = serialize_full_device(updated_orm_device, tenant)
 
