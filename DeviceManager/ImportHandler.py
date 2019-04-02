@@ -41,15 +41,24 @@ class ImportHandler:
         return json.dumps(new_json).replace('\"id\":', '\"import_id\":')
 
 
-    def restore_sequences():
-        max_template_id = db.session.query(func.max(DeviceTemplate.id)).scalar() + 1
+    def restore_template_sequence():
+        max_template_id = 1
+        current_max_template_id = db.session.query(func.max(DeviceTemplate.id)).scalar()
+        if current_max_template_id is not None:
+            max_template_id = current_max_template_id + 1
         db.session.execute("CREATE SEQUENCE template_id START {}".format(str(max_template_id)))
 
-        max_attr_id = db.session.query(func.max(DeviceAttr.id)).scalar() + 1
+    def restore_attr_sequence():
+        max_attr_id = 1
+        current_max_attr_id = db.session.query(func.max(DeviceAttr.id)).scalar()
+        if current_max_attr_id is not None:
+            max_attr_id = current_max_attr_id + 1
         db.session.execute("CREATE SEQUENCE attr_id START {}".format(str(max_attr_id)))
 
+    def restore_sequences():
+        ImportHandler.restore_template_sequence()
+        ImportHandler.restore_attr_sequence()
         LOGGER.info(f" Restored sequences") 
-
 
     def notifies_deletion_to_kafka(device, tenant):
         data = serialize_full_device(device, tenant)
