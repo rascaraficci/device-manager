@@ -85,10 +85,11 @@ class DeviceTemplate(db.Model):
     config_attrs = db.relationship('DeviceAttr',
                                    primaryjoin=db.and_(DeviceAttr.template_id == id,
                                                        DeviceAttr.type != 'static',
-                                                       DeviceAttr.type != 'dynamic'))
+                                                       DeviceAttr.type != 'dynamic',
+                                                       DeviceAttr.type != 'actuator'))
     data_attrs = db.relationship('DeviceAttr',
                                  primaryjoin=db.and_(DeviceAttr.template_id == id,
-                                                     DeviceAttr.type.in_(('static', 'dynamic'))))
+                                                     DeviceAttr.type.in_(('static', 'dynamic', 'actuator'))))
 
     def __repr__(self):
         return "<Template(label={}, attrs={})>".format(self.label, self.attrs)
