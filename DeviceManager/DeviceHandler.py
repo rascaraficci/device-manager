@@ -86,7 +86,7 @@ def create_orm_override(attr, orm_device, orm_template):
     for orm_attr in orm_template.attrs:
         if target == orm_attr.id:
             found = True
-            if 'static_value' in attr:
+            if 'static_value' in attr and attr['static_value'] is not None:
                 orm_override = DeviceOverride(
                     device=orm_device,
                     attr=orm_attr,
@@ -112,7 +112,7 @@ def create_orm_override(attr, orm_device, orm_template):
                         for orm_attr_child in orm_attr.children:
                             if metadata_target == orm_attr_child.id:
                                 found = True
-                                if 'static_value' in metadata:
+                                if 'static_value' in metadata and metadata['static_value'] is not None:
                                     orm_override = DeviceOverride(
                                         device=orm_device,
                                         attr=orm_attr_child,
@@ -442,7 +442,7 @@ class DeviceHandler(object):
             handle_consistency_exception(error)
         except ValidationError as error:
             raise HTTPRequestError(400, error.messages)
-  
+
 
         for orm_device in orm_devices:
             devices.append(
@@ -558,12 +558,12 @@ class DeviceHandler(object):
             updated_orm_device.created = old_orm_device.created
 
             db.session.add(updated_orm_device)
-       
+
             db.session.commit()
         except IntegrityError as error:
             handle_consistency_exception(error)
         except ValidationError as error:
-            raise HTTPRequestError(400, error.messages)    
+            raise HTTPRequestError(400, error.messages)
 
         full_device = serialize_full_device(updated_orm_device, tenant)
 
@@ -977,7 +977,7 @@ def flask_delete_all_device():
     """
     try:
         result = DeviceHandler.delete_all_devices(request)
-        
+
         LOGGER.info('Deleting all devices.')
         return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
