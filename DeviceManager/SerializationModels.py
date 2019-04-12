@@ -14,7 +14,7 @@ def validate_attr_label(input):
         raise ValidationError("Labels must contain letters, numbers or dashes(-_)")
 
 def validate_children_attr_label(attr_label):
-    unique = { each['label'] : each for each in attr_label }.values()     
+    unique = { each['label'] : each for each in attr_label }.values()
     if len(attr_label) > len(unique):
         raise ValidationError('a template can not have repeated attributes')
 
@@ -28,7 +28,7 @@ def validate_repeated_attrs(data):
     if ('attrs' in data):
         uniques = { each['label'] : each for each in data['attrs'] }.values()
         if len(data['attrs']) > len(uniques):
-            raise ValidationError('a device can not have repeated attributes')    
+            raise ValidationError('a device can not have repeated attributes')
 
 class MetaSchema(Schema):
     id = fields.Int(dump_only=True)
@@ -39,6 +39,7 @@ class MetaSchema(Schema):
     type = fields.Str(required=True)
     value_type = fields.Str(required=True)
     static_value = fields.Field()
+    is_static_overridden = fields.Bool(allow_none=True)
 
     @post_load
     def set_import_id(self, data):
@@ -53,6 +54,7 @@ class AttrSchema(Schema):
     type = fields.Str(required=True)
     value_type = fields.Str(required=True)
     static_value = fields.Field(allow_none=True)
+    is_static_overridden = fields.Bool(allow_none=True)
     template_id = fields.Str(dump_only=True)
 
     metadata = fields.Nested(MetaSchema, many=True, attribute='children', validate=validate_children_attr_label)
@@ -80,11 +82,11 @@ class TemplateSchema(Schema):
     attrs = fields.Nested(AttrSchema, many=True, dump_only=True)
     data_attrs = fields.Nested(AttrSchema, many=True, dump_only=True)
     config_attrs = fields.Nested(AttrSchema, many=True, dump_only=True)
-   
+
     @post_load
     def set_import_id(self, data):
         return set_id_with_import_id(data)
-    
+
     @post_dump
     def remove_null_values(self, data):
         return {key: value for key, value in data.items() if value is not None}
@@ -157,4 +159,4 @@ def load_attrs(attr_list, parent_template, base_type, db):
                 db.session.add(orm_child)
         except ValidationError as errors:
             results = {'message': 'failed to parse attr', 'errors': errors.messages}
-            raise HTTPRequestError(400, results)          
+            raise HTTPRequestError(400, results)

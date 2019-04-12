@@ -36,11 +36,23 @@ device = Blueprint('device', __name__)
 LOGGER = Log().color_log()
 
 def serialize_override_attrs(orm_overrides, attrs):
+
+    # Update all static attributes with "is_static_overridden" attribute
+    for templateId in attrs:
+        for attr in attrs[templateId]:
+            if 'is_static_overridden' not in attr and 'static_value' in attr:
+                attr['is_static_overridden'] = False
+            if 'metadata' in attr:
+                for metadata in attr['metadata']:
+                    if 'is_static_overridden' not in metadata and 'static_value' in metadata:
+                        metadata['is_static_overridden'] = False
+
     for override in orm_overrides:
         if override.attr.template_id is not None:
             for attr in attrs[override.attr.template_id]:
                 if attr['id'] == override.aid:
                     attr['static_value'] = override.static_value
+                    attr['is_static_overridden'] = True
         else:
             # If override attr does not have template_id it means we have a metadata override
             # TODO: Here we do not handle multiple hierarchical levels of metadata
@@ -49,6 +61,7 @@ def serialize_override_attrs(orm_overrides, attrs):
                     for metadata in attr['metadata']:
                         if metadata['id'] == override.aid:
                             metadata['static_value'] = override.static_value
+                            metadata['is_static_overridden'] = True
 
 def serialize_full_device(orm_device, tenant, sensitive_data=False):
     data = device_schema.dump(orm_device)
@@ -442,7 +455,7 @@ class DeviceHandler(object):
             handle_consistency_exception(error)
         except ValidationError as error:
             raise HTTPRequestError(400, error.messages)
-  
+
 
         for orm_device in orm_devices:
             devices.append(
@@ -558,12 +571,12 @@ class DeviceHandler(object):
             updated_orm_device.created = old_orm_device.created
 
             db.session.add(updated_orm_device)
-       
+
             db.session.commit()
         except IntegrityError as error:
             handle_consistency_exception(error)
         except ValidationError as error:
-            raise HTTPRequestError(400, error.messages)    
+            raise HTTPRequestError(400, error.messages)
 
         full_device = serialize_full_device(updated_orm_device, tenant)
 
@@ -977,7 +990,7 @@ def flask_delete_all_device():
     """
     try:
         result = DeviceHandler.delete_all_devices(request)
-        
+
         LOGGER.info('Deleting all devices.')
         return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
