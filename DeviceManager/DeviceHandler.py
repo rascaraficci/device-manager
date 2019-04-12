@@ -35,8 +35,7 @@ device = Blueprint('device', __name__)
 
 LOGGER = Log().color_log()
 
-def serialize_override_attrs(orm_overrides, attrs):
-
+def fill_overridden_flag(attrs):
     # Update all static attributes with "is_static_overridden" attribute
     for templateId in attrs:
         for attr in attrs[templateId]:
@@ -46,6 +45,12 @@ def serialize_override_attrs(orm_overrides, attrs):
                 for metadata in attr['metadata']:
                     if 'is_static_overridden' not in metadata and 'static_value' in metadata:
                         metadata['is_static_overridden'] = False
+
+
+
+def serialize_override_attrs(orm_overrides, attrs):
+
+    fill_overridden_flag(attrs)
 
     for override in orm_overrides:
         if override.attr.template_id is not None:
