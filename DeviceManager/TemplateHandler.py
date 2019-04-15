@@ -218,10 +218,24 @@ class TemplateHandler:
         database.
         """
         init_tenant_context(req, db)
-        templates = db.session.query(DeviceTemplate)
-        for template in templates:
-            db.session.delete(template)
-        db.session.commit()
+        json_templates = []
+
+        try:
+            templates = db.session.query(DeviceTemplate)
+            for template in templates:
+                db.session.delete(template)
+                json_templates.append(template_schema.dump(template))
+
+            db.session.commit()
+        except IntegrityError:
+            raise HTTPRequestError(400, "Templates cannot be removed as they are being used by devices")
+
+        results = {
+            'result': 'ok',
+            'removed': json_templates
+        }
+
+        return results            
 
     @staticmethod
     def remove_template(req, template_id):
@@ -247,8 +261,7 @@ class TemplateHandler:
             db.session.delete(tpl)
             db.session.commit()
         except IntegrityError:
-            raise HTTPRequestError(400, "Template cannot be removed as it is \
-                    being used by devices")
+            raise HTTPRequestError(400, "Templates cannot be removed as they are being used by devices")
 
         results = {
             'result': 'ok',
@@ -418,7 +431,7 @@ def flask_delete_all_templates():
         return make_response(jsonify(result), 200)
 
     except HTTPRequestError as error:
-        LOGGER.error(f" {e}")
+        LOGGER.error(f" {error}")
         if isinstance(error.message, dict):
             return make_response(jsonify(error.message), error.error_code)
         return format_response(error.error_code, error.message)
