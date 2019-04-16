@@ -45,6 +45,8 @@ class MetaSchema(Schema):
     def set_import_id(self, data):
         return set_id_with_import_id(data)
 
+metaattr_schema = MetaSchema()
+
 class AttrSchema(Schema):
     id = fields.Int()
     import_id = fields.Int(load_only=True)
