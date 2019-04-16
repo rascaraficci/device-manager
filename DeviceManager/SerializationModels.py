@@ -26,9 +26,12 @@ def set_id_with_import_id(data):
 
 def validate_repeated_attrs(data):
     if ('attrs' in data):
-        uniques = { each['label'] : each for each in data['attrs'] }.values()
-        if len(data['attrs']) > len(uniques):
-            raise ValidationError('a device can not have repeated attributes')
+        try:
+            uniques = { each['label'] : each for each in data['attrs'] }.values()
+            if len(data['attrs']) > len(uniques):
+                raise ValidationError('a device can not have repeated attributes')
+        except KeyError:
+            raise ValidationError('missing label attribute')
 
 class MetaSchema(Schema):
     id = fields.Int(dump_only=True)
