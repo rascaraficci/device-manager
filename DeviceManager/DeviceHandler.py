@@ -104,7 +104,7 @@ def create_orm_override(attr, orm_device, orm_template):
     for orm_attr in orm_template.attrs:
         if target == orm_attr.id:
             found = True
-            if 'static_value' in attr:
+            if 'static_value' in attr and attr['static_value'] is not None:
                 orm_override = DeviceOverride(
                     device=orm_device,
                     attr=orm_attr,
@@ -130,7 +130,7 @@ def create_orm_override(attr, orm_device, orm_template):
                         for orm_attr_child in orm_attr.children:
                             if metadata_target == orm_attr_child.id:
                                 found = True
-                                if 'static_value' in metadata:
+                                if 'static_value' in metadata and metadata['static_value'] is not None:
                                     orm_override = DeviceOverride(
                                         device=orm_device,
                                         attr=orm_attr_child,
