@@ -9,7 +9,7 @@ from DeviceManager.DatabaseHandler import db
 from DeviceManager.DatabaseModels import handle_consistency_exception, assert_template_exists, assert_device_exists
 from DeviceManager.DatabaseModels import DeviceTemplate, DeviceAttr, DeviceTemplateMap
 from DeviceManager.SerializationModels import template_list_schema, template_schema
-from DeviceManager.SerializationModels import attr_list_schema, attr_schema
+from DeviceManager.SerializationModels import attr_list_schema, attr_schema, metaattr_schema
 from DeviceManager.SerializationModels import parse_payload, load_attrs
 from DeviceManager.SerializationModels import ValidationError
 from DeviceManager.TenancyManager import init_tenant_context
@@ -235,7 +235,7 @@ class TemplateHandler:
             'removed': json_templates
         }
 
-        return results            
+        return results
 
     @staticmethod
     def remove_template(req, template_id):
@@ -305,14 +305,17 @@ class TemplateHandler:
             attrs_from_db.value_type = attrs_from_request.get('value_type', None)
             attrs_from_db.static_value = attrs_from_request.get('static_value', None)
 
-        def validate_attr(attr_from_request):
-            attr_schema.load(attr_from_request)
+        def validate_attr(attr_from_request, is_meta):
+            if is_meta is False:
+                attr_schema.load(attr_from_request)
+            else:
+                metaattr_schema.load(attr_from_request)
 
         def analyze_attrs(attrs_from_db, attrs_from_request, parentAttr=None):
             for attr_from_db in attrs_from_db:
                 found = False
                 for idx, attr_from_request in enumerate(attrs_from_request):
-                    validate_attr(attr_from_request)
+                    validate_attr(attr_from_request, parentAttr is not None)
                     if attrs_match(attr_from_db, attr_from_request):
                         update_attr(attr_from_db, attr_from_request)
                         if "metadata" in attr_from_request:
