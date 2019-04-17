@@ -488,7 +488,7 @@ class DeviceHandler(object):
         if verbose:
             result = {
                 'message': 'device created',
-                'device': full_device
+                'devices': [full_device]
             }
         else:
             result = {
