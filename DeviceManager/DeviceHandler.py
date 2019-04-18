@@ -267,7 +267,7 @@ class DeviceHandler(object):
         for attr_label_item in query:
             parsed = re.search('^(.+){1}=(.+){1}$', attr_label_item)
             attr_label = []
-            attr_filter.append(and_(DeviceAttr.label == parsed.group(1)))
+            attr_label.append(and_(DeviceAttr.label == parsed.group(1)))
             # static value must be the override, if any
             attr_label.append(text("coalesce(overrides.static_value, attrs.static_value)=:static_value ").bindparams(static_value=parsed.group(2)))
             attr_filter.append(and_(*attr_label))
@@ -287,7 +287,7 @@ class DeviceHandler(object):
             template_filter.append(and_(DeviceTemplateMap.template_id == target_template))
 
         if (attr_filter): #filter by attr
-            LOGGER.debug(f" Filtering devices by {str(attr_filter)}")
+            LOGGER.debug(f" Filtering devices by {attr_filter}")
 
             page = db.session.query(Device) \
                             .join(DeviceTemplateMap, isouter=True)
@@ -732,7 +732,6 @@ class DeviceHandler(object):
             .paginate(page=page_number, per_page=per_page, error_out=False)
         )
         devices = []
-        
         for d in page.items:
             devices.append(serialize_full_device(d, tenant))
 
@@ -927,6 +926,7 @@ class DeviceHandler(object):
 
         return None
 
+
 @device.route('/device', methods=['GET'])
 def flask_get_devices():
     """
@@ -947,6 +947,7 @@ def flask_get_devices():
             return make_response(jsonify(e.message), e.error_code)
 
         return format_response(e.error_code, e.message)
+
 
 @device.route('/device', methods=['POST'])
 def flask_create_device():
@@ -1013,6 +1014,7 @@ def flask_remove_device(device_id):
 
         return format_response(e.error_code, e.message)
 
+
 @device.route('/device/<device_id>', methods=['PUT'])
 def flask_update_device(device_id):
     try:
@@ -1025,6 +1027,7 @@ def flask_update_device(device_id):
             return make_response(jsonify(e.message), e.error_code)
 
         return format_response(e.error_code, e.message)
+
 
 @device.route('/device/<device_id>/actuate', methods=['PUT'])
 def flask_configure_device(device_id):
@@ -1059,6 +1062,7 @@ def flask_add_template_to_device(device_id, template_id):
 
         return format_response(e.error_code, e.message)
 
+
 @device.route('/device/<device_id>/template/<template_id>', methods=['DELETE'])
 def flask_remove_template_from_device(device_id, template_id):
     try:
@@ -1073,6 +1077,7 @@ def flask_remove_template_from_device(device_id, template_id):
 
         return format_response(e.error_code, e.message)
 
+
 @device.route('/device/template/<template_id>', methods=['GET'])
 def flask_get_by_template(template_id):
     try:
@@ -1085,6 +1090,7 @@ def flask_get_by_template(template_id):
             return make_response(jsonify(e.message), e.error_code)
 
         return format_response(e.error_code, e.message)
+
 
 @device.route('/device/gen_psk/<device_id>', methods=['POST'])
 def flask_gen_psk(device_id):
@@ -1115,6 +1121,7 @@ def flask_gen_psk(device_id):
             return make_response(jsonify(e.message), e.error_code)
 
         return format_response(e.error_code, e.message)
+
 
 @device.route('/device/<device_id>/attrs/<attr_label>/psk', methods=['PUT'])
 def flask_copy_psk(device_id, attr_label):
@@ -1165,6 +1172,7 @@ def flask_internal_get_devices():
             return make_response(jsonify(e.message), e.error_code)
 
         return format_response(e.error_code, e.message)
+
 
 @device.route('/internal/device/<device_id>', methods=['GET'])
 def flask_internal_get_device(device_id):
