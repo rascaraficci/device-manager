@@ -10,7 +10,7 @@ from datetime import datetime
 import secrets
 from flask import request, jsonify, Blueprint, make_response
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import or_, and_, func
+from sqlalchemy import or_, and_, func, text
 
 from DeviceManager.utils import *
 from DeviceManager.utils import create_id, get_pagination, format_response
@@ -267,48 +267,27 @@ class DeviceHandler(object):
         for attr_label_item in query:
             parsed = re.search('^(.+){1}=(.+){1}$', attr_label_item)
             attr_label = []
-            attr_label.append("attrs.label = '{}'".format(parsed.group(1)))
+            attr_filter.append(and_(DeviceAttr.label == parsed.group(1)))
             # static value must be the override, if any
-            attr_label.append("coalesce(overrides.static_value, attrs.static_value) = '{}'".format(parsed.group(2)))
-            LOGGER.debug(f"Adding filter ${attr_label} to query")
+            attr_label.append(text("coalesce(overrides.static_value, attrs.static_value)=:static_value ").bindparams(static_value=parsed.group(2)))
             attr_filter.append(and_(*attr_label))
 
         query = req.args.getlist('attr_type')
         for attr_type_item in query:
-            attr_type = []
-            attr_type.append("attrs.value_type = '{}'".format(attr_type_item))
-            attr_filter.append(and_(*attr_type))
+            attr_filter.append(and_(DeviceAttr.value_type == attr_type_item))
 
         label_filter = []
         target_label = req.args.get('label', None)
         if target_label:
-            label_filter.append("devices.label like '%{}%'".format(target_label))
+            label_filter.append(Device.label.like("%{}%".format(target_label)))
 
         template_filter = []
         target_template = req.args.get('template', None)
         if target_template:
-            template_filter.append("device_template.template_id = {}".format(target_template))
-
-        ##Not needed to use (this filter slow down search performance). Maybe can be excluded..
-        # if template_filter or label_filter or attr_filter:
-        #     # find all devices that contain matching attributes (may contain devices that
-        #     # do not match all required attributes)
-        #     subquery = db.session.query(func.count(Device.id).label('count'), Device.id) \
-        #                          .join(DeviceTemplateMap, isouter=True) \
-        #                          .join(DeviceTemplate) \
-        #                          .join(DeviceAttr, isouter=True) \
-        #                          .join(DeviceOverride, (Device.id == DeviceOverride.did) & (DeviceAttr.id == DeviceOverride.aid), isouter=True) \
-        #                          .filter(or_(*attr_filter)) \
-        #                          .filter(*label_filter) \
-        #                          .filter(*template_filter) \
-        #                          .group_by(Device.id) \
-        #                          .subquery()
-
-            # LOGGER.warning(subquery)
-            # devices must match all supplied filters
+            template_filter.append(and_(DeviceTemplateMap.template_id == target_template))
 
         if (attr_filter): #filter by attr
-            LOGGER.debug(f" Filtering devices by {attr_filter}")
+            LOGGER.debug(f" Filtering devices by {str(attr_filter)}")
 
             page = db.session.query(Device) \
                             .join(DeviceTemplateMap, isouter=True)
@@ -319,12 +298,18 @@ class DeviceHandler(object):
 
             page = page.filter(*label_filter) \
                     .filter(*template_filter) \
-                    .filter(or_(*attr_filter)) \
+                    .filter(*attr_filter) \
                     .order_by(sortBy) \
                     .paginate(**pagination)
 
+
         elif label_filter or template_filter: # only filter by label or/and template
-            LOGGER.debug(f"Filtering devices by label {target_label}")
+            if label_filter:
+                LOGGER.debug(f"Filtering devices by label: {target_label}")
+
+            if template_filter:
+                LOGGER.debug(f"Filtering devices with template: {target_template}")     
+            
             page = db.session.query(Device) \
                             .join(DeviceTemplateMap, isouter=True)
 
@@ -747,6 +732,7 @@ class DeviceHandler(object):
             .paginate(page=page_number, per_page=per_page, error_out=False)
         )
         devices = []
+        
         for d in page.items:
             devices.append(serialize_full_device(d, tenant))
 
@@ -941,7 +927,6 @@ class DeviceHandler(object):
 
         return None
 
-
 @device.route('/device', methods=['GET'])
 def flask_get_devices():
     """
@@ -962,7 +947,6 @@ def flask_get_devices():
             return make_response(jsonify(e.message), e.error_code)
 
         return format_response(e.error_code, e.message)
-
 
 @device.route('/device', methods=['POST'])
 def flask_create_device():
@@ -1029,7 +1013,6 @@ def flask_remove_device(device_id):
 
         return format_response(e.error_code, e.message)
 
-
 @device.route('/device/<device_id>', methods=['PUT'])
 def flask_update_device(device_id):
     try:
@@ -1042,7 +1025,6 @@ def flask_update_device(device_id):
             return make_response(jsonify(e.message), e.error_code)
 
         return format_response(e.error_code, e.message)
-
 
 @device.route('/device/<device_id>/actuate', methods=['PUT'])
 def flask_configure_device(device_id):
@@ -1077,7 +1059,6 @@ def flask_add_template_to_device(device_id, template_id):
 
         return format_response(e.error_code, e.message)
 
-
 @device.route('/device/<device_id>/template/<template_id>', methods=['DELETE'])
 def flask_remove_template_from_device(device_id, template_id):
     try:
@@ -1092,7 +1073,6 @@ def flask_remove_template_from_device(device_id, template_id):
 
         return format_response(e.error_code, e.message)
 
-
 @device.route('/device/template/<template_id>', methods=['GET'])
 def flask_get_by_template(template_id):
     try:
@@ -1105,7 +1085,6 @@ def flask_get_by_template(template_id):
             return make_response(jsonify(e.message), e.error_code)
 
         return format_response(e.error_code, e.message)
-
 
 @device.route('/device/gen_psk/<device_id>', methods=['POST'])
 def flask_gen_psk(device_id):
@@ -1136,7 +1115,6 @@ def flask_gen_psk(device_id):
             return make_response(jsonify(e.message), e.error_code)
 
         return format_response(e.error_code, e.message)
-
 
 @device.route('/device/<device_id>/attrs/<attr_label>/psk', methods=['PUT'])
 def flask_copy_psk(device_id, attr_label):
@@ -1187,7 +1165,6 @@ def flask_internal_get_devices():
             return make_response(jsonify(e.message), e.error_code)
 
         return format_response(e.error_code, e.message)
-
 
 @device.route('/internal/device/<device_id>', methods=['GET'])
 def flask_internal_get_device(device_id):
