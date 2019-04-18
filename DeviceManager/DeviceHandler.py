@@ -267,7 +267,7 @@ class DeviceHandler(object):
         for attr_label_item in query:
             parsed = re.search('^(.+){1}=(.+){1}$', attr_label_item)
             attr_label = []
-            attr_label.append(and_(DeviceAttr.label == parsed.group(1)))
+            attr_label.append(DeviceAttr.label == parsed.group(1))
             # static value must be the override, if any
             attr_label.append(text("coalesce(overrides.static_value, attrs.static_value)=:static_value ").bindparams(static_value=parsed.group(2)))
             attr_filter.append(and_(*attr_label))
@@ -284,7 +284,7 @@ class DeviceHandler(object):
         template_filter = []
         target_template = req.args.get('template', None)
         if target_template:
-            template_filter.append(and_(DeviceTemplateMap.template_id == target_template))
+            template_filter.append(DeviceTemplateMap.template_id == target_template)
 
         if (attr_filter): #filter by attr
             LOGGER.debug(f" Filtering devices by {attr_filter}")
