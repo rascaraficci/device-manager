@@ -10,7 +10,7 @@ from datetime import datetime
 import secrets
 from flask import request, jsonify, Blueprint, make_response
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import or_, and_, func
+from sqlalchemy import or_, and_, func, text
 
 from DeviceManager.utils import *
 from DeviceManager.utils import create_id, get_pagination, format_response
@@ -267,45 +267,24 @@ class DeviceHandler(object):
         for attr_label_item in query:
             parsed = re.search('^(.+){1}=(.+){1}$', attr_label_item)
             attr_label = []
-            attr_label.append("attrs.label = '{}'".format(parsed.group(1)))
+            attr_label.append(DeviceAttr.label == parsed.group(1))
             # static value must be the override, if any
-            attr_label.append("coalesce(overrides.static_value, attrs.static_value) = '{}'".format(parsed.group(2)))
-            LOGGER.debug(f"Adding filter ${attr_label} to query")
+            attr_label.append(text("coalesce(overrides.static_value, attrs.static_value)=:static_value ").bindparams(static_value=parsed.group(2)))
             attr_filter.append(and_(*attr_label))
 
         query = req.args.getlist('attr_type')
         for attr_type_item in query:
-            attr_type = []
-            attr_type.append("attrs.value_type = '{}'".format(attr_type_item))
-            attr_filter.append(and_(*attr_type))
+            attr_filter.append(DeviceAttr.value_type == attr_type_item)
 
         label_filter = []
         target_label = req.args.get('label', None)
         if target_label:
-            label_filter.append("devices.label like '%{}%'".format(target_label))
+            label_filter.append(Device.label.like("%{}%".format(target_label)))
 
         template_filter = []
         target_template = req.args.get('template', None)
         if target_template:
-            template_filter.append("device_template.template_id = {}".format(target_template))
-
-        ##Not needed to use (this filter slow down search performance). Maybe can be excluded..
-        # if template_filter or label_filter or attr_filter:
-        #     # find all devices that contain matching attributes (may contain devices that
-        #     # do not match all required attributes)
-        #     subquery = db.session.query(func.count(Device.id).label('count'), Device.id) \
-        #                          .join(DeviceTemplateMap, isouter=True) \
-        #                          .join(DeviceTemplate) \
-        #                          .join(DeviceAttr, isouter=True) \
-        #                          .join(DeviceOverride, (Device.id == DeviceOverride.did) & (DeviceAttr.id == DeviceOverride.aid), isouter=True) \
-        #                          .filter(or_(*attr_filter)) \
-        #                          .filter(*label_filter) \
-        #                          .filter(*template_filter) \
-        #                          .group_by(Device.id) \
-        #                          .subquery()
-
-            # LOGGER.warning(subquery)
-            # devices must match all supplied filters
+            template_filter.append(DeviceTemplateMap.template_id == target_template)
 
         if (attr_filter): #filter by attr
             LOGGER.debug(f" Filtering devices by {attr_filter}")
@@ -319,12 +298,18 @@ class DeviceHandler(object):
 
             page = page.filter(*label_filter) \
                     .filter(*template_filter) \
-                    .filter(or_(*attr_filter)) \
+                    .filter(*attr_filter) \
                     .order_by(sortBy) \
                     .paginate(**pagination)
 
+
         elif label_filter or template_filter: # only filter by label or/and template
-            LOGGER.debug(f"Filtering devices by label {target_label}")
+            if label_filter:
+                LOGGER.debug(f"Filtering devices by label: {target_label}")
+
+            if template_filter:
+                LOGGER.debug(f"Filtering devices with template: {target_template}")     
+            
             page = db.session.query(Device) \
                             .join(DeviceTemplateMap, isouter=True)
 
