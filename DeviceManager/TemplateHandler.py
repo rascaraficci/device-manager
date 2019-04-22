@@ -96,18 +96,18 @@ class TemplateHandler:
         for attr in query:
             LOGGER.debug(f"Analyzing query parameter: {attr}...")
             parsed = re.search('^(.+){1}=(.+){1}$', attr)
-            parsed_query.append(text("attrs.label = '{}'".format(parsed.group(1))))
-            parsed_query.append(text("attrs.static_value = '{}'".format(parsed.group(2))))
+            parsed_query.append(DeviceAttr.label == parsed.group(1))
+            parsed_query.append(DeviceAttr.static_value == parsed.group(2))
             LOGGER.debug("... query parameter was added to filter list.")
 
         query = req.args.getlist('attr_type')
         for attr_type_item in query:
-            parsed_query.append(text("attrs.value_type = '{}'".format(attr_type_item)))
+            parsed_query.append(DeviceAttr.value_type == attr_type_item)
 
         target_label = req.args.get('label', None)
         if target_label:
             LOGGER.debug(f"Adding label filter to query...")
-            parsed_query.append(text("templates.label like '%{}%'".format(target_label)))
+            parsed_query.append(DeviceTemplate.label.like("%{}%".format(target_label)))
             LOGGER.debug(f"... filter was added to query.")
 
         SORT_CRITERION = {
