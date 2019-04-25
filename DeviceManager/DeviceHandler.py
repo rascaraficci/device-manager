@@ -98,7 +98,7 @@ def create_orm_override(attr, orm_device, orm_template):
         target = int(attr['id'])
     except ValueError:
         LOGGER.error(f" Unknown attribute {attr['id']} in override list")
-        raise HTTPRequestError(400, "Unknown attribute \"{}\" in override list".format(attr['id']))
+        raise HTTPRequestError(400, 'Unknown attribute {} in override list'.format(attr['id']))
 
     found = False
     for orm_attr in orm_template.attrs:
@@ -121,7 +121,7 @@ def create_orm_override(attr, orm_device, orm_template):
                         LOGGER.debug(f" Updated metadata {metadata_target}")
                     except ValueError:
                         LOGGER.error(f" metadata attribute {attr['id']} in override list")
-                        raise HTTPRequestError(400, "Unknown metadata attribute \"{}\" in override list".format(
+                        raise HTTPRequestError(400, 'Unknown metadata attribute {} in override list'.format(
                             metadata['id']))
 
                     found = False
@@ -142,7 +142,7 @@ def create_orm_override(attr, orm_device, orm_template):
 
     if not found:
         LOGGER.error(f" Unknown attribute {attr['id']} in override list")
-        raise HTTPRequestError(400, "Unknown attribute \"{}\" in override list".format(target))
+        raise HTTPRequestError(400, 'Unknown attribute {} in override list'.format(target))
 
 
 def auto_create_template(json_payload, new_device):
@@ -160,7 +160,7 @@ def auto_create_template(json_payload, new_device):
             orm_template = find_template(new_device.templates, attr['template_id'])
             if orm_template is None:
                 LOGGER.error(f" Unknown template {orm_template} in attr list")
-                raise HTTPRequestError(400, 'Unknown template "{}" in attr list'.format(orm_template))
+                raise HTTPRequestError(400, 'Unknown template {} in attr list'.format(orm_template))
             create_orm_override(attr, new_device, orm_template)
 
 def parse_template_list(template_list, new_device):
