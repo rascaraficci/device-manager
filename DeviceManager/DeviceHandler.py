@@ -1040,7 +1040,7 @@ def flask_configure_device(device_id):
         return make_response(jsonify(result), 200)
 
     except HTTPRequestError as error:
-        LOGGER.error(f' {e.message} - {e.error_code}.')
+        LOGGER.error(f' {error.message} - {error.error_code}.')
         if isinstance(error.message, dict):
             return make_response(jsonify(error.message), error.error_code)
 
