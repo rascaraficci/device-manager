@@ -1,14 +1,17 @@
 import os
-from flask import g, request
+from flask import g, request, jsonify, make_response
 from flask_sqlalchemy import SQLAlchemy
 
 from .app import app
 from .conf import CONFIG
 from .utils import get_allowed_service
+from DeviceManager.Logger import Log
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_DATABASE_URI'] = CONFIG.get_db_url()
 app.config['SQLALCHEMY_BINDS'] = {}
+
+LOGGER = Log().color_log()
 
 # adapted from https://gist.github.com/miikka/28a7bd77574a00fcec8d
 class MultiTenantSQLAlchemy(SQLAlchemy):
@@ -16,7 +19,7 @@ class MultiTenantSQLAlchemy(SQLAlchemy):
         binds = app.config.get('SQLALCHEMY_BINDS')
         if binds.get(bind_key, None) is None:
             binds[bind_key] = CONFIG.get_db_url()
-            app.config['SQLALCHEMY_BINDS'] = binds
+            app.config['SQLALCHEMY_BINDS'] = binds  
 
     def choose_tenant(self, bind_key):
         if hasattr(g, 'tenant'):
@@ -39,5 +42,16 @@ else:
 
     @app.before_request
     def before_request():
-        tenant = get_allowed_service(request.headers['authorization'])
-        db.choose_tenant(tenant)
+        try:
+            tenant = get_allowed_service(request.headers['authorization'])
+            db.choose_tenant(tenant)
+        except KeyError:
+            error = {"message": "No authorization token has been supplied", "status": 401}
+            LOGGER.error(f' {error["message"]} - {error["status"]}.')
+            return make_response(jsonify(error), 401)
+        except ValueError:
+            error = {"message": "Invalid authentication token", "status": 401}
+            LOGGER.error(f' {error["message"]} - {error["status"]}.')
+            return make_response(jsonify(error), 401)
+        
+        
