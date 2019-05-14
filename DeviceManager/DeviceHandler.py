@@ -522,11 +522,22 @@ class DeviceHandler(object):
         :raises HTTPRequestError: If this device could not be found in
         database.
         """
-        init_tenant_context(req, db)
+        tenant = init_tenant_context(req, db)
+        json_devices = []
+
         devices = db.session.query(Device)
         for device in devices:
             db.session.delete(device)
+            json_devices.append(serialize_full_device(device, tenant))
+
         db.session.commit()
+
+        results = {
+            'result': 'ok', 
+            'removed_devices': json_devices
+        }
+
+        return results
 
     @staticmethod
     def update_device(req, device_id):
@@ -641,6 +652,7 @@ class DeviceHandler(object):
                 'status': 'some of the attributes are not configurable',
                 'attrs': invalid_attrs
             }
+            raise HTTPRequestError(403, result)
 
         return result
 
@@ -1167,6 +1179,7 @@ def flask_internal_get_devices():
     try:
         result = DeviceHandler.get_devices(request, True)
         LOGGER.info(f' Getting known internal devices.')
+        
         return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
         LOGGER.error(f' {e.message} - {e.error_code}.')

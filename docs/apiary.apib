@@ -206,7 +206,82 @@ Get the full list of templates with all their associated attributes.
                 }
             }
 
++ Response 400 (application/json)
 
+            {
+                "message": "Page numbers must be greater than 1",
+                "status": 400
+            }
+
++ Response 400 (application/json)
+
+            {
+                "message": "At least one entry per page is mandatory",
+                "status": 400
+            } 
+
++ Response 400 (application/json)
+
+            {
+                "message": "page_size and page_num must be integers",
+                "status": 400
+            } 
+
+### Delete all templates [DELETE /template]
+Removes all templates. If any device is based on the template being removed, an error message is returned.
+
++ Request
+    + Headers
+
+            Authorization: Bearer JWT
+
++ Response 200 (application/json)
+
+            {
+                "removed": [
+                    {
+                        "attrs": [
+                            {
+                                "created": "2018-11-20T20:58:28.462464+00:00",
+                                "id": 182,
+                                "label": "position",
+                                "template_id": "4865",
+                                "type": "dynamic",
+                                "value_type": "geopoint"
+                            },
+                            {
+                                "created": "2017-12-27T15:22:13.331950+00:00",
+                                "id": 9,
+                                "label": "temperature",
+                                "template_id": "4865",
+                                "type": "dynamic",
+                                "value_type": "float"
+                            },
+                            {
+                                "created": "2017-12-27T15:22:13.334498+00:00",
+                                "id": 10,
+                                "label": "model-id",
+                                "static_value": "   model-001",
+                                "template_id": "4865",
+                                "type": "static",
+                                "value_type": "string"
+                            }
+                        ],
+                        "created": "2017-12-27T15:22:13.330246+00:00",
+                        "id": "4865",
+                        "label": "SensorModel"
+                    }
+                ],
+                "result": "ok"
+            }
+
+
++ Response 404 (application/json)
+
+        {
+            "message": "Templates cannot be removed as they are being used by devices",
+            "status": 404
+        } 
 
 ## Template info [/template/{id}]
 Access a specific template
@@ -406,7 +481,7 @@ All devices based on this template will be also updated.
                 "status": 404
             }
 
-### Delete template [DELETE]
+### Delete template [DELETE /template/{id}] 
 Removes a template. If any device is based on the template being removed, then all its attributes will be also removed.
 
 + Request
@@ -509,23 +584,59 @@ which describes all the attributes to be applied to this device.
 
 + Response 400 (application/json)
 
-            {"status" : "Faied to parse payload as JSON"}
+            {
+                "message": "If provided, count must be integer",
+                "status": 400
+            }
 
 + Response 400 (application/json)
 
-            {"status" : "unknown request format"}
+            {
+                "message": "Verbose can only be used for single device creation",
+                "status": 400
+            }            
 
 + Response 400 (application/json)
 
-            {"status" : "device has missing fields"}
+            {
+                "message": "Payload must be valid JSON, and Content-Type set accordingly",
+                "status": 400
+            }    
+
++ Response 400 (application/json)
+
+            {
+                "errors": {
+                    "label": [
+                        "Missing data for required field."
+                    ]
+                },
+                "message": "failed to parse input"
+            }
+
++ Response 400 (application/json)
+
+            {
+                "message": [
+                    "a device can not have repeated attributes"
+                ],
+                "status": 400
+            } 
+
++ Response 400 (application/json)
+
+            {
+                "message": "No such template: 1",
+                "status": 404
+            }                        
 
 + Response 500 (application/json)
 
-            {"status" : "failed to generate unique id"}
+            {
+                "message": "Failed to generate unique device_id",
+                "status": 500
+            }
 
-+ Response 500 (application/json)
-
-            {"status" : "failed to configure device"}
 
 ## Device info [/device/{id}]
 Access a specific device
@@ -539,7 +650,7 @@ Retrieves all information from a specific device
 
             Authorization: Bearer JWT
 
-+ Response 200
++ Response 200 (application/json)
 
             {
                 "attrs": {
@@ -598,7 +709,7 @@ Retrieves all information from a specific device
 ### Get the current list of devices [GET /device{?page_size,page_num,idsOnly,label,attr,attr_type,sortBy}]
 Get the full list of devices with all their associated attributes.
 Each attribute from *attrs* is the template ID from where the attributes came from.
-In this example, there is only one template (ID 1).
+In this example, there is only one template (ID 4865).
 + Parameters
     + page_size: 20 (integer, optional)
     + page_num: 1 (integer, optional)
@@ -680,6 +791,27 @@ In this example, there is only one template (ID 1).
 
             ["4f2b","1e4a","3762"]
 
++ Response 400 (application/json)
+
+            {
+                "message": "Page numbers must be greater than 1",
+                "status": 400
+            }
+
++ Response 400 (application/json)
+
+            {
+                "message": "At least one entry per page is mandatory",
+                "status": 400
+            } 
+
++ Response 400 (application/json)
+
+            {
+                "message": "page_size and page_num must be integers",
+                "status": 400
+            }             
+
 ### Get the current list of devices associated with given template [GET /device/template/{template_id}{?page_size,page_num}]
 Get the full list of devices that belong to a given template..
 + Parameters
@@ -722,12 +854,20 @@ Get the full list of devices that belong to a given template..
                                     "created": "2018-03-01T13:53:28.494571+00:00",
                                     "id": 1416,
                                     "template_id": "668"
+                                },
+                                {
+                                    "created": "2019-05-13T18:42:01.633997+00:00",
+                                    "id": 763,
+                                    "label": "shared_key",
+                                    "template_id": "189",
+                                    "type": "static",
+                                    "value_type": "psk"
                                 }
                             ]
                         },
                         "created": "2017-12-20T18:15:08.864677+00:00",
                         "id": "10cf",
-                        "label": "sensor-4",
+                        "label": "test_device",
                         "templates": [
                             "4865"
                         ]
@@ -741,6 +881,26 @@ Get the full list of devices that belong to a given template..
                 }
             }
 
++ Response 400 (application/json)
+
+            {
+                "message": "Page numbers must be greater than 1",
+                "status": 400
+            }
+
++ Response 400 (application/json)
+
+            {
+                "message": "At least one entry per page is mandatory",
+                "status": 400
+            } 
+
++ Response 400 (application/json)
+
+            {
+                "message": "page_size and page_num must be integers",
+                "status": 400
+            }                        
 
 ### Update device info [PUT]
 Updates a device's configuration
@@ -791,18 +951,67 @@ Updates a device's configuration
               "message": "device updated"
             }
 
++ Response 400 (application/json)
+
+            {
+                "message": "Payload must be valid JSON, and Content-Type set accordingly",
+                "status": 400
+            }    
 
 + Response 400 (application/json)
 
-            {"status" : "unknown request format"}
+            {
+                "errors": {
+                    "label": [
+                        "Missing data for required field."
+                    ]
+                },
+                "message": "failed to parse input"
+            }
+
++ Response 400 (application/json)
+
+            {
+                "message": [
+                    "a device can not have repeated attributes"
+                ],
+                "status": 400
+            } 
 
 + Response 404 (application/json)
 
-            {"status" : "given device was not found"}
+            {
+                "message": "No such device: aaaa",
+                "status": 404
+            }
 
-+ Response 500 (application/json)
++ Response 404 (application/json)
 
-            {"status" : "failed to update device configuration"}
+            {
+                "message": "No such template: 4865",
+                "status": 404
+            }            
+
++ Response 400 (application/json)
+
+            {
+                "message": "Unknown template 4865 in attr list",
+                "status": 400
+            }
+
++ Response 404 (application/json)
+
+            {
+                "message": "Unknown attribute 2 in override list",
+                "status": 400
+            }
+
++ Response 404 (application/json)
+
+            {
+                "message": "Unknown metadata attribute 2 in override list",
+                "status": 400
+            }            
 
 
 ### Configure device [PUT /device/{deviceid}/actuate]
@@ -821,29 +1030,37 @@ The target attribute must be of type "actuator".
             {
                 "topic": "/admin/efac/config",
                 "attrs": {
-                    "temperature" : 10.6,
-                    "fan" : 100
+                    "battery" : 10.6
                 }
             }
 
 + Response 200 (application/json)
 
-            {"status" : "configuration sent to device"}
+            {
+                " status": "configuration sent to device"
+            }
+
+
++ Response 404 (application/json)
+
+            {
+                "message": "No such device: aaaa",
+                "status": 404
+            }            
 
 + Response 403 (application/json)
 
             {
-                "status" : "some of the attributes are not configurable",
-                "attrs" : ["temperature"]
+                "attrs": [
+                    "temperature"
+                ],
+                "status": "some of the attributes are not configurable" 
             }
 
-+ Response 404 (application/json)
-
-            {"status": 404, "message": "No such device: xyzw"}
 
 
 
-### Delete device [DELETE]
+### Delete device [DELETE /device/{id}]
 Removes a device
 + Request (application/json)
     + Headers
@@ -907,6 +1124,68 @@ Removes a device
                 "status": 404
             }
 
+
+### Delete all devices [DELETE /device]
+Delete all devices.
+
++ Request
+    + Headers
+
+            Authorization: Bearer JWT
+
++ Response 200 (application/json)
+
+            {
+                "removed_devices": [
+                    {
+                        "attrs": {
+                            "4865": [
+                                {
+                                    "created": "2017-12-20T18:14:43.994796+00:00",
+                                    "id": 30,
+                                    "label": "tag_temperature",
+                                    "template_id": "4865",
+                                    "type": "dynamic",
+                                    "value_type": "float"
+                                },
+                                {
+                                    "created": "2017-12-20T18:14:44.014065+00:00",
+                                    "id": 31,
+                                    "label": "tag_pressure",
+                                    "template_id": "4865",
+                                    "type": "dynamic",
+                                    "value_type": "float"
+                                },
+                                {
+                                    "created": "2017-12-20T18:14:44.015474+00:00",
+                                    "id": 32,
+                                    "label": "tag_led",
+                                    "template_id": "4865",
+                                    "type": "dynamic",
+                                    "value_type": "bool"
+                                },
+                                {
+                                    "created": "2017-12-20T18:14:44.016804+00:00",
+                                    "id": 33,
+                                    "label": "tag_fan",
+                                    "template_id": "4865",
+                                    "type": "dynamic",
+                                    "value_type": "bool"
+                                }
+                            ]
+                        },
+                        "created": "2017-12-20T18:15:08.864677+00:00",
+                        "id": "10cf",
+                        "label": "sensor-4",
+                        "templates": [
+                            "4865"
+                        ]
+                    }
+                ],
+                "result": "ok"
+                }
+
+
 ### Generate PSK [POST /device/gen_psk/{device_id}{?key_length,attrs}]
 Generates pre shared keys for a specific device.
 
@@ -945,31 +1224,36 @@ Calling this endpoint twice with the same target attributes will override the pr
 + Response 404 (application/json)
 
         {
-            "message": "No such device: 26e24a"
+            "message": "No such device: aaaa",
+            "status": 404
         }
 
 + Response 400 (application/json)
 
         {
-            "message": "Missing key_length parameter"
+            "message": "Missing key_length parameter",
+            "status": 400
         }
 
 + Response 400 (application/json)
 
         {
-            "message": "key_length must be greater than 0 and lesser than 1024"
+            "message": "key_length must be greater than 0 and lesser than 1024",
+            "status": 400
         }
 
 + Response 400 (application/json)
 
         {
-            "message": "Not found some attributes, please check them"
+            "message": "Not found some attributes, please check them",
+            "status": 400
         }
 
 + Response 400 (application/json)
 
         {
-            "message": "Some attribute is not a 'psk' type_value"
+            "message": "Some attribute is not a 'psk' type_value",
+            "status": 400
         }
         
 ### Copy PSK [PUT /device/{device_id}/attrs/{attr_label}/psk{?from_dev_id,from_attr_label}]
@@ -997,41 +1281,41 @@ previously copied from it.
 
 + Response 204
 
-+ Response 401 (application/json)
++ Response 404 (application/json)
 
         {
-            "message": "No authorization token has been supplied"
+            "message": "No such device: 26e24a",
+            "status": 404
         }
 
 + Response 404 (application/json)
 
         {
-            "message": "No such device: 26e24a"
-        }
-
-+ Response 404 (application/json)
-
-        {
-            "message": "Not found attributes key"
+            "message": "Not found attributes key",
+            "status": 404
+            
         }
 
 + Response 400 (application/json)
 
         {
-            "message": "Missing mandatory parameter: from_dev_id or/and from_attr_label"
+            "message": "Missing mandatory parameter: from_dev_id or/and from_attr_label",
+            "status": 400
         }                
 
 + Response 400 (application/json)
 
         {
-            "message": "Attribute key is not a 'psk' type_value"
+            "message": "Attribute key is not a 'psk' type_value",
+            "status": 400
         }
 
 
 + Response 400 (application/json)
 
         {
-            "message": "There is not a psk generated to key"
+            "message": "There is not a psk generated to key",
+            "status": 400
         }
         
 
@@ -1184,4 +1468,23 @@ In this example, there is only one template (ID 1).
 
             ["206706", "204266", "58af00"]
 
++ Response 400 (application/json)
 
+            {
+                "message": "Page numbers must be greater than 1",
+                "status": 400
+            }
+
++ Response 400 (application/json)
+
+            {
+                "message": "At least one entry per page is mandatory",
+                "status": 400
+            } 
+
++ Response 400 (application/json)
+
+            {
+                "message": "page_size and page_num must be integers",
+                "status": 400
+            }
