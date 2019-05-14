@@ -615,6 +615,8 @@ class DeviceHandler(object):
 
         meta['service'] = init_tenant_context(req, db)
 
+        meta['timestamp'] = int(time.time() * 1000)
+
         orm_device = assert_device_exists(device_id)
         full_device = serialize_full_device(orm_device, meta['service'])
         LOGGER.debug(f" Full device: {json.dumps(full_device)}")
