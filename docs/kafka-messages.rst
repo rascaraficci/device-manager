@@ -8,24 +8,24 @@ be consumed by any component interested in them, such as IoT agents.
 .. list-table:: Kafka messages
    :header-rows: 1
 
-   * - Event
+   * - Message
+     - Event
      - Service
-     - Message type
-   * - Device creation
+   * - `Creation message`_
+     - ``create``
      - dojot.device-manager.device
-     - `Creation message`_
-   * - Device update
+   * - `Update message`_
+     - ``update``
      - dojot.device-manager.device
-     - `Update message`_
-   * - Device removal
+   * - `Removal message`_
+     - ``remove``
      - dojot.device-manager.device
-     - `Removal message`_
-   * - Device actuation
+   * - `Actuation message`_
+     - `actuate`
      - dojot.device-manager.device
-     - `Actuation message`_
-   * - Template update
+   * - `Template update message (deprecated)`_
+     - ``template.update``
      - dojot.device-manager.device
-     - `Template update message`_
 
 
 Creation message
@@ -247,7 +247,8 @@ configured with the following message:
   {
     "event": "configure",
     "meta": {
-      "service": "admin"
+      "service": "admin",
+      "timestamp": 1557493697
     },
     "data" : {
       "id" : "efac",
@@ -263,7 +264,7 @@ message (an IoT agent, for instance) to properly send the configuration to the
 device.
 
 
-Template update message
+Template update message (deprecated)
 -----------------------
 
 This message is published whenever a template gets updated. It contains all the
