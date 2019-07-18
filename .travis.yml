@@ -6,8 +6,6 @@ python:
 cache:
   directories:
   - node_modules
-before_install:
-  - npm install aglio
 script:
   - 'docker build -t dojot/device-manager .'
   - 'docker build -t dredd/test -f tests/Dockerfile .'
