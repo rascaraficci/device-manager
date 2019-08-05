@@ -68,8 +68,8 @@ Template update         | dojot.device-manager.device                         | 
 
 A docker image is available on dockerhub for pull [here](https://hub.docker.com/r/dojot/device-manager)
 
-If you really need to run DeviceManager as a standalone process (without dojot's wonderful [docker-compose](https://github.com/dojot/docker-compose)), we suggest using the minimal compose
-file available under `docker/compose.yml`. That contains only the set of external systems (postgres
+If you really need to run DeviceManager as a standalone process (without dojot's wonderful [docker-compose](https://github.com/dojot/docker-compose), we suggest using the minimal compose
+file available under `local/compose.yml`. That contains only the set of external systems (postgres
 and kafka) that are used by device manager to implement its features. To have this minimal environment
 running, please:
 
