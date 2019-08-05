@@ -47,7 +47,6 @@ STATUS_TIMEOUT          | kafka timeout                                       | 
 BROKER                  | kafka topic subject manager                         | http://data-broker
 REDIS_HOST              | redis host                                          | device-manager-redis
 REDIS_PORT              | redis port                                          | 6379
-SUBJECT                 | subject of device-manager                           | dojot.device-manager.device
 DEV_MNGR_CRYPTO_PASS    | password of crypto                                  | none
 DEV_MNGR_CRYPTO_IV      | inicialization vector of crypto                     | none
 DEV_MNGR_CRYPTO_SALT    | salt of crypto                                      | none
@@ -122,4 +121,4 @@ There are a few examples on how to use DeviceManager in [Device Manager Document
 
 ## API Documentation
 
-URL to api documentation https://dojot.github.io/device-manager/apiary_latest.html for development and latest version of this Device Manager.
+URL to api documentation for [development](https://dojot.github.io/device-manager/apiary_development.html) and [latest version](https://dojot.github.io/device-manager/apiary_latest.html) of this Device Manager.
