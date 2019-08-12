@@ -18,18 +18,26 @@ class LoggerHandler:
         pass
     
     @staticmethod
-    def update_log_level(req):
-        _, json_payload = parse_payload(req, log_schema)
-        LOG.update_log_level(json_payload['level'].upper())
+    def update_log_level(level):
+        """
+        Update the log level of device manager.
 
-        result = {
-            'result': 'ok'
-        }
+        :param level: Receive a string containing the new log level.
+        :raises HTTPRequestError: If no authorization token was provided (no
+        tenant was informed) or the request body contains some error.
+        """
 
-        return result
+        LOG.update_log_level(level.upper())
     
     @staticmethod
     def get_log_level():
+        """
+        Fetches the log level configured.
+
+        :return A JSON containing the log level.
+        :rtype JSON
+        """
+
         result = {
             'level': LOG.get_log_level()
         }
@@ -40,9 +48,10 @@ class LoggerHandler:
 @logger.route('/log', methods=['PUT'])
 def flask_update_log_level():
     try:
-        result = LoggerHandler.update_log_level(request)
+        _, json_payload = parse_payload(request, log_schema)
+        LoggerHandler.update_log_level(json_payload['level'])
 
-        return make_response(jsonify(result), 200)
+        return make_response('', 200)
 
     except HTTPRequestError as error:
         if isinstance(error.message, dict):

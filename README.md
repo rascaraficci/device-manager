@@ -50,7 +50,7 @@ REDIS_PORT              | redis port                                            
 DEV_MNGR_CRYPTO_PASS    | password of crypto                                            | none
 DEV_MNGR_CRYPTO_IV      | inicialization vector of crypto                               | none
 DEV_MNGR_CRYPTO_SALT    | salt of crypto                                                | none
-LOG_LEVEL               | logger level (DEBUG, ERROR, WARNING, CRITICAL, INFO, NOTSET)  | INFO
+LOG_LEVEL               | logger level (DEBUG, ERROR, WARNING, CRITICAL, INFO)          | INFO
 
 ## Internal Messages
 

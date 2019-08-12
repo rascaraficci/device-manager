@@ -33,7 +33,7 @@ class Log:
             self.log.handler_set = True
 
     def update_log_level(self, LEVEL):
-        levelToName = ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG', 'NOTSET']
+        levelToName = ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG']
 
         try:
             self.log = logging.getLogger('device-manager.' + __name__)
