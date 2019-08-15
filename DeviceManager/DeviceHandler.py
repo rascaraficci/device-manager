@@ -16,7 +16,7 @@ from DeviceManager.utils import *
 from DeviceManager.utils import create_id, get_pagination, format_response
 from DeviceManager.utils import HTTPRequestError
 from DeviceManager.conf import CONFIG
-from DeviceManager.BackendHandler import OrionHandler, KafkaHandler, PersistenceHandler
+from DeviceManager.BackendHandler import KafkaHandler
 
 from DeviceManager.DatabaseHandler import db
 from DeviceManager.DatabaseModels import assert_device_exists, assert_template_exists
@@ -418,12 +418,6 @@ class DeviceHandler(object):
 
         # Handlers
         kafka_handler = KafkaHandler()
-        if CONFIG.orion:
-            ctx_broker_handler = OrionHandler(service=tenant)
-            subs_handler = PersistenceHandler(service=tenant)
-        else:
-            ctx_broker_handler = None
-            subs_handler = None
 
         full_device = None
         orm_devices = []
@@ -459,16 +453,6 @@ class DeviceHandler(object):
 
             # Updating handlers
             kafka_handler.create(full_device, meta={"service": tenant})
-            if CONFIG.orion:
-                # Generating 'device type' field for history
-                type_descr = "template"
-                for dev_type in full_device['attrs'].keys():
-                    type_descr += "_" + str(dev_type)
-                # TODO remove this in favor of kafka as data broker....
-                ctx_broker_handler.create(full_device, type_descr)
-                sub_id = subs_handler.create(full_device['id'], type_descr)
-                orm_device.persistence = sub_id
-
 
         if verbose:
             result = {
@@ -503,9 +487,6 @@ class DeviceHandler(object):
 
         kafka_handler = KafkaHandler()
         kafka_handler.remove(data, meta={"service": tenant})
-        if CONFIG.orion:
-            subscription_handler = PersistenceHandler(service=tenant)
-            subscription_handler.remove(orm_device.persistence)
 
         db.session.delete(orm_device)
         db.session.commit()
@@ -580,21 +561,6 @@ class DeviceHandler(object):
             raise HTTPRequestError(400, error.messages)
 
         full_device = serialize_full_device(updated_orm_device, tenant)
-
-        if CONFIG.orion:
-            # Create subscription pointing to history service
-            # (STH, logstash based persister)
-            subs_handler = PersistenceHandler(service=tenant)
-            subs_handler.remove(old_orm_device.persistence)
-            # Generating 'device type' field for subscription request
-            type_descr = "template"
-            for dev_type in full_device['attrs'].keys():
-                type_descr += "_" + str(dev_type)
-            updated_orm_device.persistence = subs_handler.create(
-                device_id, type_descr)
-
-            ctx_broker_handler = OrionHandler(service=tenant)
-            ctx_broker_handler.update(serialize_full_device(old_orm_device, tenant), type_descr)
 
         kafka_handler = KafkaHandler()
         kafka_handler.update(full_device, meta={"service": tenant})

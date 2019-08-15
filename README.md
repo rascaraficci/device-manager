@@ -45,8 +45,6 @@ KAFKA_HOST              | kafka host                                            
 KAFKA_PORT              | kafka port                                                    | 9092
 STATUS_TIMEOUT          | kafka timeout                                                 | 5
 BROKER                  | kafka topic subject manager                                   | http://data-broker
-REDIS_HOST              | redis host                                                    | device-manager-redis
-REDIS_PORT              | redis port                                                    | 6379
 DEV_MNGR_CRYPTO_PASS    | password of crypto                                            | none
 DEV_MNGR_CRYPTO_IV      | inicialization vector of crypto                               | none
 DEV_MNGR_CRYPTO_SALT    | salt of crypto                                                | none
