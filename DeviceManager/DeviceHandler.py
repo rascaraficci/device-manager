@@ -200,6 +200,7 @@ class DeviceHandler(object):
         """
 
         if kafka is None:
+            print("INTI DO DEVICE")
             cls.kafka_handler = KafkaHandler()
 
         return cls.kafka_handler

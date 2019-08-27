@@ -13,7 +13,8 @@ from DeviceManager.SerializationModels import attr_list_schema, attr_schema, met
 from DeviceManager.SerializationModels import parse_payload, load_attrs
 from DeviceManager.SerializationModels import ValidationError
 from DeviceManager.TenancyManager import init_tenant_context
-from DeviceManager.KafkaNotifier import KafkaNotifier, DeviceEvent
+from DeviceManager.KafkaNotifier import DeviceEvent
+from DeviceManager.BackendHandler import KafkaHandler
 
 from DeviceManager.app import app
 from DeviceManager.utils import format_response, HTTPRequestError, get_pagination, retrieve_auth_token
@@ -66,8 +67,27 @@ def paginate(query, page, per_page=20, error_out=False):
 
 class TemplateHandler:
 
+    kafka_handler = None
+
     def __init__(self):
         pass
+
+    @classmethod
+    def verifyInstance(cls, kafka):
+        """
+        Instantiates a connection with Kafka, was created because 
+        previously the connection was being created in KafkaNotifier
+        once time every import.
+        
+        :param kafka: An instance of KafkaHandler.
+        :return An instance of KafkaHandler used to notify
+        """
+
+        if kafka is None:
+            print('INIT DO TEMPLATE')
+            cls.kafka_handler = KafkaHandler()
+
+        return cls.kafka_handler    
 
     @staticmethod
     def get_templates(req, token):
@@ -270,8 +290,8 @@ class TemplateHandler:
 
         return results
 
-    @staticmethod
-    def update_template(req, template_id):
+    @classmethod
+    def update_template(cls, req, template_id):
         """
         Updates a single template.
 
@@ -358,10 +378,10 @@ class TemplateHandler:
                              .all()
 
         affected_devices = []
-        kafka_handler = KafkaHandler()
+        kafka_handler_instance = cls.verifyInstance(cls.kafka_handler)
         for device in affected:
             orm_device = assert_device_exists(device.device_id)
-            kafka_handler.update(serialize_full_device(orm_device, service), meta={"service": service})
+            kafka_handler_instance.update(serialize_full_device(orm_device, service), meta={"service": service})
             affected_devices.append(device.device_id)
 
         event = {
@@ -372,7 +392,7 @@ class TemplateHandler:
             },
             "meta": {"service": service}
         }
-        KafkaNotifier().send_raw(event, service)
+        kafka_handler_instance.send_raw(event, service)
 
         results = {
             'updated': template_schema.dump(old),
