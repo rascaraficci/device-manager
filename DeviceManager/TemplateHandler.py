@@ -210,7 +210,7 @@ class TemplateHandler:
         return results
 
     @staticmethod
-    def get_template(req, template_id):
+    def get_template(req, template_id, token):
         """
         Fetches a single template.
         :param req: The received HTTP request, as created by Flask.
@@ -222,14 +222,14 @@ class TemplateHandler:
         :raises HTTPRequestError: If this template could not be found in
         database.
         """
-        init_tenant_context(req, db)
+        init_tenant_context(token, db)
         tpl = assert_template_exists(template_id)
         json_template = template_schema.dump(tpl)
         attr_format(req, json_template)
         return json_template
 
     @staticmethod
-    def delete_all_templates(req):
+    def delete_all_templates(req, token):
         """
         Deletes all templates.
 
@@ -237,7 +237,7 @@ class TemplateHandler:
         :raises HTTPRequestError: If this template could not be found in
         database.
         """
-        init_tenant_context(req, db)
+        init_tenant_context(token, db)
         json_templates = []
 
         try:
@@ -291,7 +291,7 @@ class TemplateHandler:
         return results
 
     @classmethod
-    def update_template(cls, req, template_id):
+    def update_template(cls, req, template_id, token):
         """
         Updates a single template.
 
@@ -304,7 +304,7 @@ class TemplateHandler:
         :raises HTTPRequestError: If this template could not be found in
         database.
         """
-        service = init_tenant_context(req, db)
+        service = init_tenant_context(token, db)
 
         # find old version of the template, if any
         old = assert_template_exists(template_id)
@@ -453,7 +453,10 @@ def flask_create_template():
 def flask_delete_all_templates():
 
     try:
-        result = TemplateHandler.delete_all_templates(request)
+        # retrieve the authorization token
+        token = retrieve_auth_token(request)
+
+        result = TemplateHandler.delete_all_templates(request, token)
 
         LOGGER.info(f"deleting all templates")
 
@@ -469,7 +472,10 @@ def flask_delete_all_templates():
 @template.route('/template/<template_id>', methods=['GET'])
 def flask_get_template(template_id):
     try:
-        result = TemplateHandler.get_template(request, template_id)
+        # retrieve the authorization token
+        token = retrieve_auth_token(request)
+
+        result = TemplateHandler.get_template(request, template_id, token)
         LOGGER.info(f"Getting template with id: {template_id}")
         return make_response(jsonify(result), 200)
     except ValidationError as e:
@@ -506,7 +512,10 @@ def flask_remove_template(template_id):
 @template.route('/template/<template_id>', methods=['PUT'])
 def flask_update_template(template_id):
     try:
-        result = TemplateHandler.update_template(request, template_id)
+        # retrieve the authorization token
+        token = retrieve_auth_token(request)
+
+        result = TemplateHandler.update_template(request, template_id, token)
         LOGGER.info(f"Updating template with id: {template_id}")
         return make_response(jsonify(result), 200)
     except ValidationError as errors:

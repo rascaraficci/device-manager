@@ -42,7 +42,7 @@ class KafkaNotifier:
     def __init__(self):
         self.kafka_address = CONFIG.kafka_host + ':' + CONFIG.kafka_port
         self.kf_prod = None
-
+        
         self.kf_prod = KafkaProducer(value_serializer=lambda v: json.dumps(v).encode('utf-8'),
                                 bootstrap_servers=self.kafka_address)
 

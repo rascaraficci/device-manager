@@ -590,7 +590,7 @@ class DeviceHandler(object):
         return result
 
     @classmethod
-    def configure_device(cls, req, device_id):
+    def configure_device(cls, req, device_id, token):
         """
         Send actuation commands to the device
 
@@ -607,7 +607,7 @@ class DeviceHandler(object):
         }
         invalid_attrs = []
 
-        meta['service'] = init_tenant_context(req, db)
+        meta['service'] = init_tenant_context(token, db)
 
         meta['timestamp'] = int(time.time() * 1000)
 
@@ -722,7 +722,6 @@ class DeviceHandler(object):
         :rtype JSON
         """
         tenant = init_tenant_context(token, db)
-
         page = (
             db.session.query(Device)
             .join(DeviceTemplateMap)
@@ -1069,8 +1068,11 @@ def flask_configure_device(device_id):
     Send actuation commands to the device
     """
     try:
+        # retrieve the authorization token
+        token = retrieve_auth_token(request)
+
         LOGGER.info(f' Actuating in the device with id {device_id}.')
-        result = DeviceHandler.configure_device(request, device_id)
+        result = DeviceHandler.configure_device(request, device_id, token)
         return make_response(jsonify(result), 200)
 
     except HTTPRequestError as error:
@@ -1246,7 +1248,10 @@ def flask_internal_get_devices():
 @device.route('/internal/device/<device_id>', methods=['GET'])
 def flask_internal_get_device(device_id):
     try:
-        result = DeviceHandler.get_device(request, device_id, True)
+        # retrieve the authorization token
+        token = retrieve_auth_token(request)
+
+        result = DeviceHandler.get_device(token, device_id, True)
         LOGGER.info(f'Get known device with id: {device_id}.')
         return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
