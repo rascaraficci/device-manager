@@ -140,7 +140,6 @@ class TestDeviceHandler(unittest.TestCase):
         self.assertIsNotNone(result)
 
     @patch('DeviceManager.DeviceHandler.db')
-    #@patch('flask_sqlalchemy._QueryProperty')
     def test_generate_shared_key(self, db_mock):
         db_mock.session = UnifiedAlchemyMagicMock(return_value=Device(id=1, label='test_device1'))
         token = generate_token()
@@ -152,5 +151,4 @@ class TestDeviceHandler(unittest.TestCase):
             DeviceHandler.gen_psk(token, 'device_id', 1025)
             DeviceHandler.gen_psk(token, 'device_id', 0)
             DeviceHandler.gen_psk(token, 'device_id', 1024)
-
             

@@ -922,8 +922,6 @@ class DeviceHandler(object):
         kafka_handler_instance = cls.verifyInstance(cls.kafka_handler)
         kafka_handler_instance.update(dest_device, meta={"service": tenant})
 
-        return None
-
 
 @device.route('/device', methods=['GET'])
 def flask_get_devices():

@@ -16,3 +16,4 @@ class TestLoggerHandler(unittest.TestCase):
     def test_get_actual_level_log(self):
         level = LoggerHandler.get_log_level()
         self.assertIsNotNone(level)
+        
