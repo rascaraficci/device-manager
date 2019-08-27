@@ -10,7 +10,7 @@ from DeviceManager.app import app
 from DeviceManager.Logger import Log
 from DeviceManager.utils import format_response, HTTPRequestError
 from DeviceManager.conf import CONFIG
-from DeviceManager.BackendHandler import OrionHandler, KafkaHandler, PersistenceHandler
+from DeviceManager.BackendHandler import KafkaHandler
 
 from DeviceManager.DatabaseHandler import db
 from DeviceManager.DatabaseModels import DeviceTemplate, Device, DeviceAttr, DeviceOverride
@@ -64,10 +64,6 @@ class ImportHandler:
         data = serialize_full_device(device, tenant)
         kafka_handler = KafkaHandler()
         kafka_handler.remove(data, meta={"service": tenant})
-        if CONFIG.orion:
-            subscription_handler = PersistenceHandler(service=tenant)
-            subscription_handler.remove(device.persistence)        
-
 
     def delete_records(tenant):
         overrides = db.session.query(DeviceOverride)

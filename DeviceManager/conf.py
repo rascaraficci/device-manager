@@ -16,8 +16,6 @@ class Config(object):
                  broker="http://data-broker",
                  subject="dojot.device-manager.device",
                  device_subject="device-data",
-                 redis_host="device-manager-redis",
-                 redis_port="6379",
                  status_timeout="5",
                  create_db=True,
                  log_level="INFO"):
@@ -31,22 +29,18 @@ class Config(object):
         # Kafka configuration
         self.kafka_host = os.environ.get('KAFKA_HOST', kafka_host)
         self.kafka_port = os.environ.get('KAFKA_PORT', kafka_port)
-
-        self.orion = os.environ.get('ORION', 'false') in ['True', 'true', 'TRUE', '1']
-
+      
         # Log configuration
         self.log_level = os.environ.get('LOG_LEVEL', log_level)
 
         # Data broker configuration
         # Full baseurl of data-broker
         self.data_broker = os.environ.get('BROKER', broker)
+
         # Which subject to publish new device information to
         self.subject = os.environ.get('SUBJECT', subject)
         self.device_subject = os.environ.get('DEVICE_SUBJECT', device_subject)
         self.status_timeout = int(os.environ.get('STATUS_TIMEOUT', status_timeout))
-
-        self.redis_host = os.environ.get('REDIS_HOST', redis_host)
-        self.redis_port = int(os.environ.get('REDIS_PORT', redis_port))
 
         # crypto configuration
         if not os.environ.get('DEV_MNGR_CRYPTO_PASS'):
