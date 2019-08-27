@@ -57,7 +57,7 @@ def create_sample_template():
         'body': json.dumps(template)
     }
 
-    result = TemplateHandler.create_template(Request(req))
+    result = TemplateHandler.create_template(Request(req), generate_token())
     template_id = result['template']['id']
     return template_id
 
@@ -102,7 +102,7 @@ def create_actuator_template():
         'body': json.dumps(template)
     }
 
-    result = TemplateHandler.create_template(Request(req))
+    result = TemplateHandler.create_template(Request(req), generate_token())
     template_id = result['template']['id']
     return template_id
 
@@ -171,7 +171,8 @@ def create_single_device(transaction):
         },
         'body': json.dumps(device)
     }
-    result = DeviceHandler.create_device(Request(req))
+
+    result = DeviceHandler.create_device(Request(req), generate_token())
     device_id = result['devices'][0]['id']
     transaction['proprietary']['device_id'] = device_id
     return device_id
@@ -197,7 +198,7 @@ def create_actuator_device(transaction):
         },
         'body': json.dumps(device)
     }
-    result = DeviceHandler.create_device(Request(req))
+    result = DeviceHandler.create_device(Request(req), generate_token())
     device_id = result['devices'][0]['id']
     transaction['proprietary']['device_id'] = device_id
     return device_id
@@ -339,14 +340,26 @@ def clean_scenario(transaction):
         'body': ''
     }
 
-    result = DeviceHandler.get_devices(Request(req))
-    for device in result['devices']:
-        DeviceHandler.delete_device(Request(req), device['id'])
+    params = {
+        'page_size': 10,
+        'page_num':  1,
+        'attr_format': 'both',
+        'attr': [],
+        'attr_type': [],
+        'idsOnly':'false'
+    }
 
-    result = TemplateHandler.get_templates(Request(req))
+    token = generate_token()
+
+    result = DeviceHandler.get_devices(token, params)
+
+    for device in result['devices']:
+        DeviceHandler.delete_device(Request(req), device['id'], token)
+
+    result = TemplateHandler.get_templates(Request(req), token)
     for template in result['templates']:
         # print(template)
-        TemplateHandler.remove_template(Request(req), template['id'])
+        TemplateHandler.remove_template(Request(req), template['id'], token)
 
 
 @hooks.before_validation('Templates > Templates > Get the current list of templates')

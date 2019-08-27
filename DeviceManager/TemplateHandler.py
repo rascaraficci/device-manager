@@ -13,10 +13,10 @@ from DeviceManager.SerializationModels import attr_list_schema, attr_schema, met
 from DeviceManager.SerializationModels import parse_payload, load_attrs
 from DeviceManager.SerializationModels import ValidationError
 from DeviceManager.TenancyManager import init_tenant_context
-from DeviceManager.KafkaNotifier import send_raw, DeviceEvent
+from DeviceManager.KafkaNotifier import KafkaNotifier, DeviceEvent
 
 from DeviceManager.app import app
-from DeviceManager.utils import format_response, HTTPRequestError, get_pagination
+from DeviceManager.utils import format_response, HTTPRequestError, get_pagination, retrieve_auth_token
 
 from DeviceManager.Logger import Log
 from datetime import datetime
@@ -70,7 +70,7 @@ class TemplateHandler:
         pass
 
     @staticmethod
-    def get_templates(req):
+    def get_templates(req, token):
         """
         Fetches known templates, potentially limited by a given value. Ordering
         might be user-configurable too.
@@ -83,7 +83,7 @@ class TemplateHandler:
         """
         LOGGER.debug(f"Retrieving templates.")
         LOGGER.debug(f"Initializing tenant context...")
-        init_tenant_context(req, db)
+        init_tenant_context(token, db)
         LOGGER.debug(f"... tenant context initialized.")
 
         page_number, per_page = get_pagination(req)
@@ -158,7 +158,7 @@ class TemplateHandler:
         return result
 
     @staticmethod
-    def create_template(req):
+    def create_template(req, token):
         """
         Creates a new template.
 
@@ -170,7 +170,7 @@ class TemplateHandler:
         violated. This might happen if two attributes have the same name, for
         instance.
         """
-        init_tenant_context(req, db)
+        init_tenant_context(token, db)
         tpl, json_payload = parse_payload(req, template_schema)
         loaded_template = DeviceTemplate(**tpl)
         load_attrs(json_payload['attrs'], loaded_template, DeviceAttr, db)
@@ -238,7 +238,7 @@ class TemplateHandler:
         return results
 
     @staticmethod
-    def remove_template(req, template_id):
+    def remove_template(req, template_id, token):
         """
         Deletes a single template.
 
@@ -253,7 +253,7 @@ class TemplateHandler:
         :raises HTTPRequestError: If the template is being currently used by
         a device.
         """
-        init_tenant_context(req, db)
+        init_tenant_context(token, db)
         tpl = assert_template_exists(template_id)
 
         json_template = template_schema.dump(tpl)
@@ -372,7 +372,7 @@ class TemplateHandler:
             },
             "meta": {"service": service}
         }
-        send_raw(event, service)
+        KafkaNotifier().send_raw(event, service)
 
         results = {
             'updated': template_schema.dump(old),
@@ -384,7 +384,10 @@ class TemplateHandler:
 @template.route('/template', methods=['GET'])
 def flask_get_templates():
     try:
-        result = TemplateHandler.get_templates(request)
+        # retrieve the authorization token
+        token = retrieve_auth_token(request)
+
+        result = TemplateHandler.get_templates(request, token)
 
         for templates in result.get('templates'):
             LOGGER.info(f" Getting template with id {templates.get('id')}")
@@ -406,7 +409,10 @@ def flask_get_templates():
 @template.route('/template', methods=['POST'])
 def flask_create_template():
     try:
-        result = TemplateHandler.create_template(request)
+        # retrieve the authorization token
+        token = retrieve_auth_token(request)
+
+        result = TemplateHandler.create_template(request, token)
 
         LOGGER.info(f"Creating a new template")
 
@@ -460,7 +466,10 @@ def flask_get_template(template_id):
 @template.route('/template/<template_id>', methods=['DELETE'])
 def flask_remove_template(template_id):
     try:
-        result = TemplateHandler.remove_template(request, template_id)
+        # retrieve the authorization token
+        token = retrieve_auth_token(request)
+
+        result = TemplateHandler.remove_template(request, template_id, token)
         LOGGER.info(f"Removing template with id: {template_id}")
         return make_response(jsonify(result), 200)
     except ValidationError as e:

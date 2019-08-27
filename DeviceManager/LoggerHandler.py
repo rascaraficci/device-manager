@@ -28,6 +28,8 @@ class LoggerHandler:
         """
 
         LOG.update_log_level(level.upper())
+        
+        return True
     
     @staticmethod
     def get_log_level():

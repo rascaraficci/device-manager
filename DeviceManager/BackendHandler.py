@@ -6,7 +6,7 @@ import json
 import traceback
 import requests
 from DeviceManager.utils import HTTPRequestError
-from DeviceManager.KafkaNotifier import send_notification, DeviceEvent
+from DeviceManager.KafkaNotifier import KafkaNotifier, DeviceEvent
 import logging
 from datetime import datetime
 import time
@@ -56,7 +56,7 @@ class BackendHandler(object):
 class KafkaHandler:
 
     def __init__(self):
-        pass
+        self.kafkaNotifier = KafkaNotifier()
 
     def create(self, device, meta):
         """
@@ -64,7 +64,7 @@ class KafkaHandler:
         """
 
         LOGGER.info(f" Publishing create event to Kafka")
-        send_notification(DeviceEvent.CREATE, device, meta)
+        self.kafkaNotifier.send_notification(DeviceEvent.CREATE, device, meta)
 
     def remove(self, device, meta):
         """
@@ -72,7 +72,7 @@ class KafkaHandler:
         """
         
         LOGGER.info(f" Publishing remove event to Kafka")
-        send_notification(DeviceEvent.REMOVE, device, meta)
+        self.kafkaNotifier.send_notification(DeviceEvent.REMOVE, device, meta)
 
     def update(self, device, meta):
         """
@@ -80,11 +80,11 @@ class KafkaHandler:
         """
 
         LOGGER.info(f" Publishing create update to Kafka")
-        send_notification(DeviceEvent.UPDATE, device, meta)
+        self.kafkaNotifier.send_notification(DeviceEvent.UPDATE, device, meta)
 
     def configure(self, device, meta):
         """
             Publishes event to kafka broker, notifying device configuration
         """
         LOGGER.info(f" Publishing configure event to Kafka")
-        send_notification(DeviceEvent.CONFIGURE, device, meta)
+        self.kafkaNotifier.send_notification(DeviceEvent.CONFIGURE, device, meta)

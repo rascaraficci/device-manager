@@ -29,7 +29,7 @@ class Config(object):
         # Kafka configuration
         self.kafka_host = os.environ.get('KAFKA_HOST', kafka_host)
         self.kafka_port = os.environ.get('KAFKA_PORT', kafka_port)
-      
+        
         # Log configuration
         self.log_level = os.environ.get('LOG_LEVEL', log_level)
 
