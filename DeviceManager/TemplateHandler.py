@@ -359,7 +359,6 @@ class TemplateHandler:
 
         affected_devices = []
         kafka_handler = KafkaHandler()
-        kafka_handler_instance = cls.verifyInstance(cls.kafka_handler)
         for device in affected:
             orm_device = assert_device_exists(device.device_id)
             kafka_handler.update(serialize_full_device(orm_device, service), meta={"service": service})
