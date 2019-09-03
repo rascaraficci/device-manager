@@ -84,7 +84,7 @@ def serialize_full_device(orm_device, tenant, sensitive_data=False):
                     if attr['id'] == psk_data.attr_id:
                         dec = decrypt(psk_data.psk)
                         attr['static_value'] = dec.decode('ascii')
-
+    
     return data
 
 def find_template(template_list, id):
@@ -401,7 +401,7 @@ class DeviceHandler(object):
         return serialize_full_device(orm_device, tenant, sensitive_data)
 
     @classmethod
-    def create_device(cls, req, token):
+    def create_device(cls, params, token):
         """
         Creates and configures the given device.
 
@@ -420,16 +420,15 @@ class DeviceHandler(object):
         and it is not an integer.
 
         """
-
         tenant = init_tenant_context(token, db)
         try:
-            count = int(req.args.get('count', '1'))
+            count = int(params.get('count'))
         except ValueError as e:
             LOGGER.error(e)
             raise HTTPRequestError(400, "If provided, count must be integer")
 
         c_length = len(str(count))
-        verbose = req.args.get('verbose', 'false') in ['true', '1', 'True']
+        verbose = params.get('verbose') in ['true', '1', 'True']
         if verbose and count != 1:
             raise HTTPRequestError(
                 400, "Verbose can only be used for single device creation")
@@ -440,7 +439,9 @@ class DeviceHandler(object):
 
         try:
             for i in range(0, count):
-                device_data, json_payload = parse_payload(req, device_schema)
+                content_type = params.get('content_type')
+                data_request = params.get('data')
+                device_data, json_payload = parse_payload(content_type, data_request, device_schema)
                 validate_repeated_attrs(json_payload)
                 device_data['id'] = DeviceHandler.generate_device_id()
                 device_data['label'] = DeviceHandler.indexed_label(count, c_length, device_data['label'], i)
@@ -484,7 +485,7 @@ class DeviceHandler(object):
         return result
 
     @classmethod
-    def delete_device(cls, req, device_id, token):
+    def delete_device(cls, device_id, token):
         """
         Deletes a single device.
 
@@ -538,7 +539,7 @@ class DeviceHandler(object):
         return results
 
     @classmethod
-    def update_device(cls, req, device_id, token):
+    def update_device(cls, params, device_id, token):
         """
         Updated the information about a particular device
 
@@ -552,7 +553,10 @@ class DeviceHandler(object):
         database.
         """
         try:
-            device_data, json_payload = parse_payload(req, device_schema)
+            content_type = params.get('content_type')
+            data_request = params.get('data')
+
+            device_data, json_payload = parse_payload(content_type, data_request, device_schema)
             validate_repeated_attrs(json_payload)
 
             tenant = init_tenant_context(token, db)
@@ -589,7 +593,7 @@ class DeviceHandler(object):
         return result
 
     @classmethod
-    def configure_device(cls, req, device_id, token):
+    def configure_device(cls, params, device_id, token):
         """
         Send actuation commands to the device
 
@@ -614,7 +618,8 @@ class DeviceHandler(object):
         full_device = serialize_full_device(orm_device, meta['service'])
         LOGGER.debug(f" Full device: {json.dumps(full_device)}")
 
-        payload = json.loads(req.data)
+        data = params.get('data')
+        payload = json.loads(data)
         LOGGER.debug(f' Parsed request payload: {json.dumps(payload)}')
 
         payload['id'] = orm_device.id
@@ -976,9 +981,11 @@ def flask_create_device():
         params = {
             'count': request.args.get('count', '1'),
             'verbose': request.args.get('verbose', 'false'),
+            'content_type': request.headers.get('Content-Type'),
+            'data': request.data
         }
 
-        result = DeviceHandler.create_device(request, token)
+        result = DeviceHandler.create_device(params, token)
         devices = result.get('devices')
         deviceId = devices[0].get('id')
         LOGGER.info(f' Creating a new device with id {deviceId}.')
@@ -1034,7 +1041,7 @@ def flask_remove_device(device_id):
         token = retrieve_auth_token(request)
 
         LOGGER.info(f' Removing the device with id {device_id}.')
-        results = DeviceHandler.delete_device(request, device_id, token)
+        results = DeviceHandler.delete_device(device_id, token)
         return make_response(jsonify(results), 200)
     except HTTPRequestError as e:
         LOGGER.error(f' {e.message} - {e.error_code}.')
@@ -1050,8 +1057,13 @@ def flask_update_device(device_id):
         # retrieve the authorization token
         token = retrieve_auth_token(request)
 
+        params = {
+            'content_type': request.headers.get('Content-Type'),
+            'data': request.data
+        }
+
         LOGGER.info(f' Updating the device with id {device_id}.')
-        results = DeviceHandler.update_device(request, device_id, token)
+        results = DeviceHandler.update_device(params, device_id, token)
         return make_response(jsonify(results), 200)
     except HTTPRequestError as e:
         LOGGER.error(f' {e.message} - {e.error_code}.')
@@ -1070,8 +1082,10 @@ def flask_configure_device(device_id):
         # retrieve the authorization token
         token = retrieve_auth_token(request)
 
+        params = {'data': request.data}
+
         LOGGER.info(f' Actuating in the device with id {device_id}.')
-        result = DeviceHandler.configure_device(request, device_id, token)
+        result = DeviceHandler.configure_device(params, device_id, token)
         return make_response(jsonify(result), 200)
 
     except HTTPRequestError as error:

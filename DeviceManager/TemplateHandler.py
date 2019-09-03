@@ -31,9 +31,8 @@ template = Blueprint('template', __name__)
 
 LOGGER = Log().color_log()
 
-def attr_format(req, result):
+def attr_format(attrs_format, result):
     """ formats output attr list acording to user input """
-    attrs_format = req.args.get('attr_format', 'both')
 
     def remove(d,k):
         try:
@@ -66,11 +65,29 @@ def paginate(query, page, per_page=20, error_out=False):
 
 class TemplateHandler:
 
+    kafka_handler = None
+
     def __init__(self):
         pass
 
+    @classmethod
+    def verifyInstance(cls, kafka):
+        """
+        Instantiates a connection with Kafka, was created because 
+        previously the connection was being created in KafkaNotifier
+        once time every import.
+        
+        :param kafka: An instance of KafkaHandler.
+        :return An instance of KafkaHandler used to notify
+        """
+
+        if kafka is None:
+            cls.kafka_handler = KafkaHandler()
+
+        return cls.kafka_handler
+
     @staticmethod
-    def get_templates(req, token):
+    def get_templates(params, token):
         """
         Fetches known templates, potentially limited by a given value. Ordering
         might be user-configurable too.
@@ -86,13 +103,13 @@ class TemplateHandler:
         init_tenant_context(token, db)
         LOGGER.debug(f"... tenant context initialized.")
 
-        page_number, per_page = get_pagination(req)
-        pagination = {'page': page_number, 'per_page': per_page, 'error_out': False}
+        pagination = {'page': params.get('page_number'), 'per_page': params.get('per_page'), 'error_out': False}
 
         LOGGER.debug(f"Pagination configuration is {pagination}")
 
         parsed_query = []
-        query = req.args.getlist('attr')
+        query = params.get('attr')
+
         for attr in query:
             LOGGER.debug(f"Analyzing query parameter: {attr}...")
             parsed = re.search('^(.+){1}=(.+){1}$', attr)
@@ -100,11 +117,13 @@ class TemplateHandler:
             parsed_query.append(DeviceAttr.static_value == parsed.group(2))
             LOGGER.debug("... query parameter was added to filter list.")
 
-        query = req.args.getlist('attr_type')
+        query = params.get('attr_type')
+
         for attr_type_item in query:
             parsed_query.append(DeviceAttr.value_type == attr_type_item)
 
-        target_label = req.args.get('label', None)
+        target_label = params.get('label')
+
         if target_label:
             LOGGER.debug(f"Adding label filter to query...")
             parsed_query.append(DeviceTemplate.label.like("%{}%".format(target_label)))
@@ -114,7 +133,8 @@ class TemplateHandler:
             'label': DeviceTemplate.label,
             None: None
         }
-        sortBy = SORT_CRITERION.get(req.args.get('sortBy', None), None)
+        sortBy = SORT_CRITERION.get(params.get('sortBy'), None)
+
         LOGGER.debug(f"Sortby filter is {sortBy}")
         if parsed_query:
             LOGGER.debug(f" Filtering template by {parsed_query}")
@@ -137,7 +157,7 @@ class TemplateHandler:
 
         templates = []
         for template in page.items:
-            formatted_template = attr_format(req, template_schema.dump(template))
+            formatted_template = attr_format(params.get('attrs_format'), template_schema.dump(template))
             LOGGER.debug(f"Adding resulting template to response...")
             LOGGER.debug(f"Template is: {formatted_template['label']}")
             templates.append(formatted_template)
@@ -158,7 +178,7 @@ class TemplateHandler:
         return result
 
     @staticmethod
-    def create_template(req, token):
+    def create_template(params, token):
         """
         Creates a new template.
 
@@ -171,7 +191,11 @@ class TemplateHandler:
         instance.
         """
         init_tenant_context(token, db)
-        tpl, json_payload = parse_payload(req, template_schema)
+
+        content_type = params.get('content_type')
+        data_request = params.get('data')
+        tpl, json_payload = parse_payload(content_type, data_request, template_schema)
+
         loaded_template = DeviceTemplate(**tpl)
         load_attrs(json_payload['attrs'], loaded_template, DeviceAttr, db)
         db.session.add(loaded_template)
@@ -190,7 +214,7 @@ class TemplateHandler:
         return results
 
     @staticmethod
-    def get_template(req, template_id, token):
+    def get_template(params, template_id, token):
         """
         Fetches a single template.
         :param req: The received HTTP request, as created by Flask.
@@ -205,11 +229,11 @@ class TemplateHandler:
         init_tenant_context(token, db)
         tpl = assert_template_exists(template_id)
         json_template = template_schema.dump(tpl)
-        attr_format(req, json_template)
+        attr_format(params.get('attr_format'), json_template)
         return json_template
 
     @staticmethod
-    def delete_all_templates(req, token):
+    def delete_all_templates(token):
         """
         Deletes all templates.
 
@@ -238,7 +262,7 @@ class TemplateHandler:
         return results
 
     @staticmethod
-    def remove_template(req, template_id, token):
+    def remove_template(template_id, token):
         """
         Deletes a single template.
 
@@ -271,7 +295,7 @@ class TemplateHandler:
         return results
 
     @classmethod
-    def update_template(cls, req, template_id, token):
+    def update_template(cls, params, template_id, token):
         """
         Updates a single template.
 
@@ -286,10 +310,13 @@ class TemplateHandler:
         """
         service = init_tenant_context(token, db)
 
+        content_type = params.get('content_type')
+        data_request = params.get('data')
+
         # find old version of the template, if any
         old = assert_template_exists(template_id)
         # parse updated version from payload
-        updated, json_payload = parse_payload(req, template_schema)
+        updated, json_payload = parse_payload(content_type, data_request, template_schema)
 
         LOGGER.debug(f" Current json payload: {json_payload}")
 
@@ -358,10 +385,10 @@ class TemplateHandler:
                              .all()
 
         affected_devices = []
-        kafka_handler = KafkaHandler()
+        kafka_handler_instance = cls.verifyInstance(cls.kafka_handler)
         for device in affected:
             orm_device = assert_device_exists(device.device_id)
-            kafka_handler.update(serialize_full_device(orm_device, service), meta={"service": service})
+            kafka_handler_instance.update(serialize_full_device(orm_device, service), meta={"service": service})
             affected_devices.append(device.device_id)
 
         event = {
@@ -372,7 +399,9 @@ class TemplateHandler:
             },
             "meta": {"service": service}
         }
-        KafkaNotifier().send_raw(event, service)
+        kafka_handler_instance.kafkaNotifier.send_raw(event, service)
+
+        #KafkaNotifier().send_raw(event, service)
 
         results = {
             'updated': template_schema.dump(old),
@@ -387,7 +416,20 @@ def flask_get_templates():
         # retrieve the authorization token
         token = retrieve_auth_token(request)
 
-        result = TemplateHandler.get_templates(request, token)
+        # retrieve pagination
+        page_number, per_page = get_pagination(request)
+
+        params = {
+            'page_number': page_number,
+            'per_page': per_page,
+            'sortBy': request.args.get('sortBy', None),
+            'attr': request.args.getlist('attr'),
+            'attr_type': request.args.getlist('attr_type'),
+            'label': request.args.get('label', None),
+            'attrs_format': request.args.get('attr_format', 'both')
+        }
+
+        result = TemplateHandler.get_templates(params, token)
 
         for templates in result.get('templates'):
             LOGGER.info(f" Getting template with id {templates.get('id')}")
@@ -412,7 +454,12 @@ def flask_create_template():
         # retrieve the authorization token
         token = retrieve_auth_token(request)
 
-        result = TemplateHandler.create_template(request, token)
+        params = {
+            'content_type': request.headers.get('Content-Type'),
+            'data': request.data
+        }
+
+        result = TemplateHandler.create_template(params, token)
 
         LOGGER.info(f"Creating a new template")
 
@@ -436,7 +483,7 @@ def flask_delete_all_templates():
         # retrieve the authorization token
         token = retrieve_auth_token(request)
 
-        result = TemplateHandler.delete_all_templates(request, token)
+        result = TemplateHandler.delete_all_templates(token)
 
         LOGGER.info(f"deleting all templates")
 
@@ -455,7 +502,9 @@ def flask_get_template(template_id):
         # retrieve the authorization token
         token = retrieve_auth_token(request)
 
-        result = TemplateHandler.get_template(request, template_id, token)
+        params = {'attrs_format': request.args.get('attr_format', 'both')}
+
+        result = TemplateHandler.get_template(params, template_id, token)
         LOGGER.info(f"Getting template with id: {template_id}")
         return make_response(jsonify(result), 200)
     except ValidationError as e:
@@ -475,7 +524,7 @@ def flask_remove_template(template_id):
         # retrieve the authorization token
         token = retrieve_auth_token(request)
 
-        result = TemplateHandler.remove_template(request, template_id, token)
+        result = TemplateHandler.remove_template(template_id, token)
         LOGGER.info(f"Removing template with id: {template_id}")
         return make_response(jsonify(result), 200)
     except ValidationError as e:
@@ -495,7 +544,12 @@ def flask_update_template(template_id):
         # retrieve the authorization token
         token = retrieve_auth_token(request)
 
-        result = TemplateHandler.update_template(request, template_id, token)
+        params = {
+            'content_type': request.headers.get('Content-Type'),
+            'data': request.data
+        }
+
+        result = TemplateHandler.update_template(params, template_id, token)
         LOGGER.info(f"Updating template with id: {template_id}")
         return make_response(jsonify(result), 200)
     except ValidationError as errors:

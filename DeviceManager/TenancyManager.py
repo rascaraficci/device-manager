@@ -78,7 +78,6 @@ def init_tenant(tenant, db):
                    .select_from(text("information_schema.schemata"))
                    .where(text("schema_name = '%s'" % tenant)))
     tenant_exists = db.session.query(query).scalar()
-
     if not tenant_exists:
         create_tenant(tenant, db)
         switch_tenant(tenant, db)
