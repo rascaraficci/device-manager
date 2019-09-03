@@ -1,14 +1,13 @@
 import pytest
 import json
 import unittest
+from unittest.mock import Mock, MagicMock, patch
+
 
 from DeviceManager.DatabaseHandler import MultiTenantSQLAlchemy, before_request
 
 from flask import Flask, g
 from flask_sqlalchemy import SQLAlchemy
-import unittest
-from unittest.mock import Mock, MagicMock, patch
-
 
 class TestDatabaseHandler(unittest.TestCase):
 
@@ -41,3 +40,4 @@ class TestDatabaseHandler(unittest.TestCase):
             self.assertEqual(result.status, '401 UNAUTHORIZED')
             self.assertEqual(json.loads(result.response[0])[
                              'message'], 'No authorization token has been supplied')
+                             

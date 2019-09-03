@@ -331,3 +331,4 @@ class TestDeviceHandler(unittest.TestCase):
          with patch('DeviceManager.DeviceHandler.KafkaHandler') as mock_kafka_instance_wrapper:
              mock_kafka_instance_wrapper.return_value = Mock()
              self.assertIsNotNone(DeviceHandler.verifyInstance(None))
+             

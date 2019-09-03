@@ -7,7 +7,6 @@ from DeviceManager.utils import HTTPRequestError
 from DeviceManager.SerializationModels import log_schema 
 
 from flask import Flask
-import unittest
 from unittest.mock import Mock, MagicMock, patch
 
 class TestLoggerHandler(unittest.TestCase):

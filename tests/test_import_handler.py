@@ -7,7 +7,6 @@ from alchemy_mock.mocking import AlchemyMagicMock
 
 from DeviceManager.ImportHandler import ImportHandler
 
-
 class TestImportHandler(unittest.TestCase):
 
     @patch('DeviceManager.ImportHandler.db')
@@ -59,4 +58,3 @@ class TestImportHandler(unittest.TestCase):
     def test_restore_db_config(self, db_mock):
         db_mock.session = AlchemyMagicMock()
         self.assertIsNone(ImportHandler.restore_db_config())
-
