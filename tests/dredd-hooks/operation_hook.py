@@ -61,6 +61,50 @@ def create_sample_template():
     template_id = result['template']['id']
     return template_id
 
+def create_actuator_template():
+    template = {
+        "label": "SensorModel",
+        "attrs": [
+            {
+                "label": "temperature",
+                "type": "dynamic",
+                "value_type": "float"
+            },
+            {
+                "label": "battery",
+                "type": "actuator",
+                "value_type": "float"
+            },
+            {
+                "label": "position",
+                "type": "dynamic",
+                "value_type": "geopoint"
+            },
+            {
+                "label": "model-id",
+                "type": "static",
+                "value_type": "string",
+                "static_value": "model-001"
+            },
+            {
+                "label": "shared_key",
+                "type": "static",
+                "value_type": "psk"
+            }
+        ]
+    }
+    req = {
+        'headers': {
+            'authorization': generate_token(),
+            'Content-Type': 'application/json'
+        },
+        'args': {},
+        'body': json.dumps(template)
+    }
+
+    result = TemplateHandler.create_template(Request(req))
+    template_id = result['template']['id']
+    return template_id
 
 @hooks.before('Templates > Templates > Get the current list of templates')
 @hooks.before('Devices > Device info > Get the current list of devices > Example 1')
@@ -132,6 +176,33 @@ def create_single_device(transaction):
     transaction['proprietary']['device_id'] = device_id
     return device_id
 
+@hooks.before('Devices > Device info > Configure device')
+def create_actuator_device(transaction):
+    template_id = create_actuator_template();
+    if not 'proprietary' in transaction:
+        transaction['proprietary'] = {}
+    transaction['proprietary']['template_id'] = template_id
+    device = {
+        "label": "test_device",
+        "templates": [template_id]
+    }
+    req = {
+        'headers': {
+            'authorization': generate_token(),
+            'Content-Type': 'application/json'
+        },
+        'args': {
+            'count': 1,
+            'verbose': False
+        },
+        'body': json.dumps(device)
+    }
+    result = DeviceHandler.create_device(Request(req))
+    device_id = result['devices'][0]['id']
+    transaction['proprietary']['device_id'] = device_id
+    return device_id
+
+
 @hooks.before('Internal > Device > Get the current list of devices > Example 1')
 def create_single_device_and_gen_psk(transaction):
     device_id = create_single_device(transaction)    
@@ -139,13 +210,19 @@ def create_single_device_and_gen_psk(transaction):
 
 @hooks.before('Devices > Device info > Get device info')
 @hooks.before('Devices > Device info > Update device info')
-@hooks.before('Devices > Device info > Configure device')
 @hooks.before('Devices > Device info > Delete device')
 @hooks.before('Devices > Device info > Generate PSK')
+@hooks.before('Devices > Device info > Delete all devices')
 def create_device_and_update_device_id(transaction):
     device_id = create_single_device(transaction)
     transaction['fullPath'] = transaction['fullPath'].replace('efac', device_id)
     return device_id
+
+@hooks.before('Devices > Device info > Configure device')
+def create_actuate_device_and_update_device_id(transaction):
+    device_id = create_actuator_device(transaction)
+    transaction['fullPath'] = transaction['fullPath'].replace('efac', device_id)
+    return device_id    
 
 @hooks.before('Internal > Device > Get device info')
 def prepare_env_psk(transaction):
@@ -205,6 +282,19 @@ def update_expected_ids_single_device_delete(transaction):
     expected_body["removed_device"]["id"] = device_id
     transaction['expected']['body'] = json.dumps(expected_body)
 
+@hooks.before('Devices > Device info > Delete all devices')
+def update_expected_ids_single_device_actuator_delete(transaction):
+    template_id = transaction['proprietary']['template_id']
+    device_id = transaction['proprietary']['device_id']
+
+    expected_body = json.loads(transaction['expected']['body'])
+    str_template_id = "{}".format(template_id)
+    expected_body["removed_devices"][0]["attrs"][str_template_id] = expected_body["removed_devices"][0]["attrs"].pop("4865")
+    for attr in expected_body["removed_devices"][0]["attrs"][str_template_id]:
+        attr['template_id'] = str_template_id
+    expected_body["removed_devices"][0]["templates"] = [str_template_id]
+    expected_body["removed_devices"][0]["id"] = device_id
+    transaction['expected']['body'] = json.dumps(expected_body)
 
 @hooks.before('Devices > Device info > Get the current list of devices associated with given template')
 @hooks.before('Devices > Device info > Get the current list of devices > Example 1')

@@ -9,7 +9,7 @@ from DeviceManager.DatabaseHandler import db
 from DeviceManager.DatabaseModels import handle_consistency_exception, assert_template_exists, assert_device_exists
 from DeviceManager.DatabaseModels import DeviceTemplate, DeviceAttr, DeviceTemplateMap
 from DeviceManager.SerializationModels import template_list_schema, template_schema
-from DeviceManager.SerializationModels import attr_list_schema, attr_schema
+from DeviceManager.SerializationModels import attr_list_schema, attr_schema, metaattr_schema
 from DeviceManager.SerializationModels import parse_payload, load_attrs
 from DeviceManager.SerializationModels import ValidationError
 from DeviceManager.TenancyManager import init_tenant_context
@@ -96,18 +96,18 @@ class TemplateHandler:
         for attr in query:
             LOGGER.debug(f"Analyzing query parameter: {attr}...")
             parsed = re.search('^(.+){1}=(.+){1}$', attr)
-            parsed_query.append(text("attrs.label = '{}'".format(parsed.group(1))))
-            parsed_query.append(text("attrs.static_value = '{}'".format(parsed.group(2))))
+            parsed_query.append(DeviceAttr.label == parsed.group(1))
+            parsed_query.append(DeviceAttr.static_value == parsed.group(2))
             LOGGER.debug("... query parameter was added to filter list.")
 
         query = req.args.getlist('attr_type')
         for attr_type_item in query:
-            parsed_query.append(text("attrs.value_type = '{}'".format(attr_type_item)))
+            parsed_query.append(DeviceAttr.value_type == attr_type_item)
 
         target_label = req.args.get('label', None)
         if target_label:
             LOGGER.debug(f"Adding label filter to query...")
-            parsed_query.append(text("templates.label like '%{}%'".format(target_label)))
+            parsed_query.append(DeviceTemplate.label.like("%{}%".format(target_label)))
             LOGGER.debug(f"... filter was added to query.")
 
         SORT_CRITERION = {
@@ -218,10 +218,24 @@ class TemplateHandler:
         database.
         """
         init_tenant_context(req, db)
-        templates = db.session.query(DeviceTemplate)
-        for template in templates:
-            db.session.delete(template)
-        db.session.commit()
+        json_templates = []
+
+        try:
+            templates = db.session.query(DeviceTemplate)
+            for template in templates:
+                db.session.delete(template)
+                json_templates.append(template_schema.dump(template))
+
+            db.session.commit()
+        except IntegrityError:
+            raise HTTPRequestError(400, "Templates cannot be removed as they are being used by devices")
+
+        results = {
+            'result': 'ok',
+            'removed': json_templates
+        }
+
+        return results
 
     @staticmethod
     def remove_template(req, template_id):
@@ -247,8 +261,7 @@ class TemplateHandler:
             db.session.delete(tpl)
             db.session.commit()
         except IntegrityError:
-            raise HTTPRequestError(400, "Template cannot be removed as it is \
-                    being used by devices")
+            raise HTTPRequestError(400, "Templates cannot be removed as they are being used by devices")
 
         results = {
             'result': 'ok',
@@ -292,14 +305,17 @@ class TemplateHandler:
             attrs_from_db.value_type = attrs_from_request.get('value_type', None)
             attrs_from_db.static_value = attrs_from_request.get('static_value', None)
 
-        def validate_attr(attr_from_request):
-            attr_schema.load(attr_from_request)
+        def validate_attr(attr_from_request, is_meta):
+            if is_meta is False:
+                attr_schema.load(attr_from_request)
+            else:
+                metaattr_schema.load(attr_from_request)
 
         def analyze_attrs(attrs_from_db, attrs_from_request, parentAttr=None):
             for attr_from_db in attrs_from_db:
                 found = False
                 for idx, attr_from_request in enumerate(attrs_from_request):
-                    validate_attr(attr_from_request)
+                    validate_attr(attr_from_request, parentAttr is not None)
                     if attrs_match(attr_from_db, attr_from_request):
                         update_attr(attr_from_db, attr_from_request)
                         if "metadata" in attr_from_request:
@@ -418,7 +434,7 @@ def flask_delete_all_templates():
         return make_response(jsonify(result), 200)
 
     except HTTPRequestError as error:
-        LOGGER.error(f" {e}")
+        LOGGER.error(f" {error}")
         if isinstance(error.message, dict):
             return make_response(jsonify(error.message), error.error_code)
         return format_response(error.error_code, error.message)

@@ -10,7 +10,7 @@ from datetime import datetime
 import secrets
 from flask import request, jsonify, Blueprint, make_response
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import or_, and_, func
+from sqlalchemy import or_, and_, func, text
 
 from DeviceManager.utils import *
 from DeviceManager.utils import create_id, get_pagination, format_response
@@ -35,12 +35,29 @@ device = Blueprint('device', __name__)
 
 LOGGER = Log().color_log()
 
+def fill_overridden_flag(attrs):
+    # Update all static attributes with "is_static_overridden" attribute
+    for templateId in attrs:
+        for attr in attrs[templateId]:
+            if 'is_static_overridden' not in attr and 'static_value' in attr:
+                attr['is_static_overridden'] = False
+            if 'metadata' in attr:
+                for metadata in attr['metadata']:
+                    if 'is_static_overridden' not in metadata and 'static_value' in metadata:
+                        metadata['is_static_overridden'] = False
+
+
+
 def serialize_override_attrs(orm_overrides, attrs):
+
+    fill_overridden_flag(attrs)
+
     for override in orm_overrides:
         if override.attr.template_id is not None:
             for attr in attrs[override.attr.template_id]:
                 if attr['id'] == override.aid:
                     attr['static_value'] = override.static_value
+                    attr['is_static_overridden'] = True
         else:
             # If override attr does not have template_id it means we have a metadata override
             # TODO: Here we do not handle multiple hierarchical levels of metadata
@@ -49,6 +66,7 @@ def serialize_override_attrs(orm_overrides, attrs):
                     for metadata in attr['metadata']:
                         if metadata['id'] == override.aid:
                             metadata['static_value'] = override.static_value
+                            metadata['is_static_overridden'] = True
 
 def serialize_full_device(orm_device, tenant, sensitive_data=False):
     data = device_schema.dump(orm_device)
@@ -80,13 +98,13 @@ def create_orm_override(attr, orm_device, orm_template):
         target = int(attr['id'])
     except ValueError:
         LOGGER.error(f" Unknown attribute {attr['id']} in override list")
-        raise HTTPRequestError(400, "Unknown attribute \"{}\" in override list".format(attr['id']))
+        raise HTTPRequestError(400, 'Unknown attribute {} in override list'.format(attr['id']))
 
     found = False
     for orm_attr in orm_template.attrs:
         if target == orm_attr.id:
             found = True
-            if 'static_value' in attr:
+            if 'static_value' in attr and attr['static_value'] is not None:
                 orm_override = DeviceOverride(
                     device=orm_device,
                     attr=orm_attr,
@@ -103,7 +121,7 @@ def create_orm_override(attr, orm_device, orm_template):
                         LOGGER.debug(f" Updated metadata {metadata_target}")
                     except ValueError:
                         LOGGER.error(f" metadata attribute {attr['id']} in override list")
-                        raise HTTPRequestError(400, "Unknown metadata attribute \"{}\" in override list".format(
+                        raise HTTPRequestError(400, 'Unknown metadata attribute {} in override list'.format(
                             metadata['id']))
 
                     found = False
@@ -112,7 +130,7 @@ def create_orm_override(attr, orm_device, orm_template):
                         for orm_attr_child in orm_attr.children:
                             if metadata_target == orm_attr_child.id:
                                 found = True
-                                if 'static_value' in metadata:
+                                if 'static_value' in metadata and metadata['static_value'] is not None:
                                     orm_override = DeviceOverride(
                                         device=orm_device,
                                         attr=orm_attr_child,
@@ -124,7 +142,7 @@ def create_orm_override(attr, orm_device, orm_template):
 
     if not found:
         LOGGER.error(f" Unknown attribute {attr['id']} in override list")
-        raise HTTPRequestError(400, "Unknown attribute \"{}\" in override list".format(target))
+        raise HTTPRequestError(400, 'Unknown attribute {} in override list'.format(target))
 
 
 def auto_create_template(json_payload, new_device):
@@ -142,7 +160,7 @@ def auto_create_template(json_payload, new_device):
             orm_template = find_template(new_device.templates, attr['template_id'])
             if orm_template is None:
                 LOGGER.error(f" Unknown template {orm_template} in attr list")
-                raise HTTPRequestError(400, 'Unknown template "{}" in attr list'.format(orm_template))
+                raise HTTPRequestError(400, 'Unknown template {} in attr list'.format(orm_template))
             create_orm_override(attr, new_device, orm_template)
 
 def parse_template_list(template_list, new_device):
@@ -249,45 +267,24 @@ class DeviceHandler(object):
         for attr_label_item in query:
             parsed = re.search('^(.+){1}=(.+){1}$', attr_label_item)
             attr_label = []
-            attr_label.append("attrs.label = '{}'".format(parsed.group(1)))
+            attr_label.append(DeviceAttr.label == parsed.group(1))
             # static value must be the override, if any
-            attr_label.append("coalesce(overrides.static_value, attrs.static_value) = '{}'".format(parsed.group(2)))
-            LOGGER.debug(f"Adding filter ${attr_label} to query")
+            attr_label.append(text("coalesce(overrides.static_value, attrs.static_value)=:static_value ").bindparams(static_value=parsed.group(2)))
             attr_filter.append(and_(*attr_label))
 
         query = req.args.getlist('attr_type')
         for attr_type_item in query:
-            attr_type = []
-            attr_type.append("attrs.value_type = '{}'".format(attr_type_item))
-            attr_filter.append(and_(*attr_type))
+            attr_filter.append(DeviceAttr.value_type == attr_type_item)
 
         label_filter = []
         target_label = req.args.get('label', None)
         if target_label:
-            label_filter.append("devices.label like '%{}%'".format(target_label))
+            label_filter.append(Device.label.like("%{}%".format(target_label)))
 
         template_filter = []
         target_template = req.args.get('template', None)
         if target_template:
-            template_filter.append("device_template.template_id = {}".format(target_template))
-
-        ##Not needed to use (this filter slow down search performance). Maybe can be excluded..
-        # if template_filter or label_filter or attr_filter:
-        #     # find all devices that contain matching attributes (may contain devices that
-        #     # do not match all required attributes)
-        #     subquery = db.session.query(func.count(Device.id).label('count'), Device.id) \
-        #                          .join(DeviceTemplateMap, isouter=True) \
-        #                          .join(DeviceTemplate) \
-        #                          .join(DeviceAttr, isouter=True) \
-        #                          .join(DeviceOverride, (Device.id == DeviceOverride.did) & (DeviceAttr.id == DeviceOverride.aid), isouter=True) \
-        #                          .filter(or_(*attr_filter)) \
-        #                          .filter(*label_filter) \
-        #                          .filter(*template_filter) \
-        #                          .group_by(Device.id) \
-        #                          .subquery()
-
-            # LOGGER.warning(subquery)
-            # devices must match all supplied filters
+            template_filter.append(DeviceTemplateMap.template_id == target_template)
 
         if (attr_filter): #filter by attr
             LOGGER.debug(f" Filtering devices by {attr_filter}")
@@ -301,12 +298,18 @@ class DeviceHandler(object):
 
             page = page.filter(*label_filter) \
                     .filter(*template_filter) \
-                    .filter(or_(*attr_filter)) \
+                    .filter(*attr_filter) \
                     .order_by(sortBy) \
                     .paginate(**pagination)
 
+
         elif label_filter or template_filter: # only filter by label or/and template
-            LOGGER.debug(f"Filtering devices by label {target_label}")
+            if label_filter:
+                LOGGER.debug(f"Filtering devices by label: {target_label}")
+
+            if template_filter:
+                LOGGER.debug(f"Filtering devices with template: {target_template}")     
+            
             page = db.session.query(Device) \
                             .join(DeviceTemplateMap, isouter=True)
 
@@ -442,7 +445,7 @@ class DeviceHandler(object):
             handle_consistency_exception(error)
         except ValidationError as error:
             raise HTTPRequestError(400, error.messages)
-  
+
 
         for orm_device in orm_devices:
             devices.append(
@@ -470,7 +473,7 @@ class DeviceHandler(object):
         if verbose:
             result = {
                 'message': 'device created',
-                'device': full_device
+                'devices': [full_device]
             }
         else:
             result = {
@@ -519,11 +522,22 @@ class DeviceHandler(object):
         :raises HTTPRequestError: If this device could not be found in
         database.
         """
-        init_tenant_context(req, db)
+        tenant = init_tenant_context(req, db)
+        json_devices = []
+
         devices = db.session.query(Device)
         for device in devices:
             db.session.delete(device)
+            json_devices.append(serialize_full_device(device, tenant))
+
         db.session.commit()
+
+        results = {
+            'result': 'ok', 
+            'removed_devices': json_devices
+        }
+
+        return results
 
     @staticmethod
     def update_device(req, device_id):
@@ -558,12 +572,12 @@ class DeviceHandler(object):
             updated_orm_device.created = old_orm_device.created
 
             db.session.add(updated_orm_device)
-       
+
             db.session.commit()
         except IntegrityError as error:
             handle_consistency_exception(error)
         except ValidationError as error:
-            raise HTTPRequestError(400, error.messages)    
+            raise HTTPRequestError(400, error.messages)
 
         full_device = serialize_full_device(updated_orm_device, tenant)
 
@@ -612,6 +626,8 @@ class DeviceHandler(object):
 
         meta['service'] = init_tenant_context(req, db)
 
+        meta['timestamp'] = int(time.time() * 1000)
+
         orm_device = assert_device_exists(device_id)
         full_device = serialize_full_device(orm_device, meta['service'])
         LOGGER.debug(f" Full device: {json.dumps(full_device)}")
@@ -636,6 +652,7 @@ class DeviceHandler(object):
                 'status': 'some of the attributes are not configurable',
                 'attrs': invalid_attrs
             }
+            raise HTTPRequestError(403, result)
 
         return result
 
@@ -977,7 +994,7 @@ def flask_delete_all_device():
     """
     try:
         result = DeviceHandler.delete_all_devices(request)
-        
+
         LOGGER.info('Deleting all devices.')
         return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
@@ -1037,7 +1054,7 @@ def flask_configure_device(device_id):
         return make_response(jsonify(result), 200)
 
     except HTTPRequestError as error:
-        LOGGER.error(f' {e.message} - {e.error_code}.')
+        LOGGER.error(f' {error.message} - {error.error_code}.')
         if isinstance(error.message, dict):
             return make_response(jsonify(error.message), error.error_code)
 
@@ -1162,6 +1179,7 @@ def flask_internal_get_devices():
     try:
         result = DeviceHandler.get_devices(request, True)
         LOGGER.info(f' Getting known internal devices.')
+        
         return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
         LOGGER.error(f' {e.message} - {e.error_code}.')
