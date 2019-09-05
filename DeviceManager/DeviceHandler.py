@@ -241,6 +241,8 @@ class DeviceHandler(object):
     def list_ids(token):
         """
         Fetches the list of known device ids.
+        :param token: The authorization token (JWT).
+        :return A JSON containing a list of devices ids
         :rtype JSON
         :raises HTTPRequestError: If no authorization token was provided (no
         tenant was informed)
@@ -405,7 +407,10 @@ class DeviceHandler(object):
         """
         Creates and configures the given device.
 
-        :param req: The received HTTP request, as created by Flask.
+        :param params: Parameters received from request (count, verbose, 
+        content_type, data)
+        :param token: The authorization token (JWT).
+        
         :return The created device or a list of device summary. This depends on
         which value the verbose (/?verbose=true) has - if true, only one device
         can be created ("count" argument can't be used or - at least - it must
@@ -489,8 +494,8 @@ class DeviceHandler(object):
         """
         Deletes a single device.
 
-        :param req: The received HTTP request, as created by Flask.
         :param device_id: The device to be removed.
+        :param token: The authorization token (JWT).
         :return The removed device.
         :rtype JSON
         :raises HTTPRequestError: If no authorization token was provided (no
@@ -517,7 +522,7 @@ class DeviceHandler(object):
         """
         Deletes all devices.
 
-        :param req: The received HTTP request, as created by Flask.
+        :param token: The authorization token (JWT).
         :raises HTTPRequestError: If this device could not be found in
         database.
         """
@@ -543,8 +548,10 @@ class DeviceHandler(object):
         """
         Updated the information about a particular device
 
-        :param req: The received HTTP request, as created by Flask.
+        :param params: Parameters received from request (content_type, data)
+        as created by Flask
         :param device_id: The device to be updated.
+        :param token: The authorization token (JWT).
         :return The updated device.
         :rtype JSON
         :raises HTTPRequestError: If no authorization token was provided (no
@@ -597,8 +604,10 @@ class DeviceHandler(object):
         """
         Send actuation commands to the device
 
-        :param req: The received HTTP request, as created by Flask.
+        :param params: Parameters received from request (data)
+        as created by Flask
         :param device_id: The device which should receive the actuation message
+        :param token: The authorization token (JWT).
         :return A status on whether the message was sent to the device or not.
         Note that this is not a guarantee that the device actually performed
         what was requested.
@@ -649,7 +658,7 @@ class DeviceHandler(object):
         """
         Associates given template with device
 
-        :param req: The received HTTP request, as created by Flask.
+        :param token: The authorization token (JWT).
         :param device_id: The device which should be updated
         :param template_id: The template to be added to this device.
         :raises HTTPRequestError: If no authorization token was provided (no
@@ -683,7 +692,7 @@ class DeviceHandler(object):
         """
         Disassociates given template with device
 
-        :param req: The received HTTP request, as created by Flask.
+        :param token: The authorization token (JWT).
         :param device_id: The device which should be updated
         :param template_id: The template to be removed from this device.
         :raises HTTPRequestError: If no authorization token was provided (no
@@ -716,7 +725,9 @@ class DeviceHandler(object):
         Return a list of devices that have a particular template associated to
         it
 
-        :param req: The received HTTP request, as created by Flask.
+        :param token: The authorization token (JWT).
+        :param params: Parameters received from request (page_number, per_page)
+        as created by Flask
         :param template_id: The template to be considered
         :raises HTTPRequestError: If no authorization token was provided (no
         tenant was informed)

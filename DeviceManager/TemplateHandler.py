@@ -92,7 +92,10 @@ class TemplateHandler:
         Fetches known templates, potentially limited by a given value. Ordering
         might be user-configurable too.
 
-        :param req: The received HTTP request, as created by Flask.
+        :param params: Parameters received from request (page_number, per_page,
+        sort_by, attr, attr_type, label, attrs_format)
+        as created by Flask
+        :param token: The authorization token (JWT).
         :return A JSON containing pagination information and the template list
         :rtype JSON
         :raises HTTPRequestError: If no authorization token was provided (no
@@ -182,7 +185,9 @@ class TemplateHandler:
         """
         Creates a new template.
 
-        :param req: The received HTTP request, as created by Flask.
+        :param params: Parameters received from request (content_type, data)
+        as created by Flask
+        :param token: The authorization token (JWT).
         :return The created template.
         :raises HTTPRequestError: If no authorization token was provided (no
         tenant was informed)
@@ -217,6 +222,7 @@ class TemplateHandler:
     def get_template(params, template_id, token):
         """
         Fetches a single template.
+        
         :param req: The received HTTP request, as created by Flask.
         :param template_id: The requested template ID.
         :return A Template
@@ -237,7 +243,7 @@ class TemplateHandler:
         """
         Deletes all templates.
 
-        :param req: The received HTTP request, as created by Flask.
+        :param token: The authorization token (JWT).
         :raises HTTPRequestError: If this template could not be found in
         database.
         """
@@ -266,8 +272,8 @@ class TemplateHandler:
         """
         Deletes a single template.
 
-        :param req: The received HTTP request, as created by Flask.
         :param template_id: The template to be removed.
+        :param token: The authorization token (JWT).
         :return The removed template.
         :rtype JSON
         :raises HTTPRequestError: If no authorization token was provided (no
@@ -299,8 +305,10 @@ class TemplateHandler:
         """
         Updates a single template.
 
-        :param req: The received HTTP request, as created by Flask.
+        :param params: Parameters received from request (content_type, data)
+        as created by Flask
         :param template_id: The template to be updated.
+        :param token: The authorization token (JWT).
         :return The old version of this template (previous to the update).
         :rtype JSON
         :raises HTTPRequestError: If no authorization token was provided (no
@@ -317,7 +325,7 @@ class TemplateHandler:
         old = assert_template_exists(template_id)
         # parse updated version from payload
         updated, json_payload = parse_payload(content_type, data_request, template_schema)
-
+        
         LOGGER.debug(f" Current json payload: {json_payload}")
 
         old.label = updated['label']
@@ -400,8 +408,6 @@ class TemplateHandler:
             "meta": {"service": service}
         }
         kafka_handler_instance.kafkaNotifier.send_raw(event, service)
-
-        #KafkaNotifier().send_raw(event, service)
 
         results = {
             'updated': template_schema.dump(old),

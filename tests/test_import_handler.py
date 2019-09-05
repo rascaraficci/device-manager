@@ -6,6 +6,11 @@ from unittest.mock import Mock, MagicMock, patch, call
 from alchemy_mock.mocking import AlchemyMagicMock
 
 from DeviceManager.ImportHandler import ImportHandler
+from DeviceManager.DatabaseModels import Device, DeviceTemplate
+from DeviceManager.utils import HTTPRequestError
+
+from .token_test_generator import generate_token
+
 
 class TestImportHandler(unittest.TestCase):
 
@@ -58,3 +63,86 @@ class TestImportHandler(unittest.TestCase):
     def test_restore_db_config(self, db_mock):
         db_mock.session = AlchemyMagicMock()
         self.assertIsNone(ImportHandler.restore_db_config())
+
+    @patch('DeviceManager.ImportHandler.db')
+    def test_save_templates(self, db_mock):
+        db_mock.session = AlchemyMagicMock()
+
+        json_payload = {'templates': [{'import_id': 1, 'attrs': [
+            {'label': 'temperature', 'type': 'dynamic', 'value_type': 'float'}]}], 'label': 'test_device', 'id': 1,
+            'created': '2019-08-29T18:18:07.801602+00:00'}
+
+        json_data = {"label": "test_device", "id": 1,
+                     "templates": [{'id': 1, 'label': 'test_template'}]}
+
+        result = ImportHandler.save_templates(json_data, json_payload)
+        self.assertIsNotNone(result)
+        self.assertTrue(result)
+
+        json_data = {"label": "test_device", "id": 1,
+                     "templates": [{'id': 2, 'label': 'test_template'}]}
+        result = ImportHandler.save_templates(json_data, json_payload)
+        self.assertIsNotNone(result)
+        self.assertFalse(result[0].attrs)
+
+    @patch('DeviceManager.ImportHandler.db')
+    def test_set_templates_on_device(self, db_mock):
+        db_mock.session = AlchemyMagicMock()
+
+        json_payload = {'templates': [{'import_id': 1, 'attrs': [
+            {'label': 'temperature', 'type': 'dynamic', 'value_type': 'float'}]}], 'label': 'test_device', 'id': 1,
+            'created': '2019-08-29T18:18:07.801602+00:00'}
+
+        saved_templates = [DeviceTemplate(label='test_template', attrs=[])]
+
+        self.assertIsNone(ImportHandler.set_templates_on_device(
+            Mock(), json_payload, saved_templates))
+
+    @patch('DeviceManager.ImportHandler.db')
+    def test_save_devices(self, db_mock):
+        db_mock.session = AlchemyMagicMock()
+
+        json_payload = {"devices": [{"id": "68fc", "label": "test_device_0"}, {
+            "id": "94dc", "label": "test_device_1"}]}
+        json_data = {"devices": [{"id": "68fc", "label": "test_device_0"}, {
+            "id": "94dc", "label": "test_device_1"}]}
+
+        saved_templates = [DeviceTemplate(label='test_template', attrs=[])]
+
+        result = ImportHandler.save_devices(
+            json_data, json_payload, saved_templates)
+        self.assertIsNotNone(result)
+        self.assertTrue(result)
+
+    def test_notifies_creation_to_kafka(self):
+        with patch('DeviceManager.ImportHandler.serialize_full_device') as mock_serialize_device_wrapper:
+            mock_serialize_device_wrapper.return_value = {'templates': [369], 'label': 'test_device', 'id': 1,
+                                                          'created': '2019-08-29T18:18:07.801602+00:00'}
+
+            with patch.object(ImportHandler, "verifyInstance", return_value=MagicMock()):
+                ImportHandler().notifies_creation_to_kafka(
+                    [Device(id=1, label='test_device')], 'admin')
+
+    def test_verify_intance_kafka(self):
+        with patch('DeviceManager.ImportHandler.KafkaHandler') as mock_kafka_instance_wrapper:
+            mock_kafka_instance_wrapper.return_value = Mock()
+            self.assertIsNotNone(ImportHandler.verifyInstance(None))
+
+    @patch('DeviceManager.ImportHandler.db')
+    def test_import_data(self, db_mock):
+        db_mock.session = AlchemyMagicMock()
+        token = generate_token()
+
+        data = """{"templates": [{"id": 1, "label": "template1", "attrs": [{"label": "temperature", "type": "dynamic", "value_type": "float"}]}], 
+        "devices": [{"id": "68fc", "label": "test_device_0"},{"id": "94dc","label": "test_device_1"}]}"""
+
+        with patch.object(ImportHandler, "verifyInstance", return_value=MagicMock()):
+            result = ImportHandler.import_data(data, token, 'application/json')
+            self.assertIsNotNone(result)
+            self.assertEqual(result['message'], 'data imported!')
+
+        data = """{"templates": {"id": 1, "label": "template1", "attrs": [{"label": "temperature", "type": "dynamic", "value_type": "float"}]}, 
+        "devices": [{"id": "68fc", "label": "test_device_0"},{"id": "94dc","label": "test_device_1"}]}"""
+
+        with self.assertRaises(HTTPRequestError):
+            ImportHandler.import_data(data, token, 'application/json')

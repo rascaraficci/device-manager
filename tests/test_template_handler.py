@@ -2,10 +2,12 @@ import pytest
 import json
 import unittest
 from unittest.mock import Mock, MagicMock, patch, call
+from flask import Flask
 
 from DeviceManager.DatabaseModels import DeviceTemplate
-from DeviceManager.TemplateHandler import TemplateHandler, attr_format, paginate
+from DeviceManager.TemplateHandler import *
 from DeviceManager.utils import HTTPRequestError
+
 
 from .token_test_generator import generate_token
 
@@ -13,6 +15,8 @@ from alchemy_mock.mocking import AlchemyMagicMock, UnifiedAlchemyMagicMock
 
 
 class TestTemplateHandler(unittest.TestCase):
+
+    app = Flask(__name__)
 
     @patch('DeviceManager.TemplateHandler.db')
     def test_get_templates(self, db_mock):
@@ -80,11 +84,13 @@ class TestTemplateHandler(unittest.TestCase):
 
         with patch('DeviceManager.TemplateHandler.assert_template_exists') as mock_template_exist_wrapper:
             mock_template_exist_wrapper.return_value = template
-            result = TemplateHandler.get_template(params_query, 'template_id_test', token)
+            result = TemplateHandler.get_template(
+                params_query, 'template_id_test', token)
             self.assertIsNotNone(result)
 
             mock_template_exist_wrapper.return_value = None
-            result = TemplateHandler.get_template(params_query, 'template_id_test', token)
+            result = TemplateHandler.get_template(
+                params_query, 'template_id_test', token)
             self.assertFalse(result)
 
     @patch('DeviceManager.TemplateHandler.db')
@@ -96,7 +102,6 @@ class TestTemplateHandler(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertTrue(result)
         self.assertEqual(result['result'], 'ok')
-
 
     @patch('DeviceManager.TemplateHandler.db')
     def test_remove_template(self, db_mock):
@@ -144,19 +149,21 @@ class TestTemplateHandler(unittest.TestCase):
             mock_template_exist_wrapper.return_value = template
 
             with patch.object(TemplateHandler, "verifyInstance", return_value=MagicMock()):
-                result = TemplateHandler.update_template(params_query, 1, token)
+                result = TemplateHandler.update_template(
+                    params_query, 1, token)
                 self.assertIsNotNone(result)
                 self.assertTrue(result)
                 self.assertTrue(result['updated'])
                 self.assertEqual(result['result'], 'ok')
 
     def test_verify_intance_kafka(self):
-         with patch('DeviceManager.TemplateHandler.KafkaHandler') as mock_kafka_instance_wrapper:
-             mock_kafka_instance_wrapper.return_value = Mock()
-             self.assertIsNotNone(TemplateHandler.verifyInstance(None))
+        with patch('DeviceManager.TemplateHandler.KafkaHandler') as mock_kafka_instance_wrapper:
+            mock_kafka_instance_wrapper.return_value = Mock()
+            self.assertIsNotNone(TemplateHandler.verifyInstance(None))
 
     def test_attr_format(self):
-        params = {'data_attrs': [], 'config_attrs': [], 'id': 1, 'attrs': [], 'label': 'template1'}
+        params = {'data_attrs': [], 'config_attrs': [],
+                  'id': 1, 'attrs': [], 'label': 'template1'}
 
         result = attr_format('split', params)
         self.assertNotIn('attrs', result)
@@ -171,4 +178,47 @@ class TestTemplateHandler(unittest.TestCase):
 
         result = paginate(db_mock.session.query, 0, 10, True)
         self.assertIsNone(result)
-       
+
+    @patch('DeviceManager.TemplateHandler.db')
+    def test_endpoint_get_templates(self, db_mock):
+        db_mock.session = AlchemyMagicMock()
+        with self.app.test_request_context():
+            with patch("DeviceManager.TemplateHandler.retrieve_auth_token") as auth_mock:
+                auth_mock.return_value = generate_token()
+                result = flask_get_templates()
+                self.assertEqual(result.status, '200 OK')
+                self.assertIsNotNone(result)
+
+    @patch('DeviceManager.TemplateHandler.db')
+    def test_endpoint_delete_all_templates(self, db_mock):
+        db_mock.session = AlchemyMagicMock()
+        with self.app.test_request_context():
+            with patch("DeviceManager.TemplateHandler.retrieve_auth_token") as auth_mock:
+                auth_mock.return_value = generate_token()
+                result = flask_delete_all_templates()
+                self.assertIsNotNone(result)
+                self.assertEqual(result.status, '200 OK')
+                self.assertEqual(json.loads(result.response[0])['result'], 'ok')
+
+
+    @patch('DeviceManager.TemplateHandler.db')
+    @patch('flask_sqlalchemy._QueryProperty.__get__')
+    def test_endpoint_get_template(self, db_mock, query_property_getter_mock):
+        db_mock.session = AlchemyMagicMock()
+        with self.app.test_request_context():
+            with patch("DeviceManager.TemplateHandler.retrieve_auth_token") as auth_mock:
+                auth_mock.return_value = generate_token()
+                result = flask_get_template('test_template_id')
+                self.assertEqual(result.status, '200 OK')
+                self.assertIsNotNone(result.response)
+
+    @patch('DeviceManager.TemplateHandler.db')
+    @patch('flask_sqlalchemy._QueryProperty.__get__')
+    def test_endpoint_delete_template(self, db_mock, query_property_getter_mock):
+        db_mock.session = AlchemyMagicMock()
+        with self.app.test_request_context():
+            with patch("DeviceManager.TemplateHandler.retrieve_auth_token") as auth_mock:
+                auth_mock.return_value = generate_token()
+                result = flask_remove_template('test_template_id')
+                self.assertEqual(result.status, '200 OK')
+                self.assertEqual(json.loads(result.response[0])['result'], 'ok')

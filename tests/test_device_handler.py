@@ -2,8 +2,9 @@ import pytest
 import json
 import unittest
 from unittest.mock import Mock, MagicMock, patch, call
+from flask import Flask
 
-from DeviceManager.DeviceHandler import DeviceHandler
+from DeviceManager.DeviceHandler import *
 from DeviceManager.utils import HTTPRequestError
 from DeviceManager.DatabaseModels import Device, DeviceAttrsPsk, DeviceAttr
 from DeviceManager.DatabaseModels import assert_device_exists
@@ -15,6 +16,8 @@ from alchemy_mock.mocking import AlchemyMagicMock, UnifiedAlchemyMagicMock
 
 
 class TestDeviceHandler(unittest.TestCase):
+
+    app = Flask(__name__)
 
     @patch('flask_sqlalchemy._QueryProperty.__get__')
     def test_generate_deviceId(self, query_property_getter_mock):
@@ -332,3 +335,87 @@ class TestDeviceHandler(unittest.TestCase):
              mock_kafka_instance_wrapper.return_value = Mock()
              self.assertIsNotNone(DeviceHandler.verifyInstance(None))
              
+    @patch('DeviceManager.DeviceHandler.db')
+    @patch('flask_sqlalchemy._QueryProperty.__get__')
+    def test_endpoint_delete_all_devices(self, db_mock, query_property_getter_mock):
+        db_mock.session = AlchemyMagicMock()
+        with self.app.test_request_context():
+            with patch("DeviceManager.DeviceHandler.retrieve_auth_token") as auth_mock:
+                auth_mock.return_value = generate_token()
+                result = flask_delete_all_device()
+                self.assertFalse(json.loads(result.response[0])['removed_devices'])
+                self.assertEqual(json.loads(result.response[0])['result'], 'ok')
+                
+    @patch('DeviceManager.DeviceHandler.db')
+    @patch('flask_sqlalchemy._QueryProperty.__get__')
+    def test_endpoint_get_device(self, db_mock, query_property_getter_mock):
+        db_mock.session = AlchemyMagicMock()
+        with self.app.test_request_context():
+            with patch("DeviceManager.DeviceHandler.retrieve_auth_token") as auth_mock:
+                auth_mock.return_value = generate_token()
+                result = flask_get_device('test_device_id')
+                self.assertIsNotNone(result.response)
+
+    @patch('DeviceManager.DeviceHandler.db')
+    @patch('flask_sqlalchemy._QueryProperty.__get__')
+    def test_endpoint_remove_device(self, db_mock, query_property_getter_mock):
+        db_mock.session = AlchemyMagicMock()
+        with self.app.test_request_context():
+            with patch("DeviceManager.DeviceHandler.retrieve_auth_token") as auth_mock:
+                with patch.object(DeviceHandler, "verifyInstance", return_value=MagicMock()):
+                    auth_mock.return_value = generate_token()
+                    result = flask_remove_device('test_device_id')
+                    self.assertIsNotNone(result.response)
+                    self.assertEqual(json.loads(result.response[0])['result'], 'ok')
+
+    @patch('DeviceManager.DeviceHandler.db')
+    @patch('flask_sqlalchemy._QueryProperty.__get__')
+    def test_endpoint_flask_add_template_to_device(self, db_mock, query_property_getter_mock):
+        db_mock.session = AlchemyMagicMock()
+        with self.app.test_request_context():
+            with patch("DeviceManager.DeviceHandler.retrieve_auth_token") as auth_mock:
+                auth_mock.return_value = generate_token()
+                result = flask_add_template_to_device('test_device_id', 'test_template_id')
+                self.assertIsNotNone(result.response)
+                self.assertEqual(json.loads(result.response[0])['message'], 'device updated')
+
+    @patch('DeviceManager.DeviceHandler.db')
+    @patch('flask_sqlalchemy._QueryProperty.__get__')
+    def test_endpoint_flask_remove_template_from_device(self, db_mock, query_property_getter_mock):
+        db_mock.session = AlchemyMagicMock()
+        with self.app.test_request_context():
+            with patch("DeviceManager.DeviceHandler.retrieve_auth_token") as auth_mock:
+                auth_mock.return_value = generate_token()
+                result = flask_remove_template_from_device('test_device_id', 'test_template_id')
+                self.assertIsNotNone(result.response)
+                self.assertEqual(json.loads(result.response[0])['message'], 'device updated')
+
+    @patch('DeviceManager.DeviceHandler.db')
+    @patch('flask_sqlalchemy._QueryProperty.__get__')
+    def test_endpoint_generate_psk(self, db_mock, query_property_getter_mock):
+        db_mock.session = AlchemyMagicMock()
+        with self.app.test_request_context():
+            with patch("DeviceManager.DeviceHandler.retrieve_auth_token") as auth_mock:
+                result = flask_gen_psk('test_device_id')
+                self.assertEqual(json.loads(result.response[0])['message'], 'Missing key_length parameter')
+                self.assertEqual(json.loads(result.response[0])['status'], 400)
+                
+                with patch("DeviceManager.DeviceHandler.request") as req:
+                    req.args = {
+                        "key_length": "200"
+                    }
+
+                    auth_mock.return_value = generate_token()
+                    result = flask_gen_psk('test_device_id')
+                    self.assertEqual(json.loads(result.response[0])['message'], 'ok')
+                    self.assertEqual(json.loads(result.response[0])['status'], 204)
+
+    @patch('DeviceManager.DeviceHandler.db')
+    @patch('flask_sqlalchemy._QueryProperty.__get__')
+    def test_endpoint_internal_get_device(self, db_mock, query_property_getter_mock):
+        db_mock.session = AlchemyMagicMock()
+        with self.app.test_request_context():
+            with patch("DeviceManager.DeviceHandler.retrieve_auth_token") as auth_mock:
+                auth_mock.return_value = generate_token()
+                result = flask_internal_get_device('test_device_id')
+                self.assertIsNotNone(result.response)
