@@ -6,11 +6,21 @@ python:
 cache:
   directories:
   - node_modules
+before_install:
+  - pip install codecov
+env:
+  global:
+    - DEV_MNGR_CRYPTO_PASS="kamehameHA"
+    - DEV_MNGR_CRYPTO_IV=1234567890123456
+    - DEV_MNGR_CRYPTO_SALT="shuriken"
 script:
   - 'docker build -t dojot/device-manager .'
   - 'docker build -t dredd/test -f tests/Dockerfile .'
   - 'docker-compose -p test -f tests/docker-compose.yaml up -d kafka data-broker postgres device-manager postgres-users'
   - 'docker-compose -p test -f tests/docker-compose.yaml run --rm test-runner'
+  - sleep 10
+  - python3 -m pytest --cov-report=html  --cov=. tests/
 after_success:
+  - codecov
   - travis/publish.sh
   - travis/deploy-gh-pages.sh
