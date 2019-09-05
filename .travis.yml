@@ -6,8 +6,9 @@ python:
 cache:
   directories:
   - node_modules
-before_install:
+install:
   - pip install codecov
+  - pip install pytest pytest-cov
 env:
   global:
     - DEV_MNGR_CRYPTO_PASS="kamehameHA"
@@ -18,7 +19,6 @@ script:
   - 'docker build -t dredd/test -f tests/Dockerfile .'
   - 'docker-compose -p test -f tests/docker-compose.yaml up -d kafka data-broker postgres device-manager postgres-users'
   - 'docker-compose -p test -f tests/docker-compose.yaml run --rm test-runner'
-  - sleep 10
   - python3 -m pytest --cov-report=html  --cov=. tests/
 after_success:
   - codecov
