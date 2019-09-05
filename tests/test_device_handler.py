@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import Mock, MagicMock, patch, call
 from flask import Flask
 
-from DeviceManager.DeviceHandler import *
+from DeviceManager.DeviceHandler import DeviceHandler, flask_delete_all_device, flask_get_device, flask_remove_device, flask_add_template_to_device, flask_remove_template_from_device, flask_gen_psk,flask_internal_get_device
 from DeviceManager.utils import HTTPRequestError
 from DeviceManager.DatabaseModels import Device, DeviceAttrsPsk, DeviceAttr
 from DeviceManager.DatabaseModels import assert_device_exists

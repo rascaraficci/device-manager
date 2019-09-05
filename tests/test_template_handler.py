@@ -5,7 +5,7 @@ from unittest.mock import Mock, MagicMock, patch, call
 from flask import Flask
 
 from DeviceManager.DatabaseModels import DeviceTemplate
-from DeviceManager.TemplateHandler import *
+from DeviceManager.TemplateHandler import TemplateHandler, flask_get_templates, flask_delete_all_templates, flask_get_template, flask_remove_template, paginate, attr_format
 from DeviceManager.utils import HTTPRequestError
 
 
