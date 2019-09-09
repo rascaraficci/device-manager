@@ -7,8 +7,9 @@ cache:
   directories:
   - node_modules
 install:
-  - pip install codecov
-  - pip install --upgrade pytest pytest-cov
+  - pip install -e .[dev]
+  - pip install codecov pytest-cov
+  - pip install --upgrade pytest
 env:
   global:
     - DEV_MNGR_CRYPTO_PASS="kamehameHA"
