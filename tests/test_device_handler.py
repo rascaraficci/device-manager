@@ -417,5 +417,7 @@ class TestDeviceHandler(unittest.TestCase):
         with self.app.test_request_context():
             with patch("DeviceManager.DeviceHandler.retrieve_auth_token") as auth_mock:
                 auth_mock.return_value = generate_token()
-                result = flask_internal_get_device('test_device_id')
-                self.assertIsNotNone(result.response)
+                with patch.object(DeviceHandler, "get_device") as mock_getDevice:
+                    mock_getDevice.return_value = {'id': 140110840862312, 'created': '2019-08-29T18:18:07.801602+00:00', 'attrs': {}}
+                    result = flask_internal_get_device('test_device_id')
+                    self.assertIsNotNone(result.response)
