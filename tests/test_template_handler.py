@@ -185,9 +185,12 @@ class TestTemplateHandler(unittest.TestCase):
         with self.app.test_request_context():
             with patch("DeviceManager.TemplateHandler.retrieve_auth_token") as auth_mock:
                 auth_mock.return_value = generate_token()
-                result = flask_get_templates()
-                self.assertEqual(result.status, '200 OK')
-                self.assertIsNotNone(result)
+
+                with patch.object(TemplateHandler, "get_templates") as mock_templates:
+                    mock_templates.return_value = {'pagination': {}, 'templates': []}
+                    result = flask_get_templates()
+                    self.assertEqual(result.status, '200 OK')
+                    self.assertIsNotNone(result)
 
     @patch('DeviceManager.TemplateHandler.db')
     def test_endpoint_delete_all_templates(self, db_mock):
@@ -208,9 +211,12 @@ class TestTemplateHandler(unittest.TestCase):
         with self.app.test_request_context():
             with patch("DeviceManager.TemplateHandler.retrieve_auth_token") as auth_mock:
                 auth_mock.return_value = generate_token()
-                result = flask_get_template('test_template_id')
-                self.assertEqual(result.status, '200 OK')
-                self.assertIsNotNone(result.response)
+
+                with patch.object(TemplateHandler, "get_template") as mock_template:
+                    mock_template.return_value = {'label': 'test_template', 'id':1, 'created': '2019-08-29T18:18:07.801602+00:00', 'attrs': []}
+                    result = flask_get_template('test_template_id')
+                    self.assertEqual(result.status, '200 OK')
+                    self.assertIsNotNone(result.response)
 
     @patch('DeviceManager.TemplateHandler.db')
     @patch('flask_sqlalchemy._QueryProperty.__get__')
@@ -219,6 +225,9 @@ class TestTemplateHandler(unittest.TestCase):
         with self.app.test_request_context():
             with patch("DeviceManager.TemplateHandler.retrieve_auth_token") as auth_mock:
                 auth_mock.return_value = generate_token()
-                result = flask_remove_template('test_template_id')
-                self.assertEqual(result.status, '200 OK')
-                self.assertEqual(json.loads(result.response[0])['result'], 'ok')
+
+                with patch.object(TemplateHandler, "remove_template") as mock_remove_template:
+                    mock_remove_template.return_value = {'result': 'ok', 'removed': {'id': 1, 'label': 'test_template', 'created': '2019-08-29T18:18:07.801602+00:00'}}
+                    result = flask_remove_template('test_template_id')
+                    self.assertEqual(result.status, '200 OK')
+                    self.assertEqual(json.loads(result.response[0])['result'], 'ok')

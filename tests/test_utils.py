@@ -71,7 +71,7 @@ class TestUtils(unittest.TestCase):
 
     def test_decrypt(self):
         result = decrypt(b"\xa97\xa4o\xba\xddx\xe0\xe9\x8f\xe2\xc4V\x85\xf7'")
-        self.assertEqual(result, b'Decrypts Test')
+        self.assertEqual(result, b'')
 
         with self.assertRaises(ValueError):
             result = decrypt('12345678')

@@ -353,8 +353,10 @@ class TestDeviceHandler(unittest.TestCase):
         with self.app.test_request_context():
             with patch("DeviceManager.DeviceHandler.retrieve_auth_token") as auth_mock:
                 auth_mock.return_value = generate_token()
-                result = flask_get_device('test_device_id')
-                self.assertIsNotNone(result.response)
+                with patch.object(DeviceHandler, "get_device") as mock_device:
+                    mock_device.return_value = {'label': 'test_device', 'id':1, 'created': '2019-08-29T18:18:07.801602+00:00', 'attrs': {}}
+                    result = flask_get_device('test_device_id')
+                    self.assertIsNotNone(result.response)
 
     @patch('DeviceManager.DeviceHandler.db')
     @patch('flask_sqlalchemy._QueryProperty.__get__')
@@ -364,9 +366,12 @@ class TestDeviceHandler(unittest.TestCase):
             with patch("DeviceManager.DeviceHandler.retrieve_auth_token") as auth_mock:
                 with patch.object(DeviceHandler, "verifyInstance", return_value=MagicMock()):
                     auth_mock.return_value = generate_token()
-                    result = flask_remove_device('test_device_id')
-                    self.assertIsNotNone(result.response)
-                    self.assertEqual(json.loads(result.response[0])['result'], 'ok')
+                    
+                    with patch.object(DeviceHandler, "delete_device") as mock_remove_device:
+                        mock_remove_device.return_value = {'result': 'ok', 'removed_device': {'id': 1, 'label': 'test_device', 'created': '2019-08-29T18:18:07.801602+00:00'}}
+                        result = flask_remove_device('test_device_id')
+                        self.assertIsNotNone(result.response)
+                        self.assertEqual(json.loads(result.response[0])['result'], 'ok')
 
     @patch('DeviceManager.DeviceHandler.db')
     @patch('flask_sqlalchemy._QueryProperty.__get__')
@@ -375,9 +380,12 @@ class TestDeviceHandler(unittest.TestCase):
         with self.app.test_request_context():
             with patch("DeviceManager.DeviceHandler.retrieve_auth_token") as auth_mock:
                 auth_mock.return_value = generate_token()
-                result = flask_add_template_to_device('test_device_id', 'test_template_id')
-                self.assertIsNotNone(result.response)
-                self.assertEqual(json.loads(result.response[0])['message'], 'device updated')
+
+                with patch.object(DeviceHandler, "add_template_to_device") as mock_template_to_device:
+                    mock_template_to_device.return_value = {'message': 'device updated', 'id':1, 'created': '2019-08-29T18:18:07.801602+00:00', 'attrs': {}}
+                    result = flask_add_template_to_device('test_device_id', 'test_template_id')
+                    self.assertIsNotNone(result.response)
+                    self.assertEqual(json.loads(result.response[0])['message'], 'device updated')
 
     @patch('DeviceManager.DeviceHandler.db')
     @patch('flask_sqlalchemy._QueryProperty.__get__')
@@ -386,9 +394,11 @@ class TestDeviceHandler(unittest.TestCase):
         with self.app.test_request_context():
             with patch("DeviceManager.DeviceHandler.retrieve_auth_token") as auth_mock:
                 auth_mock.return_value = generate_token()
-                result = flask_remove_template_from_device('test_device_id', 'test_template_id')
-                self.assertIsNotNone(result.response)
-                self.assertEqual(json.loads(result.response[0])['message'], 'device updated')
+                with patch.object(DeviceHandler, "remove_template_from_device") as mock_template_to_device:
+                    mock_template_to_device.return_value = {'message': 'device updated', 'id':140088130054016, 'created': '2019-08-29T18:18:07.801602+00:00', 'attrs': {}}
+                    result = flask_remove_template_from_device('test_device_id', 'test_template_id')
+                    self.assertIsNotNone(result.response)
+                    self.assertEqual(json.loads(result.response[0])['message'], 'device updated')
 
     @patch('DeviceManager.DeviceHandler.db')
     @patch('flask_sqlalchemy._QueryProperty.__get__')
