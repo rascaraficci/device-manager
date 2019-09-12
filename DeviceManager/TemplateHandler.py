@@ -21,7 +21,7 @@ from DeviceManager.utils import format_response, HTTPRequestError, get_paginatio
 from DeviceManager.Logger import Log
 from datetime import datetime
 
-from DeviceManager.BackendHandler import KafkaHandler
+from DeviceManager.BackendHandler import KafkaHandler, KafkaInstanceHandler
 from DeviceManager.DeviceHandler import serialize_full_device
 
 import time
@@ -63,28 +63,12 @@ def paginate(query, page, per_page=20, error_out=False):
 
     return Pagination(query, page, per_page, total, items)
 
-class TemplateHandler:
+class TemplateHandler():
 
-    kafka_handler = None
+    kafka = KafkaInstanceHandler()
 
     def __init__(self):
         pass
-
-    @classmethod
-    def verifyInstance(cls, kafka):
-        """
-        Instantiates a connection with Kafka, was created because 
-        previously the connection was being created in KafkaNotifier
-        once time every import.
-        
-        :param kafka: An instance of KafkaHandler.
-        :return An instance of KafkaHandler used to notify
-        """
-
-        if kafka is None:
-            cls.kafka_handler = KafkaHandler()
-
-        return cls.kafka_handler
 
     @staticmethod
     def get_templates(params, token):
@@ -393,7 +377,8 @@ class TemplateHandler:
                              .all()
 
         affected_devices = []
-        kafka_handler_instance = cls.verifyInstance(cls.kafka_handler)
+        
+        kafka_handler_instance = cls.kafka.getInstance(cls.kafka.kafkaNotifier)
         for device in affected:
             orm_device = assert_device_exists(device.device_id)
             kafka_handler_instance.update(serialize_full_device(orm_device, service), meta={"service": service})

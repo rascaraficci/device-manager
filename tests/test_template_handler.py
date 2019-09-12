@@ -7,6 +7,7 @@ from flask import Flask
 from DeviceManager.DatabaseModels import DeviceTemplate
 from DeviceManager.TemplateHandler import TemplateHandler, flask_get_templates, flask_delete_all_templates, flask_get_template, flask_remove_template, paginate, attr_format
 from DeviceManager.utils import HTTPRequestError
+from DeviceManager.BackendHandler import KafkaInstanceHandler
 
 
 from .token_test_generator import generate_token
@@ -148,18 +149,13 @@ class TestTemplateHandler(unittest.TestCase):
         with patch('DeviceManager.TemplateHandler.assert_template_exists') as mock_template_exist_wrapper:
             mock_template_exist_wrapper.return_value = template
 
-            with patch.object(TemplateHandler, "verifyInstance", return_value=MagicMock()):
+            with patch.object(KafkaInstanceHandler, "getInstance", return_value=MagicMock()):
                 result = TemplateHandler.update_template(
                     params_query, 1, token)
                 self.assertIsNotNone(result)
                 self.assertTrue(result)
                 self.assertTrue(result['updated'])
                 self.assertEqual(result['result'], 'ok')
-
-    def test_verify_intance_kafka(self):
-        with patch('DeviceManager.TemplateHandler.KafkaHandler') as mock_kafka_instance_wrapper:
-            mock_kafka_instance_wrapper.return_value = Mock()
-            self.assertIsNotNone(TemplateHandler.verifyInstance(None))
 
     def test_attr_format(self):
         params = {'data_attrs': [], 'config_attrs': [],

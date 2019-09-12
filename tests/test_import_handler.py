@@ -8,6 +8,7 @@ from alchemy_mock.mocking import AlchemyMagicMock
 from DeviceManager.ImportHandler import ImportHandler
 from DeviceManager.DatabaseModels import Device, DeviceTemplate
 from DeviceManager.utils import HTTPRequestError
+from DeviceManager.BackendHandler import KafkaInstanceHandler
 
 from .token_test_generator import generate_token
 
@@ -46,7 +47,7 @@ class TestImportHandler(unittest.TestCase):
             mock_serialize_device_wrapper.return_value = {'templates': [369], 'label': 'test_device', 'id': 1,
                                                           'created': '2019-08-29T18:18:07.801602+00:00'}
 
-            with patch.object(ImportHandler, "verifyInstance", return_value=MagicMock()):
+            with patch.object(KafkaInstanceHandler, "getInstance", return_value=MagicMock()):
                 ImportHandler().notifies_deletion_to_kafka('test_device', 'admin')
 
     @patch('DeviceManager.ImportHandler.db')
@@ -119,14 +120,9 @@ class TestImportHandler(unittest.TestCase):
             mock_serialize_device_wrapper.return_value = {'templates': [369], 'label': 'test_device', 'id': 1,
                                                           'created': '2019-08-29T18:18:07.801602+00:00'}
 
-            with patch.object(ImportHandler, "verifyInstance", return_value=MagicMock()):
+            with patch.object(KafkaInstanceHandler, "getInstance", return_value=MagicMock()):
                 ImportHandler().notifies_creation_to_kafka(
                     [Device(id=1, label='test_device')], 'admin')
-
-    def test_verify_intance_kafka(self):
-        with patch('DeviceManager.ImportHandler.KafkaHandler') as mock_kafka_instance_wrapper:
-            mock_kafka_instance_wrapper.return_value = Mock()
-            self.assertIsNotNone(ImportHandler.verifyInstance(None))
 
     @patch('DeviceManager.ImportHandler.db')
     def test_import_data(self, db_mock):
@@ -136,7 +132,7 @@ class TestImportHandler(unittest.TestCase):
         data = """{"templates": [{"id": 1, "label": "template1", "attrs": [{"label": "temperature", "type": "dynamic", "value_type": "float"}]}], 
         "devices": [{"id": "68fc", "label": "test_device_0"},{"id": "94dc","label": "test_device_1"}]}"""
 
-        with patch.object(ImportHandler, "verifyInstance", return_value=MagicMock()):
+        with patch.object(KafkaInstanceHandler, "getInstance", return_value=MagicMock()):
             result = ImportHandler.import_data(data, token, 'application/json')
             self.assertIsNotNone(result)
             self.assertEqual(result['message'], 'data imported!')

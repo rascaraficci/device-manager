@@ -10,7 +10,7 @@ from DeviceManager.app import app
 from DeviceManager.Logger import Log
 from DeviceManager.utils import format_response, HTTPRequestError, retrieve_auth_token
 from DeviceManager.conf import CONFIG
-from DeviceManager.BackendHandler import KafkaHandler
+from DeviceManager.BackendHandler import KafkaHandler, KafkaInstanceHandler
 
 from DeviceManager.DatabaseHandler import db
 from DeviceManager.DatabaseModels import DeviceTemplate, Device, DeviceAttr, DeviceOverride
@@ -26,26 +26,10 @@ LOGGER = Log().color_log()
 
 class ImportHandler:
 
-    kafka_handler = None
+    kafka = KafkaInstanceHandler()
 
     def __init__(self):
         pass
-
-    @classmethod
-    def verifyInstance(cls, kafka):
-        """
-        Instantiates a connection with Kafka, was created because 
-        previously the connection was being created in KafkaNotifier
-        once time every import.
-        
-        :param kafka: An instance of KafkaHandler.
-        :return An instance of KafkaHandler used to notify
-        """
-
-        if kafka is None:
-            cls.kafka_handler = KafkaHandler()
-
-        return cls.kafka_handler
 
     def drop_sequences():
         db.session.execute("DROP SEQUENCE template_id")
@@ -79,7 +63,7 @@ class ImportHandler:
 
     def notifies_deletion_to_kafka(cls, device, tenant):
         data = serialize_full_device(device, tenant)
-        kafka_handler_instance = cls.verifyInstance(cls.kafka_handler)
+        kafka_handler_instance = cls.kafka.getInstance(cls.kafka.kafkaNotifier)
         kafka_handler_instance.remove(data, meta={"service": tenant})
 
     def delete_records(tenant):
@@ -151,7 +135,7 @@ class ImportHandler:
 
 
     def notifies_creation_to_kafka(cls, saved_devices, tenant):
-        kafka_handler_instance = cls.verifyInstance(cls.kafka_handler)
+        kafka_handler_instance = cls.kafka.getInstance(cls.kafka.kafkaNotifier)
         for orm_device in saved_devices:
             full_device = serialize_full_device(orm_device, tenant)
             kafka_handler_instance.create(full_device, meta={"service": tenant})

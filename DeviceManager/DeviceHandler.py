@@ -16,7 +16,7 @@ from DeviceManager.utils import *
 from DeviceManager.utils import create_id, get_pagination, format_response
 from DeviceManager.utils import HTTPRequestError
 from DeviceManager.conf import CONFIG
-from DeviceManager.BackendHandler import KafkaHandler
+from DeviceManager.BackendHandler import KafkaHandler, KafkaInstanceHandler
 
 from DeviceManager.DatabaseHandler import db
 from DeviceManager.DatabaseModels import assert_device_exists, assert_template_exists
@@ -183,26 +183,10 @@ def find_attribute(orm_device, attr_name, attr_type):
 
 class DeviceHandler(object):
 
-    kafka_handler = None
+    kafka = KafkaInstanceHandler()
 
     def __init__(self):
         pass
-
-    @classmethod
-    def verifyInstance(cls, kafka):
-        """
-        Instantiates a connection with Kafka, was created because 
-        previously the connection was being created in KafkaNotifier
-        once time every import.
-        
-        :param kafka: An instance of KafkaHandler.
-        :return An instance of KafkaHandler used to notify
-        """
-
-        if kafka is None:
-            cls.kafka_handler = KafkaHandler()
-
-        return cls.kafka_handler
 
     @staticmethod
     def indexed_label(count, c_length, base, index):
@@ -474,7 +458,7 @@ class DeviceHandler(object):
             full_device = serialize_full_device(orm_device, tenant)
 
             # Updating handlers
-            kafka_handler_instance = cls.verifyInstance(cls.kafka_handler)
+            kafka_handler_instance = cls.kafka.getInstance(cls.kafka.kafkaNotifier)
             kafka_handler_instance.create(full_device, meta={"service": tenant})
 
         if verbose:
@@ -508,7 +492,7 @@ class DeviceHandler(object):
         orm_device = assert_device_exists(device_id)
         data = serialize_full_device(orm_device, tenant)
 
-        kafka_handler_instance = cls.verifyInstance(cls.kafka_handler)
+        kafka_handler_instance = cls.kafka.getInstance(cls.kafka.kafkaNotifier)
         kafka_handler_instance.remove(data, meta={"service": tenant})
 
         db.session.delete(orm_device)
@@ -590,7 +574,7 @@ class DeviceHandler(object):
 
         full_device = serialize_full_device(updated_orm_device, tenant)
 
-        kafka_handler_instance = cls.verifyInstance(cls.kafka_handler)
+        kafka_handler_instance = cls.kafka.getInstance(cls.kafka.kafkaNotifier)
         kafka_handler_instance.update(full_device, meta={"service": tenant})
 
         result = {
@@ -639,7 +623,7 @@ class DeviceHandler(object):
 
         if not invalid_attrs:
             LOGGER.debug(f' Sending configuration message through Kafka.')
-            kafka_handler_instance = cls.verifyInstance(cls.kafka_handler)
+            kafka_handler_instance = cls.kafka.getInstance(cls.kafka.kafkaNotifier)
             kafka_handler_instance.configure(payload, meta)
             LOGGER.debug(f' Configuration sent.')
             result = {f' status': 'configuration sent to device'}
@@ -846,7 +830,7 @@ class DeviceHandler(object):
         db.session.commit()
 
         # send an update message on kafka
-        kafka_handler_instance = cls.verifyInstance(cls.kafka_handler)
+        kafka_handler_instance = cls.kafka.getInstance(cls.kafka.kafkaNotifier)
         kafka_handler_instance.update(device, meta={"service": tenant})
 
         return result
@@ -934,7 +918,7 @@ class DeviceHandler(object):
         dest_attr_ref['static_value'] = src_attr_ref['static_value']
 
         # send an update message on kafka
-        kafka_handler_instance = cls.verifyInstance(cls.kafka_handler)
+        kafka_handler_instance = cls.kafka.getInstance(cls.kafka.kafkaNotifier)
         kafka_handler_instance.update(dest_device, meta={"service": tenant})
 
 

@@ -8,6 +8,7 @@ from DeviceManager.DeviceHandler import DeviceHandler, flask_delete_all_device, 
 from DeviceManager.utils import HTTPRequestError
 from DeviceManager.DatabaseModels import Device, DeviceAttrsPsk, DeviceAttr
 from DeviceManager.DatabaseModels import assert_device_exists
+from DeviceManager.BackendHandler import KafkaInstanceHandler
 import DeviceManager.DatabaseModels
 
 from .token_test_generator import generate_token
@@ -97,7 +98,7 @@ class TestDeviceHandler(unittest.TestCase):
         db_mock.session = AlchemyMagicMock()
         token = generate_token()
 
-        with patch.object(DeviceHandler, "verifyInstance", return_value=MagicMock()) as KafkaInstanceMock:
+        with patch.object(KafkaInstanceHandler, "getInstance", return_value=MagicMock()) as KafkaInstanceMock:
             result = DeviceHandler.delete_device('device_id', token)
             KafkaInstanceMock.assert_called_once()
             self.assertIsNotNone(result)
@@ -178,7 +179,7 @@ class TestDeviceHandler(unittest.TestCase):
                                                                   {'label': 'shared_key', 'template_id': '369', 'id': 1504, 'type': 'static', 'created': '2019-08-29T18:18:07.778178+00:00',
                                                                    'value_type': 'psk'}]}}
 
-                with patch.object(DeviceHandler, "verifyInstance", return_value=MagicMock()):
+                with patch.object(KafkaInstanceHandler, "getInstance", return_value=MagicMock()):
                     query_property_getter_mock.return_value.session.return_value.query.return_value.filter_by.first.return_value = None
                     result = DeviceHandler.gen_psk(token, 'device_id', 1024)
                     self.assertIsNotNone(result)
@@ -228,7 +229,7 @@ class TestDeviceHandler(unittest.TestCase):
                                                                    'type': 'static', 'template_id': '391', 'id': 1591,
                                                                    'created': '2019-08-29T18:24:43.490221+00:00', 'is_static_overridden': False}]}}
 
-                with patch.object(DeviceHandler, "verifyInstance", return_value=MagicMock()):
+                with patch.object(KafkaInstanceHandler, "getInstance", return_value=MagicMock()):
                     query_property_getter_mock.return_value.session.return_value.query.return_value.filter_by.first.return_value = None
 
                     with self.assertRaises(HTTPRequestError):
@@ -250,7 +251,7 @@ class TestDeviceHandler(unittest.TestCase):
         with patch('DeviceManager.DeviceHandler.DeviceHandler.generate_device_id') as mock_device_id:
             mock_device_id.return_value = 'test_device_id'
 
-            with patch.object(DeviceHandler, "verifyInstance", return_value=MagicMock()):
+            with patch.object(KafkaInstanceHandler, "getInstance", return_value=MagicMock()):
 
                 params = {'count': '1', 'verbose': 'false',
                           'content_type': 'application/json', 'data': data}
@@ -291,7 +292,7 @@ class TestDeviceHandler(unittest.TestCase):
 
         data = '{"label": "test_updated_device", "templates": [4865]}'
 
-        with patch.object(DeviceHandler, "verifyInstance", return_value=MagicMock()):
+        with patch.object(KafkaInstanceHandler, "getInstance", return_value=MagicMock()):
             params = {'content_type': 'application/json', 'data': data}
             result = DeviceHandler.update_device(
                 params, 'test_device_id', token)
@@ -319,7 +320,7 @@ class TestDeviceHandler(unittest.TestCase):
                 data = '{"topic": "/admin/efac/config", "attrs": {"temperature": 10.6}}'
                 params = {'data': data}
 
-                with patch.object(DeviceHandler, "verifyInstance", return_value=MagicMock()):
+                with patch.object(KafkaInstanceHandler, "getInstance", return_value=MagicMock()):
                     result = DeviceHandler.configure_device(params, 'test_device_id', token)
                     self.assertIsNotNone(result)
                     self.assertEqual(result[' status'], 'configuration sent to device')
@@ -330,11 +331,6 @@ class TestDeviceHandler(unittest.TestCase):
                 with self.assertRaises(HTTPRequestError):
                     DeviceHandler.configure_device(params, 'test_device_id', token)
     
-    def test_verify_intance_kafka(self):
-         with patch('DeviceManager.DeviceHandler.KafkaHandler') as mock_kafka_instance_wrapper:
-             mock_kafka_instance_wrapper.return_value = Mock()
-             self.assertIsNotNone(DeviceHandler.verifyInstance(None))
-             
     @patch('DeviceManager.DeviceHandler.db')
     @patch('flask_sqlalchemy._QueryProperty.__get__')
     def test_endpoint_delete_all_devices(self, db_mock, query_property_getter_mock):
@@ -364,7 +360,7 @@ class TestDeviceHandler(unittest.TestCase):
         db_mock.session = AlchemyMagicMock()
         with self.app.test_request_context():
             with patch("DeviceManager.DeviceHandler.retrieve_auth_token") as auth_mock:
-                with patch.object(DeviceHandler, "verifyInstance", return_value=MagicMock()):
+                with patch.object(KafkaInstanceHandler, "getInstance", return_value=MagicMock()):
                     auth_mock.return_value = generate_token()
                     
                     with patch.object(DeviceHandler, "delete_device") as mock_remove_device:

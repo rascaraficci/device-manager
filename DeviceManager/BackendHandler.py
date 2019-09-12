@@ -53,6 +53,7 @@ class BackendHandler(object):
         """
         raise NotImplementedError('Abstract method called')
 
+
 class KafkaHandler:
 
     def __init__(self):
@@ -88,3 +89,25 @@ class KafkaHandler:
         """
         LOGGER.info(f" Publishing configure event to Kafka")
         self.kafkaNotifier.send_notification(DeviceEvent.CONFIGURE, device, meta)
+
+class KafkaInstanceHandler:
+    
+    kafkaNotifier = None
+
+    def __init__(self):
+        pass
+
+    def getInstance(self, kafka_instance):
+        """
+        Instantiates a connection with Kafka, was created because 
+        previously the connection was being created in KafkaNotifier
+        once time every import.
+        
+        :param kafka_instance: An instance of KafkaHandler.
+        :return An instance of KafkaHandler used to notify
+        """
+        
+        if kafka_instance is None:
+            self.kafkaNotifier = KafkaHandler()
+
+        return self.kafkaNotifier
