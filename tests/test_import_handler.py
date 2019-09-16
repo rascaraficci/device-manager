@@ -8,7 +8,7 @@ from alchemy_mock.mocking import AlchemyMagicMock
 from DeviceManager.ImportHandler import ImportHandler
 from DeviceManager.DatabaseModels import Device, DeviceTemplate
 from DeviceManager.utils import HTTPRequestError
-from DeviceManager.BackendHandler import KafkaInstanceHandler
+from DeviceManager.BackendHandler import KafkaInstanceHandler, KafkaHandler
 
 from .token_test_generator import generate_token
 
@@ -42,13 +42,16 @@ class TestImportHandler(unittest.TestCase):
         db_mock.session = AlchemyMagicMock()
         self.assertIsNone(ImportHandler.restore_sequences())
 
-    def test_notifies_deletion_to_kafka(self):
+    @patch("DeviceManager.BackendHandler.KafkaNotifier")
+    @patch("DeviceManager.KafkaNotifier.KafkaProducer.flush")
+    def test_notifies_deletion_to_kafka(self, kafka_instance_mock, kafka_flush):
         with patch('DeviceManager.ImportHandler.serialize_full_device') as mock_serialize_device_wrapper:
             mock_serialize_device_wrapper.return_value = {'templates': [369], 'label': 'test_device', 'id': 1,
                                                           'created': '2019-08-29T18:18:07.801602+00:00'}
 
-            with patch.object(KafkaInstanceHandler, "getInstance", return_value=MagicMock()):
+            with patch.object(KafkaInstanceHandler, "getInstance", return_value=KafkaHandler()):
                 ImportHandler().notifies_deletion_to_kafka('test_device', 'admin')
+                self.assertTrue(kafka_flush.called)
 
     @patch('DeviceManager.ImportHandler.db')
     def test_delete_records(self, db_mock):
@@ -115,14 +118,17 @@ class TestImportHandler(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertTrue(result)
 
-    def test_notifies_creation_to_kafka(self):
+    @patch("DeviceManager.BackendHandler.KafkaNotifier")
+    @patch("DeviceManager.KafkaNotifier.KafkaProducer.flush")
+    def test_notifies_creation_to_kafka(self, kafka_instance_mock, kafka_flush):
         with patch('DeviceManager.ImportHandler.serialize_full_device') as mock_serialize_device_wrapper:
             mock_serialize_device_wrapper.return_value = {'templates': [369], 'label': 'test_device', 'id': 1,
                                                           'created': '2019-08-29T18:18:07.801602+00:00'}
 
-            with patch.object(KafkaInstanceHandler, "getInstance", return_value=MagicMock()):
+            with patch.object(KafkaInstanceHandler, "getInstance", return_value=KafkaHandler()):
                 ImportHandler().notifies_creation_to_kafka(
                     [Device(id=1, label='test_device')], 'admin')
+            self.assertTrue(kafka_flush.called)
 
     @patch('DeviceManager.ImportHandler.db')
     def test_import_data(self, db_mock):
