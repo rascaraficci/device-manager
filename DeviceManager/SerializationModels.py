@@ -134,12 +134,11 @@ class LogSchema(Schema):
 
 log_schema = LogSchema()
 
-def parse_payload(request, schema):
+def parse_payload(content_type, data_request, schema):
     try:
-        content_type = request.headers.get('Content-Type')
         if (content_type is None) or (content_type != "application/json"):
             raise HTTPRequestError(400, "Payload must be valid JSON, and Content-Type set accordingly")
-        json_payload = json.loads(request.data)
+        json_payload = json.loads(data_request)
         data = schema.load(json_payload)
     except ValueError:
         raise HTTPRequestError(400, "Payload must be valid JSON, and Content-Type set accordingly")

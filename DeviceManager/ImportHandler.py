@@ -8,9 +8,9 @@ from sqlalchemy.sql import func
 
 from DeviceManager.app import app
 from DeviceManager.Logger import Log
-from DeviceManager.utils import format_response, HTTPRequestError
+from DeviceManager.utils import format_response, HTTPRequestError, retrieve_auth_token
 from DeviceManager.conf import CONFIG
-from DeviceManager.BackendHandler import KafkaHandler
+from DeviceManager.BackendHandler import KafkaHandler, KafkaInstanceHandler
 
 from DeviceManager.DatabaseHandler import db
 from DeviceManager.DatabaseModels import DeviceTemplate, Device, DeviceAttr, DeviceOverride
@@ -26,9 +26,10 @@ LOGGER = Log().color_log()
 
 class ImportHandler:
 
+    kafka = KafkaInstanceHandler()
+
     def __init__(self):
         pass
-
 
     def drop_sequences():
         db.session.execute("DROP SEQUENCE template_id")
@@ -60,10 +61,10 @@ class ImportHandler:
         ImportHandler.restore_attr_sequence()
         LOGGER.info(f" Restored sequences") 
 
-    def notifies_deletion_to_kafka(device, tenant):
+    def notifies_deletion_to_kafka(cls, device, tenant):
         data = serialize_full_device(device, tenant)
-        kafka_handler = KafkaHandler()
-        kafka_handler.remove(data, meta={"service": tenant})
+        kafka_handler_instance = cls.kafka.getInstance(cls.kafka.kafkaNotifier)
+        kafka_handler_instance.remove(data, meta={"service": tenant})
 
     def delete_records(tenant):
         overrides = db.session.query(DeviceOverride)
@@ -133,19 +134,21 @@ class ImportHandler:
         return saved_devices    
 
 
-    def notifies_creation_to_kafka(saved_devices, tenant):
-        kafka_handler = KafkaHandler()
+    def notifies_creation_to_kafka(cls, saved_devices, tenant):
+        kafka_handler_instance = cls.kafka.getInstance(cls.kafka.kafkaNotifier)
         for orm_device in saved_devices:
             full_device = serialize_full_device(orm_device, tenant)
-            kafka_handler.create(full_device, meta={"service": tenant})
+            kafka_handler_instance.create(full_device, meta={"service": tenant})
 
 
     @staticmethod
-    def import_data(req):
+    def import_data(data, token, content_type):
         """
         Import data.
 
-        :param req: The received HTTP request, as created by Flask.
+        :param data: The received data HTTP request, as created by Flask.
+        :param token: The authorization token (JWT).
+        :param content_type: The content_type of request (application/json)
         :return The status message.
         :raises HTTPRequestError: If no authorization token was provided (no
         tenant was informed)
@@ -158,17 +161,17 @@ class ImportHandler:
         saved_devices = []
 
         try:
-            tenant = init_tenant_context(req, db)
+            tenant = init_tenant_context(token, db)
 
             ImportHandler.clear_db_config(tenant)
             
-            original_req_data = copy.copy(req.data)
+            original_req_data = copy.copy(data)
 
             original_payload = json.loads(original_req_data)
 
-            req.data = ImportHandler.replace_ids_by_import_ids(req.data)
+            data = ImportHandler.replace_ids_by_import_ids(data)
 
-            json_data, json_payload = parse_payload(req, import_schema)
+            json_data, json_payload = parse_payload(content_type, data, import_schema)
 
             saved_templates = ImportHandler.save_templates(json_data, json_payload)
 
@@ -176,7 +179,7 @@ class ImportHandler:
 
             ImportHandler.restore_db_config()
 
-            ImportHandler.notifies_creation_to_kafka(saved_devices, tenant)
+            ImportHandler().notifies_creation_to_kafka(saved_devices, tenant)
 
             db.session.commit()
 
@@ -202,7 +205,14 @@ def flask_import_data():
     try:
         LOGGER.info(f" Starting importing data...")
 
-        result = ImportHandler.import_data(request)
+        # retrieve the authorization token
+        token = retrieve_auth_token(request)
+
+        # retrieve header and body of request
+        content_type = request.headers.get('Content-Type')
+        data = request.data
+
+        result = ImportHandler.import_data(data, token, content_type)
 
         LOGGER.info(f" Imported data!")
 

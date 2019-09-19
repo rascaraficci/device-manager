@@ -28,6 +28,8 @@ class LoggerHandler:
         """
 
         LOG.update_log_level(level.upper())
+        
+        return True
     
     @staticmethod
     def get_log_level():
@@ -48,7 +50,10 @@ class LoggerHandler:
 @logger.route('/log', methods=['PUT'])
 def flask_update_log_level():
     try:
-        _, json_payload = parse_payload(request, log_schema)
+        content_type = request.headers.get('Content-Type')
+        data_request = request.data
+
+        _, json_payload = parse_payload(content_type, data_request, log_schema)
         LoggerHandler.update_log_level(json_payload['level'])
 
         return make_response('', 200)
