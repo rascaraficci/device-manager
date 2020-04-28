@@ -56,15 +56,10 @@ services:
     depends_on:
       - postgres
       - kafka
-      - device-manager-redis
     environment:
       - DEV_MNGR_CRYPTO_PASS="kamehameHA"
       - DEV_MNGR_CRYPTO_IV=1234567890123456
       - DEV_MNGR_CRYPTO_SALT="shuriken"        
-
-  device-manager-redis:
-    image: redis
-    restart: always
 
   test-runner:
     environment:

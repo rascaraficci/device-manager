@@ -16,7 +16,7 @@ from DeviceManager.utils import *
 from DeviceManager.utils import create_id, get_pagination, format_response
 from DeviceManager.utils import HTTPRequestError
 from DeviceManager.conf import CONFIG
-from DeviceManager.BackendHandler import OrionHandler, KafkaHandler, PersistenceHandler
+from DeviceManager.BackendHandler import KafkaHandler, KafkaInstanceHandler
 
 from DeviceManager.DatabaseHandler import db
 from DeviceManager.DatabaseModels import assert_device_exists, assert_template_exists
@@ -26,7 +26,7 @@ from DeviceManager.DatabaseModels import DeviceOverride
 from DeviceManager.SerializationModels import device_list_schema, device_schema, ValidationError
 from DeviceManager.SerializationModels import attr_list_schema
 from DeviceManager.SerializationModels import parse_payload, load_attrs, validate_repeated_attrs
-from DeviceManager.TenancyManager import init_tenant_context, init_tenant_context2
+from DeviceManager.TenancyManager import init_tenant_context
 from DeviceManager.app import app
 from DeviceManager.Logger import Log
 
@@ -84,7 +84,7 @@ def serialize_full_device(orm_device, tenant, sensitive_data=False):
                     if attr['id'] == psk_data.attr_id:
                         dec = decrypt(psk_data.psk)
                         attr['static_value'] = dec.decode('ascii')
-
+    
     return data
 
 def find_template(template_list, id):
@@ -183,6 +183,8 @@ def find_attribute(orm_device, attr_name, attr_type):
 
 class DeviceHandler(object):
 
+    kafka = KafkaInstanceHandler()
+
     def __init__(self):
         pass
 
@@ -220,15 +222,17 @@ class DeviceHandler(object):
         raise HTTPRequestError(500, "Failed to generate unique device_id")
 
     @staticmethod
-    def list_ids(req):
+    def list_ids(token):
         """
         Fetches the list of known device ids.
+        :param token: The authorization token (JWT).
+        :return A JSON containing a list of devices ids
         :rtype JSON
         :raises HTTPRequestError: If no authorization token was provided (no
         tenant was informed)
         """
 
-        init_tenant_context(req, db)
+        init_tenant_context(token, db)
 
         data = []
         LOGGER.debug(f" Fetching list with known devices")
@@ -237,12 +241,14 @@ class DeviceHandler(object):
         return data
 
     @staticmethod
-    def get_devices(req, sensitive_data=False):
+    def get_devices(token, params, sensitive_data=False):
         """
         Fetches known devices, potentially limited by a given value. Ordering
         might be user-configurable too.
 
-        :param req: The received HTTP request, as created by Flask.
+        :param token: The authorization token (JWT).
+        :param params: Parameters received from request (page_number, per_page, 
+        sortBy, attr, attr_type, label, template, idsOnly)
         :param sensitive_data: Informs if sensitive data like keys should be
         returned
         :return A JSON containing pagination information and the device list
@@ -250,20 +256,19 @@ class DeviceHandler(object):
         :raises HTTPRequestError: If no authorization token was provided (no
         tenant was informed)
         """
+        tenant = init_tenant_context(token, db)
 
-        tenant = init_tenant_context(req, db)
-
-        page_number, per_page = get_pagination(req)
-        pagination = {'page': page_number, 'per_page': per_page, 'error_out': False}
+        pagination = {'page': params.get('page_number'), 'per_page': params.get('per_page'), 'error_out': False}
 
         SORT_CRITERION = {
             'label': Device.label,
             None: Device.id
         }
-        sortBy = SORT_CRITERION.get(req.args.get('sortBy', None))
+        sortBy = SORT_CRITERION.get(params.get('sortBy'))
 
         attr_filter = []
-        query = req.args.getlist('attr')
+        query = params.get('attr')
+
         for attr_label_item in query:
             parsed = re.search('^(.+){1}=(.+){1}$', attr_label_item)
             attr_label = []
@@ -272,17 +277,17 @@ class DeviceHandler(object):
             attr_label.append(text("coalesce(overrides.static_value, attrs.static_value)=:static_value ").bindparams(static_value=parsed.group(2)))
             attr_filter.append(and_(*attr_label))
 
-        query = req.args.getlist('attr_type')
+        query = params.get('attr_type')
         for attr_type_item in query:
             attr_filter.append(DeviceAttr.value_type == attr_type_item)
 
         label_filter = []
-        target_label = req.args.get('label', None)
+        target_label = params.get('label')
         if target_label:
             label_filter.append(Device.label.like("%{}%".format(target_label)))
 
         template_filter = []
-        target_template = req.args.get('template', None)
+        target_template = params.get('template')
         if target_template:
             template_filter.append(DeviceTemplateMap.template_id == target_template)
 
@@ -328,8 +333,8 @@ class DeviceHandler(object):
             page = db.session.query(Device).order_by(sortBy).paginate(**pagination)
 
         devices = []
-
-        if req.args.get('idsOnly', 'false').lower() in ['true', '1', '']:
+        
+        if params.get('idsOnly').lower() in ['true', '1', '']:
             return DeviceHandler.get_only_ids(page)
 
         for d in page.items:
@@ -345,6 +350,7 @@ class DeviceHandler(object):
             },
             'devices': devices
         }
+
         return result
 
     @staticmethod
@@ -360,11 +366,11 @@ class DeviceHandler(object):
         return device_id
 
     @staticmethod
-    def get_device(req, device_id, sensitive_data=False):
+    def get_device(token, device_id, sensitive_data=False):
         """
         Fetches a single device.
 
-        :param req: The received HTTP request, as created by Flask.
+        :param token: The authorization token (JWT).
         :param device_id: The requested device.
         :param sensitive_data: Informs if sensitive data like keys should be
         returned
@@ -376,16 +382,19 @@ class DeviceHandler(object):
         database.
         """
 
-        tenant = init_tenant_context(req, db)
+        tenant = init_tenant_context(token, db)
         orm_device = assert_device_exists(device_id)
         return serialize_full_device(orm_device, tenant, sensitive_data)
 
-    @staticmethod
-    def create_device(req):
+    @classmethod
+    def create_device(cls, params, token):
         """
         Creates and configures the given device.
 
-        :param req: The received HTTP request, as created by Flask.
+        :param params: Parameters received from request (count, verbose, 
+        content_type, data)
+        :param token: The authorization token (JWT).
+        
         :return The created device or a list of device summary. This depends on
         which value the verbose (/?verbose=true) has - if true, only one device
         can be created ("count" argument can't be used or - at least - it must
@@ -400,37 +409,28 @@ class DeviceHandler(object):
         and it is not an integer.
 
         """
-
-        tenant = init_tenant_context(req, db)
+        tenant = init_tenant_context(token, db)
         try:
-            count = int(req.args.get('count', '1'))
+            count = int(params.get('count'))
         except ValueError as e:
             LOGGER.error(e)
             raise HTTPRequestError(400, "If provided, count must be integer")
 
         c_length = len(str(count))
-        verbose = req.args.get('verbose', 'false') in ['true', '1', 'True']
+        verbose = params.get('verbose') in ['true', '1', 'True']
         if verbose and count != 1:
             raise HTTPRequestError(
                 400, "Verbose can only be used for single device creation")
 
         devices = []
-
-        # Handlers
-        kafka_handler = KafkaHandler()
-        if CONFIG.orion:
-            ctx_broker_handler = OrionHandler(service=tenant)
-            subs_handler = PersistenceHandler(service=tenant)
-        else:
-            ctx_broker_handler = None
-            subs_handler = None
-
         full_device = None
         orm_devices = []
 
         try:
             for i in range(0, count):
-                device_data, json_payload = parse_payload(req, device_schema)
+                content_type = params.get('content_type')
+                data_request = params.get('data')
+                device_data, json_payload = parse_payload(content_type, data_request, device_schema)
                 validate_repeated_attrs(json_payload)
                 device_data['id'] = DeviceHandler.generate_device_id()
                 device_data['label'] = DeviceHandler.indexed_label(count, c_length, device_data['label'], i)
@@ -458,17 +458,8 @@ class DeviceHandler(object):
             full_device = serialize_full_device(orm_device, tenant)
 
             # Updating handlers
-            kafka_handler.create(full_device, meta={"service": tenant})
-            if CONFIG.orion:
-                # Generating 'device type' field for history
-                type_descr = "template"
-                for dev_type in full_device['attrs'].keys():
-                    type_descr += "_" + str(dev_type)
-                # TODO remove this in favor of kafka as data broker....
-                ctx_broker_handler.create(full_device, type_descr)
-                sub_id = subs_handler.create(full_device['id'], type_descr)
-                orm_device.persistence = sub_id
-
+            kafka_handler_instance = cls.kafka.getInstance(cls.kafka.kafkaNotifier)
+            kafka_handler_instance.create(full_device, meta={"service": tenant})
 
         if verbose:
             result = {
@@ -482,13 +473,13 @@ class DeviceHandler(object):
             }
         return result
 
-    @staticmethod
-    def delete_device(req, device_id):
+    @classmethod
+    def delete_device(cls, device_id, token):
         """
         Deletes a single device.
 
-        :param req: The received HTTP request, as created by Flask.
         :param device_id: The device to be removed.
+        :param token: The authorization token (JWT).
         :return The removed device.
         :rtype JSON
         :raises HTTPRequestError: If no authorization token was provided (no
@@ -497,15 +488,12 @@ class DeviceHandler(object):
         database.
         """
 
-        tenant = init_tenant_context(req, db)
+        tenant = init_tenant_context(token, db)
         orm_device = assert_device_exists(device_id)
         data = serialize_full_device(orm_device, tenant)
 
-        kafka_handler = KafkaHandler()
-        kafka_handler.remove(data, meta={"service": tenant})
-        if CONFIG.orion:
-            subscription_handler = PersistenceHandler(service=tenant)
-            subscription_handler.remove(orm_device.persistence)
+        kafka_handler_instance = cls.kafka.getInstance(cls.kafka.kafkaNotifier)
+        kafka_handler_instance.remove(data, meta={"service": tenant})
 
         db.session.delete(orm_device)
         db.session.commit()
@@ -514,15 +502,15 @@ class DeviceHandler(object):
         return results
 
     @staticmethod
-    def delete_all_devices(req):
+    def delete_all_devices(token):
         """
         Deletes all devices.
 
-        :param req: The received HTTP request, as created by Flask.
+        :param token: The authorization token (JWT).
         :raises HTTPRequestError: If this device could not be found in
         database.
         """
-        tenant = init_tenant_context(req, db)
+        tenant = init_tenant_context(token, db)
         json_devices = []
 
         devices = db.session.query(Device)
@@ -539,13 +527,15 @@ class DeviceHandler(object):
 
         return results
 
-    @staticmethod
-    def update_device(req, device_id):
+    @classmethod
+    def update_device(cls, params, device_id, token):
         """
         Updated the information about a particular device
 
-        :param req: The received HTTP request, as created by Flask.
+        :param params: Parameters received from request (content_type, data)
+        as created by Flask
         :param device_id: The device to be updated.
+        :param token: The authorization token (JWT).
         :return The updated device.
         :rtype JSON
         :raises HTTPRequestError: If no authorization token was provided (no
@@ -554,10 +544,13 @@ class DeviceHandler(object):
         database.
         """
         try:
-            device_data, json_payload = parse_payload(req, device_schema)
+            content_type = params.get('content_type')
+            data_request = params.get('data')
+
+            device_data, json_payload = parse_payload(content_type, data_request, device_schema)
             validate_repeated_attrs(json_payload)
 
-            tenant = init_tenant_context(req, db)
+            tenant = init_tenant_context(token, db)
             old_orm_device = assert_device_exists(device_id)
             db.session.delete(old_orm_device)
             db.session.flush()
@@ -581,23 +574,8 @@ class DeviceHandler(object):
 
         full_device = serialize_full_device(updated_orm_device, tenant)
 
-        if CONFIG.orion:
-            # Create subscription pointing to history service
-            # (STH, logstash based persister)
-            subs_handler = PersistenceHandler(service=tenant)
-            subs_handler.remove(old_orm_device.persistence)
-            # Generating 'device type' field for subscription request
-            type_descr = "template"
-            for dev_type in full_device['attrs'].keys():
-                type_descr += "_" + str(dev_type)
-            updated_orm_device.persistence = subs_handler.create(
-                device_id, type_descr)
-
-            ctx_broker_handler = OrionHandler(service=tenant)
-            ctx_broker_handler.update(serialize_full_device(old_orm_device, tenant), type_descr)
-
-        kafka_handler = KafkaHandler()
-        kafka_handler.update(full_device, meta={"service": tenant})
+        kafka_handler_instance = cls.kafka.getInstance(cls.kafka.kafkaNotifier)
+        kafka_handler_instance.update(full_device, meta={"service": tenant})
 
         result = {
             'message': 'device updated',
@@ -605,13 +583,15 @@ class DeviceHandler(object):
         }
         return result
 
-    @staticmethod
-    def configure_device(req, device_id):
+    @classmethod
+    def configure_device(cls, params, device_id, token):
         """
         Send actuation commands to the device
 
-        :param req: The received HTTP request, as created by Flask.
+        :param params: Parameters received from request (data)
+        as created by Flask
         :param device_id: The device which should receive the actuation message
+        :param token: The authorization token (JWT).
         :return A status on whether the message was sent to the device or not.
         Note that this is not a guarantee that the device actually performed
         what was requested.
@@ -621,10 +601,9 @@ class DeviceHandler(object):
         meta = {
             'service': ''
         }
-        kafka_handler = KafkaHandler()
         invalid_attrs = []
 
-        meta['service'] = init_tenant_context(req, db)
+        meta['service'] = init_tenant_context(token, db)
 
         meta['timestamp'] = int(time.time() * 1000)
 
@@ -632,7 +611,8 @@ class DeviceHandler(object):
         full_device = serialize_full_device(orm_device, meta['service'])
         LOGGER.debug(f" Full device: {json.dumps(full_device)}")
 
-        payload = json.loads(req.data)
+        data = params.get('data')
+        payload = json.loads(data)
         LOGGER.debug(f' Parsed request payload: {json.dumps(payload)}')
 
         payload['id'] = orm_device.id
@@ -643,7 +623,8 @@ class DeviceHandler(object):
 
         if not invalid_attrs:
             LOGGER.debug(f' Sending configuration message through Kafka.')
-            kafka_handler.configure(payload, meta)
+            kafka_handler_instance = cls.kafka.getInstance(cls.kafka.kafkaNotifier)
+            kafka_handler_instance.configure(payload, meta)
             LOGGER.debug(f' Configuration sent.')
             result = {f' status': 'configuration sent to device'}
         else:
@@ -657,11 +638,11 @@ class DeviceHandler(object):
         return result
 
     @staticmethod
-    def add_template_to_device(req, device_id, template_id):
+    def add_template_to_device(token, device_id, template_id):
         """
         Associates given template with device
 
-        :param req: The received HTTP request, as created by Flask.
+        :param token: The authorization token (JWT).
         :param device_id: The device which should be updated
         :param template_id: The template to be added to this device.
         :raises HTTPRequestError: If no authorization token was provided (no
@@ -672,7 +653,7 @@ class DeviceHandler(object):
         structure for that device.
         :rtype JSON
         """
-        tenant = init_tenant_context(req, db)
+        tenant = init_tenant_context(token, db)
         orm_device = assert_device_exists(device_id)
         orm_template = assert_template_exists(template_id)
 
@@ -691,11 +672,11 @@ class DeviceHandler(object):
         return result
 
     @staticmethod
-    def remove_template_from_device(req, device_id, template_id):
+    def remove_template_from_device(token, device_id, template_id):
         """
         Disassociates given template with device
 
-        :param req: The received HTTP request, as created by Flask.
+        :param token: The authorization token (JWT).
         :param device_id: The device which should be updated
         :param template_id: The template to be removed from this device.
         :raises HTTPRequestError: If no authorization token was provided (no
@@ -706,7 +687,7 @@ class DeviceHandler(object):
         structure for that device.
         :rtype JSON
         """
-        tenant = init_tenant_context(req, db)
+        tenant = init_tenant_context(token, db)
         updated_device = assert_device_exists(device_id)
         relation = assert_device_relation_exists(device_id, template_id)
 
@@ -723,12 +704,14 @@ class DeviceHandler(object):
         return result
 
     @staticmethod
-    def get_by_template(req, template_id):
+    def get_by_template(token, params, template_id):
         """
         Return a list of devices that have a particular template associated to
         it
 
-        :param req: The received HTTP request, as created by Flask.
+        :param token: The authorization token (JWT).
+        :param params: Parameters received from request (page_number, per_page)
+        as created by Flask
         :param template_id: The template to be considered
         :raises HTTPRequestError: If no authorization token was provided (no
         tenant was informed)
@@ -737,13 +720,13 @@ class DeviceHandler(object):
         :return A list of devices that are associated to the selected template.
         :rtype JSON
         """
-        tenant = init_tenant_context(req, db)
-        page_number, per_page = get_pagination(req)
+        tenant = init_tenant_context(token, db)
         page = (
             db.session.query(Device)
             .join(DeviceTemplateMap)
             .filter_by(template_id=template_id)
-            .paginate(page=page_number, per_page=per_page, error_out=False)
+            .paginate(page=params.get('page_number'), 
+                per_page=params.get('per_page'), error_out=False)
         )
         devices = []
         for d in page.items:
@@ -760,8 +743,8 @@ class DeviceHandler(object):
         }
         return result
 
-    @staticmethod
-    def gen_psk(token, device_id, key_length, target_attributes=None):
+    @classmethod
+    def gen_psk(cls, token, device_id, key_length, target_attributes=None):
         """
         Generates pre shared keys to a specifics device
 
@@ -778,7 +761,7 @@ class DeviceHandler(object):
         database.
         """
 
-        tenant = init_tenant_context2(token, db)
+        tenant = init_tenant_context(token, db)
 
         device_orm = assert_device_exists(device_id, db.session)
         if not device_orm:
@@ -847,13 +830,13 @@ class DeviceHandler(object):
         db.session.commit()
 
         # send an update message on kafka
-        kafka_handler = KafkaHandler()
-        kafka_handler.update(device, meta={"service": tenant})
+        kafka_handler_instance = cls.kafka.getInstance(cls.kafka.kafkaNotifier)
+        kafka_handler_instance.update(device, meta={"service": tenant})
 
         return result
 
-    @staticmethod
-    def copy_psk(token, src_device_id, src_attr, dest_device_id, dest_attr):
+    @classmethod
+    def copy_psk(cls, token, src_device_id, src_attr, dest_device_id, dest_attr):
         """
         Copies a pre shared key from a device attribute to another
 
@@ -868,7 +851,7 @@ class DeviceHandler(object):
         todo list the others exceptions
         """
 
-        tenant = init_tenant_context2(token, db)
+        tenant = init_tenant_context(token, db)
 
         src_device_orm = assert_device_exists(src_device_id, db.session)
         if not src_device_orm:
@@ -935,10 +918,8 @@ class DeviceHandler(object):
         dest_attr_ref['static_value'] = src_attr_ref['static_value']
 
         # send an update message on kafka
-        kafka_handler = KafkaHandler()
-        kafka_handler.update(dest_device, meta={"service": tenant})
-
-        return None
+        kafka_handler_instance = cls.kafka.getInstance(cls.kafka.kafkaNotifier)
+        kafka_handler_instance.update(dest_device, meta={"service": tenant})
 
 
 @device.route('/device', methods=['GET'])
@@ -951,7 +932,24 @@ def flask_get_devices():
     headers.
     """
     try:
-        result = DeviceHandler.get_devices(request)
+        # retrieve the authorization token
+        token = retrieve_auth_token(request)
+
+        # retrieve pagination
+        page_number, per_page = get_pagination(request)
+
+        params = {
+            'page_number': page_number,
+            'per_page': per_page,
+            'sortBy': request.args.get('sortBy', None),
+            'attr': request.args.getlist('attr'),
+            'attr_type': request.args.getlist('attr_type'),
+            'label': request.args.get('label', None),
+            'template': request.args.get('template', None),
+            'idsOnly': request.args.get('idsOnly', 'false'),
+        }
+
+        result = DeviceHandler.get_devices(token, params)
         LOGGER.info(f' Getting latest added device(s).')
 
         return make_response(jsonify(result), 200)
@@ -972,7 +970,17 @@ def flask_create_device():
     headers.
     """
     try:
-        result = DeviceHandler.create_device(request)
+        # retrieve the authorization token
+        token = retrieve_auth_token(request)
+
+        params = {
+            'count': request.args.get('count', '1'),
+            'verbose': request.args.get('verbose', 'false'),
+            'content_type': request.headers.get('Content-Type'),
+            'data': request.data
+        }
+
+        result = DeviceHandler.create_device(params, token)
         devices = result.get('devices')
         deviceId = devices[0].get('id')
         LOGGER.info(f' Creating a new device with id {deviceId}.')
@@ -993,7 +1001,10 @@ def flask_delete_all_device():
     headers.
     """
     try:
-        result = DeviceHandler.delete_all_devices(request)
+        # retrieve the authorization token
+        token = retrieve_auth_token(request)
+
+        result = DeviceHandler.delete_all_devices(token)
 
         LOGGER.info('Deleting all devices.')
         return make_response(jsonify(result), 200)
@@ -1005,7 +1016,10 @@ def flask_delete_all_device():
 @device.route('/device/<device_id>', methods=['GET'])
 def flask_get_device(device_id):
     try:
-        result = DeviceHandler.get_device(request, device_id)
+         # retrieve the authorization token
+        token = retrieve_auth_token(request)
+
+        result = DeviceHandler.get_device(token, device_id)
         LOGGER.info(f' Getting the device with id {device_id}.')
         return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
@@ -1018,8 +1032,11 @@ def flask_get_device(device_id):
 @device.route('/device/<device_id>', methods=['DELETE'])
 def flask_remove_device(device_id):
     try:
+        # retrieve the authorization token
+        token = retrieve_auth_token(request)
+
         LOGGER.info(f' Removing the device with id {device_id}.')
-        results = DeviceHandler.delete_device(request, device_id)
+        results = DeviceHandler.delete_device(device_id, token)
         return make_response(jsonify(results), 200)
     except HTTPRequestError as e:
         LOGGER.error(f' {e.message} - {e.error_code}.')
@@ -1032,8 +1049,16 @@ def flask_remove_device(device_id):
 @device.route('/device/<device_id>', methods=['PUT'])
 def flask_update_device(device_id):
     try:
+        # retrieve the authorization token
+        token = retrieve_auth_token(request)
+
+        params = {
+            'content_type': request.headers.get('Content-Type'),
+            'data': request.data
+        }
+
         LOGGER.info(f' Updating the device with id {device_id}.')
-        results = DeviceHandler.update_device(request, device_id)
+        results = DeviceHandler.update_device(params, device_id, token)
         return make_response(jsonify(results), 200)
     except HTTPRequestError as e:
         LOGGER.error(f' {e.message} - {e.error_code}.')
@@ -1049,8 +1074,13 @@ def flask_configure_device(device_id):
     Send actuation commands to the device
     """
     try:
+        # retrieve the authorization token
+        token = retrieve_auth_token(request)
+
+        params = {'data': request.data}
+
         LOGGER.info(f' Actuating in the device with id {device_id}.')
-        result = DeviceHandler.configure_device(request, device_id)
+        result = DeviceHandler.configure_device(params, device_id, token)
         return make_response(jsonify(result), 200)
 
     except HTTPRequestError as error:
@@ -1065,9 +1095,12 @@ def flask_configure_device(device_id):
 @device.route('/device/<device_id>/template/<template_id>', methods=['POST'])
 def flask_add_template_to_device(device_id, template_id):
     try:
+         # retrieve the authorization token
+        token = retrieve_auth_token(request)
+
         LOGGER.info(f' Adding template with id {template_id} in the device {device_id}.')
         result = DeviceHandler.add_template_to_device(
-            request, device_id, template_id)
+            token, device_id, template_id)
         return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
         LOGGER.error(f' {e.message} - {e.error_code}.')
@@ -1080,9 +1113,12 @@ def flask_add_template_to_device(device_id, template_id):
 @device.route('/device/<device_id>/template/<template_id>', methods=['DELETE'])
 def flask_remove_template_from_device(device_id, template_id):
     try:
+        # retrieve the authorization token
+        token = retrieve_auth_token(request)
+
         LOGGER.info(f' Removing template with id {template_id} in the device {device_id}.')
         result = DeviceHandler.remove_template_from_device(
-            request, device_id, template_id)
+            token, device_id, template_id)
         return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
         LOGGER.error(f' {e.message} - {e.error_code}.')
@@ -1095,8 +1131,19 @@ def flask_remove_template_from_device(device_id, template_id):
 @device.route('/device/template/<template_id>', methods=['GET'])
 def flask_get_by_template(template_id):
     try:
+        # retrieve the authorization token
+        token = retrieve_auth_token(request)
+
+        # retrieve pagination
+        page_number, per_page = get_pagination(request)
+
+        params = {
+            'page_number': page_number,
+            'per_page': per_page,
+        }
+
         LOGGER.info(f' Getting devices with template id {template_id}.')
-        result = DeviceHandler.get_by_template(request, template_id)
+        result = DeviceHandler.get_by_template(token, params, template_id)
         return make_response(jsonify(result), 200)
     except HTTPRequestError as e:
         LOGGER.error(f' {e.message} - {e.error_code}.')
@@ -1177,7 +1224,24 @@ def flask_internal_get_devices():
     headers.
     """
     try:
-        result = DeviceHandler.get_devices(request, True)
+        # retrieve the authorization token
+        token = retrieve_auth_token(request)
+
+        # retrieve pagination
+        page_number, per_page = get_pagination(request)
+
+        params = {
+            'page_number': page_number,
+            'per_page': per_page,
+            'sortBy': request.args.get('sortBy', None),
+            'attr': request.args.getlist('attr'),
+            'attr_type': request.args.getlist('attr_type'),
+            'label': request.args.get('label', None),
+            'template': request.args.get('template', None),
+            'idsOnly': request.args.get('idsOnly', 'false'),
+        }
+
+        result = DeviceHandler.get_devices(token, params, True)
         LOGGER.info(f' Getting known internal devices.')
         
         return make_response(jsonify(result), 200)
@@ -1192,7 +1256,10 @@ def flask_internal_get_devices():
 @device.route('/internal/device/<device_id>', methods=['GET'])
 def flask_internal_get_device(device_id):
     try:
-        result = DeviceHandler.get_device(request, device_id, True)
+        # retrieve the authorization token
+        token = retrieve_auth_token(request)
+
+        result = DeviceHandler.get_device(token, device_id, True)
         LOGGER.info(f'Get known device with id: {device_id}.')
         return make_response(jsonify(result), 200)
     except HTTPRequestError as e:

@@ -78,7 +78,6 @@ def init_tenant(tenant, db):
                    .select_from(text("information_schema.schemata"))
                    .where(text("schema_name = '%s'" % tenant)))
     tenant_exists = db.session.query(query).scalar()
-
     if not tenant_exists:
         create_tenant(tenant, db)
         switch_tenant(tenant, db)
@@ -107,18 +106,7 @@ def list_tenants(session):
         result.append(i.schema_name)
     return result
 
-def init_tenant_context(request, db):
-    try:
-        token = request.headers['authorization']
-    except KeyError:
-        raise HTTPRequestError(401, "No authorization token has been supplied")
-
-    tenant = get_allowed_service(token)
-    init_tenant(tenant, db)
-    return tenant
-
-
-def init_tenant_context2(token, db):
+def init_tenant_context(token, db):
 
     tenant = get_allowed_service(token)
     init_tenant(tenant, db)
