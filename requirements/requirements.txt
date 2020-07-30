@@ -10,7 +10,7 @@ idna==2.6
 itsdangerous==0.24
 Jinja2==2.10
 kafka-python==1.4.1
-MarkupSafe==1.0
+MarkupSafe==1.1.1
 marshmallow==3.0.0b8
 psycopg2==2.7.4
 requests==2.18.4
