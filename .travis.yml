@@ -7,8 +7,8 @@ cache:
   directories:
   - node_modules
 install:
-  - pip install -r requirements/requirements.txt
-  - pip install -r tests/requirements.txt
+  - pip install pip==19.0.3 -r requirements/requirements.txt
+  - pip install pip==19.0.3 -r tests/requirements.txt
   - pip install codecov
 env:
   global:
