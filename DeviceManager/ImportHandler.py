@@ -60,6 +60,7 @@ class ImportHandler:
         ImportHandler.restore_attr_sequence()
         LOGGER.info(f" Restored sequences") 
 
+    @classmethod
     def notifies_deletion_to_kafka(device, tenant):
         data = serialize_full_device(device, tenant)
         kafka_handler = KafkaHandler()
