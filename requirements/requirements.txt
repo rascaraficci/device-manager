@@ -15,7 +15,7 @@ marshmallow==3.0.0b8
 psycopg2==2.7.4
 requests==2.18.4
 SQLAlchemy==1.2.4
-urllib3==1.22
+urllib3==1.24.2
 Werkzeug==0.14.1
 pycrypto==2.6.1
 Flask-Migrate==2.1.1
