@@ -5,9 +5,11 @@ from unittest.mock import Mock, MagicMock, patch, call
 from flask import Flask
 
 from DeviceManager.DatabaseModels import DeviceTemplate
-from DeviceManager.TemplateHandler import TemplateHandler, flask_get_templates, flask_delete_all_templates, flask_get_template, flask_remove_template, paginate, attr_format
+from DeviceManager.TemplateHandler import TemplateHandler, flask_get_templates, flask_delete_all_templates, \
+     flask_get_template, flask_remove_template, paginate, attr_format, refresh_template_update_column
 from DeviceManager.utils import HTTPRequestError
 from DeviceManager.BackendHandler import KafkaInstanceHandler
+from datetime import datetime
 
 
 from .token_test_generator import generate_token
@@ -227,3 +229,17 @@ class TestTemplateHandler(unittest.TestCase):
                     result = flask_remove_template('test_template_id')
                     self.assertEqual(result.status, '200 OK')
                     self.assertEqual(json.loads(result.response[0])['result'], 'ok')
+
+    @patch('DeviceManager.TemplateHandler.db')
+    def test_refresh_template_update_column(self, db_mock):
+        template = DeviceTemplate(id=1, label='template1')
+        refresh_template_update_column(db_mock, template)
+        self.assertTrue(isinstance(template.updated, datetime))
+
+    @patch('DeviceManager.TemplateHandler.db')
+    def test_not_refresh_template_update_column(self, db_mock):
+        template = DeviceTemplate(id=1, label='template1')
+        db_mock.session.new = set()
+        db_mock.session.deleted = set()
+        refresh_template_update_column(db_mock, template)
+        self.assertIsNone(template.updated)
