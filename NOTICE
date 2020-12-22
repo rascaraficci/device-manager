@@ -1,0 +1,62 @@
+device-manager
+This software is copyright (c) 2020 by CPQD <www.cpqd.com.br>.
+
+It is licensed under Apache License, Version 2.0.
+
+It uses libraries, which are available under the following licenses:
+
+* Apache License, Version 2.0
+     - coverage (source code available at https://github.com/nedbat/coveragepy)
+     - importlib-metadata (source code available at https://github.com/python/importlib_metadata)
+     - kafka-python (source code available at https://github.com/dpkp/kafka-python)
+     - python-dateutil (source code available at https://github.com/dateutil/dateutil)
+     - python-editor (source code available at )https://github.com/fmoo/python-editor)
+     - requests (source code available at https://github.com/psf/requests)
+
+* MIT
+     - Flask-Migrate (source code available at https://github.com/miguelgrinberg/flask-migrate)
+     - Mako (source code available at https://github.com/sqlalchemy/mako)
+     - SQLAlchemy (source code available at https://github.com/sqlalchemy)
+     - alchemy-mock (source code available at https://github.com/miki725/alchemy-mock)
+     - alembic (source code available at https://github.com/sqlalchemy/alembic)
+     - atomicwrites (source code available at https://github.com/untitaker/python-atomicwrites)
+     - attrs (source code available at https://github.com/python-attrs/attrs)
+     - colorlog (source code available at https://github.com/borntyping/python-colorlog)
+     - gevent (source code available at https://github.com/gevent/gevent)
+     - greenlet (source code available at https://github.com/python-greenlet/greenlet)
+     - gunicorn (source code available at https://github.com/benoitc/gunicorn)
+     - marshmallow  (source code available at https://github.com/marshmallow-code/marshmallow)
+     - more-itertools (source code availabe at https://github.com/more-itertools/more-itertools)
+     - pluggy (source code availabe at https://github.com/pytest-dev/pluggy)
+     - py (source code available at https://github.com/pytest-dev/py)
+     - pytest (source code available at https://github.com/pytest-dev/pytest)
+     - pytest-cov (source code available at https://github.com/pytest-dev/pytest-cov)
+     - python-dateutil (source code available at https://github.com/dateutil/dateutil)
+     - six (source code available at https://github.com/benjaminp/six)
+     - urllib3 (source code available at https://github.com/urllib3/urllib3)
+     - zipp (source code available at https://github.com/jaraco/zipp)
+
+* BSD (3-Clause)
+     - Flask (source code available at https://github.com/pallets/flask)
+     - Flask-SQLAlchemy  (source code available at https://github.com/pallets/flask-sqlalchemy)
+     - Jinja2  (source code available at https://github.com/pallets/jinja)
+     - MarkupSafe (source code available at https://github.com/pallets/markupsafe)
+     - Werkzeug (source code available at https://github.com/pallets/werkzeug)
+     - click (source code available at https://github.com/pallets/click)
+     - itsdangerous (source code available at https://github.com/pallets/itsdangerous)
+
+* BSD-Like
+     - idna (source code available at https://github.com/kjd/idna)
+
+* MPL 2.0
+     - certifi (source code available at https://github.com/certifi/python-certifi)
+
+* Python Software Foundation License
+     -  typing-extensions (source code available at https://github.com/python/typing)
+
+* LGPL
+     - chardet (source code available at https://github.com/chardet/chardet)
+     - psycopg2 (source code available at https://github.com/psycopg/psycopg2)
+
+* Public Domain
+     - pycrypto (source code available at https://github.com/dlitz/pycrypto)
